@@ -1,0 +1,74 @@
+# ==========================================================
+# CCM - .gitignore
+# Stack ainda nao definida: cobertura ampla e segura.
+# Ajustar/reduzir quando a stack for escolhida.
+# ==========================================================
+
+# ---------- Segredos e credenciais (NUNCA versionar) ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials.json
+secrets.json
+*.secret
+serviceAccount*.json
+
+# ---------- Dependencias / pacotes ----------
+node_modules/
+bower_components/
+vendor/
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------- Builds / saidas locais ----------
+dist/
+build/
+out/
+target/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+bin/
+obj/
+coverage/
+*.tsbuildinfo
+
+# ---------- Logs e temporarios ----------
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.pid
+tmp/
+
+# ---------- Ambiente / IDE ----------
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.iml
+*.sublime-*
+
+# ---------- Sistema operacional ----------
+Thumbs.db
+Desktop.ini
+.DS_Store
+$RECYCLE.BIN/
+
+# ---------- Gerenciadores de pacote (lock caches) ----------
+.npm/
+.yarn/
+.pnp.*
+.gradle/
