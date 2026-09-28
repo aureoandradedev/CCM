@@ -1,87 +1,43 @@
-# CCM
+# CCM · Central de Compras Multigiro
 
-> Projeto em fase de fundação técnica. A definição funcional (o que o CCM faz)
-> ainda será especificada. Este README será atualizado quando o escopo e a
-> stack forem definidos.
+E-commerce de material de construção com **preço de varejo e de atacado**, entregue **direto dos fornecedores parceiros** (o CCM não mantém estoque próprio).
 
-## Objetivo
+Referências visuais estudadas: Obramax (estrutura e varejo/atacado), Telhanorte (energia promocional, atalhos, Pix), Deca e Portobello (tipografia editorial e galeria de ambientes).
 
-_A definir._ O escopo funcional do CCM ainda não foi especificado. Nenhuma
-funcionalidade foi implementada ou assumida até este momento — apenas a
-fundação técnica (estrutura de pastas, Git e fluxo de trabalho da equipe).
-
-## Stack
-
-_A definir._ Nenhuma tecnologia foi escolhida ainda. A stack será selecionada
-com base nos requisitos funcionais, evitando dependências desnecessárias.
-
-## Como instalar
-
-_A definir após a escolha da stack._ Os passos de instalação (ex.: instalação
-de dependências) serão documentados aqui assim que houver stack.
+## Rodando
 
 ```bash
-# Exemplo (será ajustado conforme a stack):
-# git clone <URL_DO_REPOSITORIO>
-# cd CCM
-# <comando de instalação de dependências>
+npm install
+cp .env.example .env.local   # opcional: preencha as chaves do Supabase
+npm run dev                  # http://localhost:3000
 ```
 
-## Como executar
+Sem `.env.local` o site usa o catálogo de exemplo em `src/lib/data/mock.ts` (55 produtos, 10 departamentos).
 
-_A definir após a escolha da stack._
+## Supabase
 
-```bash
-# Exemplo (será ajustado conforme a stack):
-# <comando para rodar o projeto>
-```
+1. Crie o projeto e rode `supabase/migrations/0001_init.sql` no SQL Editor.
+2. Rode `supabase/seed.sql` para carregar categorias, marcas, fornecedores, produtos e banners.
+3. Preencha `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` em `.env.local`.
 
-## Variáveis necessárias
+O schema já prevê `suppliers`, `orders`/`order_items` (uma remessa por fornecedor), `profiles`/`addresses` com RLS e busca full-text sem acento (`search_products`).
 
-As variáveis de ambiente ficam em um arquivo `.env` (não versionado).
-Use o [`.env.example`](.env.example) como modelo:
+## Scripts
 
-```bash
-cp .env.example .env
-```
+| comando             | o que faz                                   |
+| ------------------- | ------------------------------------------- |
+| `npm run dev`       | servidor de desenvolvimento (Turbopack)     |
+| `npm run build`     | build de produção                           |
+| `npm run typecheck` | `tsc --noEmit`                              |
+| `npm run lint`      | ESLint                                      |
+| `npm run seed:gen`  | regenera `supabase/seed.sql` a partir do mock |
 
-Ainda não há variáveis reais definidas — o `.env.example` é apenas um
-placeholder inicial.
+## Próximas fases
 
-## Estrutura básica
+- Supabase Auth (login/cadastro, Meus pedidos reais)
+- Criação de pedidos no banco + notificação ao fornecedor
+- Integração de catálogo/estoque com fornecedores (API, planilha ou ERP)
+- Pagamentos (Pix/cartão) e frete cotado por fornecedor
+- Painel do fornecedor e painel admin
 
-```
-CCM/
-├── docs/            # Documentação do projeto
-│   └── DEVELOPMENT.md   # Guia de desenvolvimento e fluxo Git da equipe
-├── src/             # Código-fonte (a ser preenchido conforme a stack)
-├── .env.example     # Modelo de variáveis de ambiente
-├── .gitignore
-└── README.md
-```
-
-## Fluxo Git da equipe
-
-O projeto é desenvolvido por duas pessoas em paralelo:
-
-| Branch          | Responsável | Uso                                    |
-|-----------------|-------------|----------------------------------------|
-| `main`          | —           | Versão integrada/estável               |
-| `feature/aureo` | Áureo       | Desenvolvimento do Áureo               |
-| `feature/pedro` | Pedro       | Desenvolvimento do Pedro               |
-
-**Regras:**
-
-- Ninguém desenvolve diretamente na `main`.
-- Áureo trabalha **somente** em `feature/aureo`.
-- Pedro trabalha **somente** em `feature/pedro`.
-- Antes de qualquer alteração, verifique a branch atual:
-  ```bash
-  git branch --show-current
-  ```
-- Integração entre as branches é feita de forma **controlada** (nunca merge
-  automático). Detalhes em [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
-
-Consulte [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) para o guia completo de
-desenvolvimento (comandos, atualização de branch, envio de commits e
-integração).
+Mais detalhes de arquitetura e convenções em `CLAUDE.md`.

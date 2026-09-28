@@ -1,0 +1,293 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* =============================================================================
+   CCM · Central de Compras Multigiro — design tokens
+   Paleta: navy (confiança, Obramax) + amarelo Multigiro (energia de obra,
+   CTA à la Telhanorte) + laranja para atacado/oferta. Tipografia: Barlow
+   (títulos, pegada industrial) + Inter (texto, mesma do Multigiro).
+   ============================================================================= */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-barlow), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* marca */
+  --color-brand-navy: var(--ccm-navy);
+  --color-brand-navy-2: var(--ccm-navy-2);
+  --color-brand-navy-3: var(--ccm-navy-3);
+  --color-brand-yellow: var(--ccm-yellow);
+  --color-brand-yellow-2: var(--ccm-yellow-2);
+  --color-brand-yellow-soft: var(--ccm-yellow-soft);
+  --color-brand-orange: var(--ccm-orange);
+  --color-brand-orange-soft: var(--ccm-orange-soft);
+  --color-brand-red: var(--ccm-red);
+  --color-brand-green: var(--ccm-green);
+  --color-brand-green-soft: var(--ccm-green-soft);
+  --color-brand-blue: var(--ccm-blue);
+  --color-brand-ink: var(--ccm-ink);
+  --color-brand-ink-soft: var(--ccm-ink-soft);
+  --color-brand-line: var(--ccm-line);
+  --color-brand-surface: var(--ccm-surface);
+  --color-brand-bg: var(--ccm-bg);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* curvas de animação (Emil Kowalski) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --shadow-card: 0 1px 2px rgb(20 30 55 / 0.04), 0 8px 24px -12px rgb(20 30 55 / 0.16);
+  --shadow-card-hover: 0 2px 4px rgb(20 30 55 / 0.05), 0 20px 40px -16px rgb(20 30 55 / 0.28);
+  --shadow-float: 0 12px 40px -8px rgb(20 30 55 / 0.25);
+}
+
+:root {
+  /* Cores tiradas do logotipo e do mascote Multigiro Central de Compras:
+     amarelo #f8c000 (wordmark/capacete) e azul #0060c8 (wordmark/bermuda). */
+  --ccm-navy: #0a3f94;
+  --ccm-navy-2: #0060c8;
+  --ccm-navy-3: #2f7fe0;
+  --ccm-yellow: #f9c400;
+  --ccm-yellow-2: #e4b200;
+  --ccm-yellow-soft: #fff4c7;
+  --ccm-orange: #ff8a00;
+  --ccm-orange-soft: #fff1e0;
+  --ccm-red: #e53935;
+  --ccm-green: #1e9e54;
+  --ccm-green-soft: #e6f6ec;
+  --ccm-blue: #0060c8;
+  --ccm-ink: #14181f;
+  --ccm-ink-soft: #5b6470;
+  --ccm-line: #e3e7f0;
+  --ccm-surface: #ffffff;
+  --ccm-bg: #f3f6fc;
+
+  --background: var(--ccm-bg);
+  --foreground: var(--ccm-ink);
+  --card: var(--ccm-surface);
+  --card-foreground: var(--ccm-ink);
+  --popover: var(--ccm-surface);
+  --popover-foreground: var(--ccm-ink);
+  --primary: var(--ccm-navy);
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f7;
+  --secondary-foreground: var(--ccm-navy);
+  --muted: #eef1f7;
+  --muted-foreground: var(--ccm-ink-soft);
+  --accent: var(--ccm-yellow-soft);
+  --accent-foreground: var(--ccm-navy);
+  --destructive: var(--ccm-red);
+  --border: var(--ccm-line);
+  --input: var(--ccm-line);
+  --ring: var(--ccm-yellow-2);
+  --chart-1: var(--ccm-navy);
+  --chart-2: var(--ccm-yellow);
+  --chart-3: var(--ccm-orange);
+  --chart-4: var(--ccm-green);
+  --chart-5: var(--ccm-blue);
+  --radius: 0.75rem;
+  --sidebar: var(--ccm-surface);
+  --sidebar-foreground: var(--ccm-ink);
+  --sidebar-primary: var(--ccm-navy);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef1f7;
+  --sidebar-accent-foreground: var(--ccm-navy);
+  --sidebar-border: var(--ccm-line);
+  --sidebar-ring: var(--ccm-yellow-2);
+}
+
+.dark {
+  --ccm-ink: #e8eef6;
+  --ccm-ink-soft: #a5afbd;
+  --ccm-line: rgb(255 255 255 / 0.1);
+  --ccm-surface: #11161e;
+  --ccm-bg: #0b0f14;
+  --ccm-yellow-soft: rgb(255 194 14 / 0.14);
+  --ccm-orange-soft: rgb(255 138 0 / 0.14);
+  --ccm-green-soft: rgb(30 158 84 / 0.16);
+
+  --background: var(--ccm-bg);
+  --foreground: var(--ccm-ink);
+  --card: var(--ccm-surface);
+  --card-foreground: var(--ccm-ink);
+  --popover: var(--ccm-surface);
+  --popover-foreground: var(--ccm-ink);
+  --primary: var(--ccm-yellow);
+  --primary-foreground: var(--ccm-navy);
+  --secondary: #1a2130;
+  --secondary-foreground: var(--ccm-ink);
+  --muted: #1a2130;
+  --muted-foreground: var(--ccm-ink-soft);
+  --accent: var(--ccm-yellow-soft);
+  --accent-foreground: var(--ccm-ink);
+  --destructive: #ff6b66;
+  --border: var(--ccm-line);
+  --input: rgb(255 255 255 / 0.14);
+  --ring: var(--ccm-yellow);
+  --sidebar: var(--ccm-surface);
+  --sidebar-foreground: var(--ccm-ink);
+  --sidebar-primary: var(--ccm-yellow);
+  --sidebar-primary-foreground: var(--ccm-navy);
+  --sidebar-accent: #1a2130;
+  --sidebar-accent-foreground: var(--ccm-ink);
+  --sidebar-border: var(--ccm-line);
+  --sidebar-ring: var(--ccm-yellow);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: clip;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply font-heading;
+    letter-spacing: -0.01em;
+  }
+  img {
+    -webkit-user-drag: none;
+  }
+  ::selection {
+    background: var(--ccm-yellow);
+    color: var(--ccm-navy);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility container-ccm {
+  width: min(1400px, 100% - 2rem);
+  margin-inline: auto;
+}
+
+@utility press {
+  transition: transform 160ms var(--ease-out);
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+@utility hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility gsap-hidden {
+  /* estado inicial dos elementos animados pelo GSAP; com JS desligado ficam visíveis */
+  @media (scripting: enabled) {
+    opacity: 0;
+  }
+}
+
+/* Cartão de produto: elevação só onde há mouse de verdade */
+@media (hover: hover) and (pointer: fine) {
+  .lift {
+    transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out), border-color 220ms var(--ease-out);
+  }
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+/* Entrada do primeiro slide do hero: CSS puro (não depende de JS, sem flash no LCP) */
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hero-first [data-hero-el] {
+  animation: hero-in 600ms var(--ease-out) both;
+  animation-delay: calc(120ms + var(--i, 0) * 80ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-first [data-hero-el] {
+    animation: hero-in 200ms ease both;
+    transform: none;
+  }
+}
+
+/* Faixa de preço "riscado" */
+.price-strike {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: color-mix(in oklab, currentColor 60%, transparent);
+}
+
+/* Sonner: alinhar com o tema */
+[data-sonner-toaster] {
+  --font-family: var(--font-inter), system-ui, sans-serif;
+}
