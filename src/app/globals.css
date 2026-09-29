@@ -291,3 +291,16 @@
 [data-sonner-toaster] {
   --font-family: var(--font-inter), system-ui, sans-serif;
 }
+
+/* Painel admin: esconde a moldura da loja (cabeçalho, rodapé, barra inferior). */
+body:has(.admin-root) [data-site-chrome] {
+  display: none !important;
+}
+body:has(.admin-root) > main,
+body:has(.admin-root) main {
+  padding-bottom: 0;
+}
+@media print {
+  [data-site-chrome], .no-print { display: none !important; }
+  body { background: #fff; }
+}

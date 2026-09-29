@@ -14,13 +14,34 @@ npm run dev                  # http://localhost:3000
 
 Sem `.env.local` o site usa o catálogo de exemplo em `src/lib/data/mock.ts` (55 produtos, 10 departamentos).
 
-## Supabase
+## Supabase (banco, login, pedidos)
 
-1. Crie o projeto e rode `supabase/migrations/0001_init.sql` no SQL Editor.
-2. Rode `supabase/seed.sql` para carregar categorias, marcas, fornecedores, produtos e banners.
-3. Preencha `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` em `.env.local`.
+1. Crie o projeto e rode `supabase/migrations/0001_init.sql` no SQL Editor (schema completo: perfis com papel `admin`, fornecedores, catálogo, banners, campanhas, configurações, pedidos, eventos, leads, RLS e buckets `produtos`/`banners`).
+2. Preencha `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `NEXT_PUBLIC_API_BASE` em `.env.local` (modelo em `.env.example`).
+3. Importe o catálogo de teste e as fotos reais (QRofertas) pelo backend: `cd backend && npm run importar -- --imagens`.
+4. Cadastre-se na loja (`/conta`) e torne a conta administradora: `cd backend && npm run admin -- --email seu@email`.
 
-O schema já prevê `suppliers`, `orders`/`order_items` (uma remessa por fornecedor), `profiles`/`addresses` com RLS e busca full-text sem acento (`search_products`).
+Sem `.env.local` o site continua funcionando com o mock (sem login, sem pedidos reais).
+
+## Backend (`backend/`)
+
+Servidor Express separado do site (roda na VPS ou local em `http://localhost:4000`). Faz o que não pode ficar no navegador:
+
+- **Pedidos**: `POST /api/pagamentos/criar-pedido` recalcula preços, descontos (Pix, primeira compra, por seção) e frete no servidor e grava com service role. Consulta sem login em `POST /api/pagamentos/consultar-pedido` (CPF/CNPJ + código).
+- **Pagamentos Cielo** (porte fiel do e-commerce do mercado): Pix com QR + webhook + polling, cartão de crédito/débito com Silent Order Post e 3DS 2.2, lock idempotente, estorno. `PAGAMENTO_MOCK=true` simula tudo em desenvolvimento.
+- **Fotos de produto**: busca no QRofertas (módulos do motor de encartes), valida os bytes e sobe no Storage. Botões no admin e lote em segundo plano.
+- **Scripts**: `npm run importar` (catálogo mock → banco, `--imagens` busca fotos), `npm run admin -- --email x [--revogar]`.
+
+```bash
+cd backend
+npm install
+cp .env.example .env     # chaves Supabase (service role), Cielo e QRofertas
+npm run dev              # http://localhost:4000/api/status
+```
+
+## Painel admin (`/admin`)
+
+Só para contas com `profiles.role = 'admin'`. Mesmas funções do painel do mercado: painel com KPIs do dia e do mês, pedidos por status (fluxo aguardando pagamento → em separação → separado → finalizado/pagamento pendente → arquivado) com filtros, detalhe, confirmar pagamento, arquivar/reabrir, desconsiderar, cancelar, imprimir/recibo, WhatsApp, estorno e limpeza de expirados; fechamento de caixa (vendido/recebido/falta, por forma de pagamento, duplicados, CSV, copiar resumo); BI de faturamento por ano/mês/dia com auditoria; produtos (CRUD, upload WebP no Storage, foto do QRofertas, duplicar, tirar de oferta, estoque e limite por pedido); ofertas colando lista; campanhas programadas com banners; conteúdo do site (carrossel, bloqueio de entregas, aviso do topo, mais vendidos); descontos; clientes e leads; categorias; fornecedores; configurações (frete, administradores).
 
 ## Scripts
 
@@ -34,10 +55,8 @@ O schema já prevê `suppliers`, `orders`/`order_items` (uma remessa por fornece
 
 ## Próximas fases
 
-- Supabase Auth (login/cadastro, Meus pedidos reais)
-- Criação de pedidos no banco + notificação ao fornecedor
-- Integração de catálogo/estoque com fornecedores (API, planilha ou ERP)
-- Pagamentos (Pix/cartão) e frete cotado por fornecedor
-- Painel do fornecedor e painel admin
+- Integração de catálogo/estoque com fornecedores (API, planilha ou ERP) e painel do fornecedor
+- Frete cotado por fornecedor/região e notificação automática ao fornecedor
+- Ativação automática de campanhas por horário (hoje: botão "Ativar agora" no admin)
 
 Mais detalhes de arquitetura e convenções em `CLAUDE.md`.

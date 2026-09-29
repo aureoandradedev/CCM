@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, ChevronDown, ClipboardList, Flame, Headset, Menu, PackageSearch, UserRound } from "lucide-react";
+import { Boxes, ChevronDown, ClipboardList, Flame, Headset, Menu, PackageSearch, ShieldCheck, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import type { Category } from "@/types/catalog";
@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { site, whatsappLink } from "@/lib/site";
 
 /** Menu lateral do celular: departamentos com subcategorias expansíveis + atalhos. */
-export function MobileMenu({ categories }: { categories: Category[] }) {
+export function MobileMenu({ categories, userName, isAdmin }: { categories: Category[]; userName?: string | null; isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -88,9 +88,10 @@ export function MobileMenu({ categories }: { categories: Category[] }) {
           <p className="px-4 pt-4 pb-1 text-[0.7rem] font-bold uppercase tracking-wider text-brand-ink-soft">Atalhos</p>
           <ul className="pb-4">
             {[
-              { href: "/conta", label: "Entrar ou cadastrar", icon: UserRound },
+              { href: "/conta", label: userName ? `Olá, ${userName} · Minha conta` : "Entrar ou cadastrar", icon: UserRound },
               { href: "/conta/pedidos", label: "Meus pedidos", icon: PackageSearch },
               { href: "/orcamento", label: "Orçamento de obra", icon: ClipboardList },
+              ...(isAdmin ? [{ href: "/admin", label: "Painel admin", icon: ShieldCheck }] : []),
             ].map(({ href, label, icon: I }) => (
               <li key={href}>
                 <Link href={href} className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-ink">

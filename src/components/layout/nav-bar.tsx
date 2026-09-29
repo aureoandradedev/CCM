@@ -21,7 +21,7 @@ const LINKS = [
 export function NavBar({ categories }: { categories: Category[] }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Principal" className="hidden border-b border-brand-line bg-card lg:block">
+    <nav data-site-chrome aria-label="Principal" className="hidden border-b border-brand-line bg-card lg:block">
       <div className="container-ccm flex h-14 items-center gap-2">
         <MegaMenu categories={categories} />
         <ul className="ml-2 flex items-center gap-1">

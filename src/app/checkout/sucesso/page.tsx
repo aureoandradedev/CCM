@@ -4,18 +4,20 @@ import Link from "next/link";
 import { CheckCircle2, ClipboardCheck, Factory, Truck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { whatsappLink } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Pedido recebido", robots: { index: false } };
 
 const STEPS = [
-  { icon: ClipboardCheck, title: "Pedido recebido", text: "Enviamos os itens para os fornecedores parceiros." },
-  { icon: Factory, title: "Fornecedor confirma", text: "Preço e disponibilidade são revalidados. Só então o pagamento é cobrado." },
-  { icon: Truck, title: "Entrega na obra", text: "Você acompanha cada remessa pelo WhatsApp e em Meus pedidos." },
+  { icon: ClipboardCheck, title: "Pagamento confirmado", text: "Enviamos os itens para os fornecedores parceiros." },
+  { icon: Factory, title: "Fornecedor separa", text: "Cada fornecedor prepara a sua parte do pedido." },
+  { icon: Truck, title: "Entrega na obra", text: "Você acompanha cada remessa em Meus pedidos e pelo WhatsApp." },
 ];
 
 export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
   const { code } = await searchParams;
+  const user = await getCurrentUser();
   return (
     <div className="container-ccm pt-10 md:pt-16">
       <div className="mx-auto max-w-2xl text-center">
@@ -25,13 +27,15 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
             <CheckCircle2 className="size-7" />
           </span>
         </div>
-        <h1 className="mt-5 font-heading text-[2rem] font-extrabold tracking-tight text-brand-navy md:text-[2.6rem] dark:text-foreground">Pedido recebido!</h1>
+        <h1 className="mt-5 font-heading text-[2rem] font-extrabold tracking-tight text-brand-navy md:text-[2.6rem]">Pedido recebido!</h1>
         {code ? (
           <p className="mt-2 text-brand-ink-soft">
-            Número do pedido: <strong className="font-heading text-lg text-brand-navy dark:text-foreground">{code}</strong>
+            Número do pedido: <strong className="font-heading text-lg text-brand-navy">{code}</strong>
           </p>
         ) : null}
-        <p className="mt-2 text-sm text-brand-ink-soft">Este é um ambiente de demonstração: o pedido ficou registrado só neste navegador.</p>
+        <p className="mt-2 text-sm text-brand-ink-soft">
+          {user ? "Acompanhe o andamento em Meus pedidos." : "Guarde o número do pedido: com ele e o seu CPF/CNPJ você acompanha tudo em Acompanhar pedido."}
+        </p>
       </div>
 
       <ol className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-3">
@@ -43,14 +47,17 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
               </span>
               <span className="font-heading text-2xl font-extrabold text-brand-line">0{i + 1}</span>
             </div>
-            <p className="mt-3 font-heading text-base font-bold text-brand-navy dark:text-foreground">{s.title}</p>
+            <p className="mt-3 font-heading text-base font-bold text-brand-navy">{s.title}</p>
             <p className="mt-1 text-xs leading-relaxed text-brand-ink-soft">{s.text}</p>
           </li>
         ))}
       </ol>
 
       <div className="mt-8 flex flex-wrap justify-center gap-2">
-        <Button variant="brand" size="lg" render={<Link href="/" />}>
+        <Button variant="brand" size="lg" render={<Link href={user ? "/conta/pedidos" : "/conta/pedidos"} />}>
+          {user ? "Ver meus pedidos" : "Acompanhar pedido"}
+        </Button>
+        <Button variant="outline-navy" size="lg" render={<Link href="/" />}>
           Voltar para a loja
         </Button>
         <Button variant="whatsapp" size="lg" render={<a href={whatsappLink(`Olá! Acabei de fazer o pedido ${code ?? ""} na Multigiro Central de Compras.`)} target="_blank" rel="noreferrer" />}>
