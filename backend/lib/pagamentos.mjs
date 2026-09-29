@@ -110,7 +110,7 @@ function guardaPedidoPagavel(order) {
   if (!order) throw new ErroPedido(404, "Pedido não encontrado.");
   if (order.order_status === "cancelado") throw new ErroPedido(409, "Pedido cancelado.");
   if (["estornado", "processando", "incerto"].includes(order.refund_status || "")) throw new ErroPedido(409, "Pedido em estorno.");
-  if (Number(order.total_centavos) < 100) throw new ErroPedido(400, "Valor do pedido inválido.");
+  if (Number(order.total_centavos) < 1) throw new ErroPedido(400, "Valor do pedido inválido.");
 }
 
 function verificarPricingVersion(order, confirmedPricingVersion) {

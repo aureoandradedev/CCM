@@ -306,7 +306,14 @@ export async function criarPedido(body, usuario = null) {
     throw new ErroPedido(500, "Falha ao gravar o pedido: " + error.message);
   }
 
-  const { error: itensErr } = await db().from("order_items").insert(itens.map((i) => ({ ...i, category_slug: undefined, order_id: criado.id })));
+  const { error: itensErr } = await db().from("order_items").insert(
+    itens.map((i) => {
+      // category_slug só serve para o cálculo de desconto por seção; não é coluna de order_items
+      const { category_slug: _categoria, ...linha } = i;
+      void _categoria;
+      return { ...linha, order_id: criado.id };
+    }),
+  );
   if (itensErr) {
     await db().from("orders").delete().eq("id", criado.id);
     throw new ErroPedido(500, "Falha ao gravar os itens: " + itensErr.message);
