@@ -293,7 +293,8 @@
 }
 
 /* Painel admin: esconde a moldura da loja (cabeçalho, rodapé, barra inferior). */
-body:has(.admin-root) [data-site-chrome] {
+body:has(.admin-root) [data-site-chrome],
+body:has(.admin-root) .intro-overlay {
   display: none !important;
 }
 body:has(.admin-root) > main,
