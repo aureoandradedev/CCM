@@ -6,6 +6,19 @@
 create extension if not exists "pgcrypto";
 create extension if not exists "unaccent";
 
+-- unaccent() e array_to_string() não são IMMUTABLE; coluna gerada exige função imutável.
+create or replace function public.immutable_unaccent(text)
+returns text language sql immutable strict parallel safe
+set search_path = public, extensions as $$
+  select unaccent('unaccent', $1);
+$$;
+
+create or replace function public.product_search_text(name text, brand text, sku text, tags text[])
+returns text language sql immutable parallel safe
+set search_path = public, extensions as $$
+  select unaccent('unaccent', coalesce(name,'') || ' ' || coalesce(brand,'') || ' ' || coalesce(sku,'') || ' ' || coalesce(array_to_string(tags, ' '), ''));
+$$;
+
 -- ----------------------------------------------------------------------------
 -- utilitários
 -- ----------------------------------------------------------------------------
@@ -154,7 +167,7 @@ create table if not exists public.products (
   created_at           timestamptz not null default now(),
   updated_at           timestamptz not null default now(),
   search               tsvector generated always as (
-    to_tsvector('simple', unaccent(coalesce(name,'') || ' ' || coalesce(brand_name,'') || ' ' || coalesce(sku,'') || ' ' || array_to_string(tags, ' ')))
+    to_tsvector('simple', public.product_search_text(name, brand_name, sku, tags))
   ) stored
 );
 create index if not exists products_category_idx on public.products(category_slug, active);
@@ -383,8 +396,8 @@ returns setof public.products language sql stable as $$
   select *
   from public.products
   where active
-    and search @@ plainto_tsquery('simple', unaccent(term))
-  order by ts_rank(search, plainto_tsquery('simple', unaccent(term))) desc, review_count desc
+    and search @@ plainto_tsquery('simple', public.immutable_unaccent(term))
+  order by ts_rank(search, plainto_tsquery('simple', public.immutable_unaccent(term))) desc, review_count desc
   limit max_results;
 $$;
 
