@@ -258,7 +258,7 @@ export async function criarPedido(body, usuario = null) {
   const itens = await montarItens(b.items);
   const primeiraCompra = settings.descontos?.primeiraCompra?.ativo ? await ehPrimeiraCompra(document) : false;
   const totais = calcularTotais({ itens, paymentMethod, deliveryMethod, settings, primeiraCompra });
-  if (metodoOnline(paymentMethod) && totais.total_centavos < 100) throw new ErroPedido(400, "Valor mínimo para pagamento online é R$ 1,00.");
+  if (metodoOnline(paymentMethod) && totais.total_centavos < 1) throw new ErroPedido(400, "Valor mínimo para pagamento online é R$ 0,01.");
 
   // idempotência: mesmo cliente + mesmo requestId + mesmo carrinho = mesmo pedido
   const clientRequestId = String(b.clientRequestId || "").replace(/[^a-zA-Z0-9\-_]/g, "").slice(0, 64) || null;
