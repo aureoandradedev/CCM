@@ -14,10 +14,11 @@
       "name": "ccm-backend",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
+        "--prefix",
+        "backend",
         "run",
         "dev"
       ],
-      "cwd": "backend",
       "port": 4000
     }
   ]
