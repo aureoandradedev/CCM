@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import type { Product } from "@/types/catalog";
 import { AddToCartButton } from "@/components/product/add-to-cart-button";
 import { ProductBadges } from "@/components/product/badges";
+import { ImagePlaceholder } from "@/components/product/image-placeholder";
 import { PriceBlock } from "@/components/product/price-block";
 import { Rating } from "@/components/product/rating";
 import { offerDiscountPct } from "@/lib/pricing";
@@ -40,15 +41,19 @@ export function ProductCard({ product, className, priority = false, sizes = "(mi
       data-reveal
     >
       <div className="relative">
-        <Link href={href} className="block aspect-square overflow-hidden bg-muted" tabIndex={-1} aria-hidden="true">
-          <Image
-            src={product.images[0]}
-            alt=""
-            fill
-            sizes={sizes}
-            priority={priority}
-            className="object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.04]"
-          />
+        <Link href={href} className="relative block aspect-square overflow-hidden bg-muted" tabIndex={-1} aria-hidden="true">
+          {product.images[0] ? (
+            <Image
+              src={product.images[0]}
+              alt=""
+              fill
+              sizes={sizes}
+              priority={priority}
+              className="object-cover transition-transform duration-500 ease-[var(--ease-out)] group-hover:scale-[1.04]"
+            />
+          ) : (
+            <ImagePlaceholder />
+          )}
         </Link>
         <ProductBadges badges={product.badges} discountPct={off} className="absolute top-2.5 left-2.5" />
         <button

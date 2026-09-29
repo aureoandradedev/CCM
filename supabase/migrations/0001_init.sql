@@ -374,18 +374,18 @@ create or replace function public.next_order_code()
 returns text language plpgsql as $$
 declare
   letters text := 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  code text;
+  novo text;
   tries int := 0;
 begin
   loop
-    code := substr(letters, 1 + floor(random()*length(letters))::int, 1)
+    novo := substr(letters, 1 + floor(random()*length(letters))::int, 1)
          || substr(letters, 1 + floor(random()*length(letters))::int, 1)
          || lpad(floor(random()*10000)::int::text, 4, '0');
-    exit when not exists (select 1 from public.orders where public.orders.code = code);
+    exit when not exists (select 1 from public.orders o where o.code = novo);
     tries := tries + 1;
     if tries > 50 then raise exception 'não foi possível gerar código de pedido único'; end if;
   end loop;
-  return code;
+  return novo;
 end $$;
 
 -- ----------------------------------------------------------------------------
