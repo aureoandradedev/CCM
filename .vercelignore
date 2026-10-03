@@ -1,0 +1,5 @@
+backend
+supabase/.temp
+docs
+.claude
+*.log
