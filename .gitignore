@@ -58,3 +58,6 @@ serviceAccount*.json
 Thumbs.db
 Desktop.ini
 supabase/.temp/
+
+.vercel
+.env*
