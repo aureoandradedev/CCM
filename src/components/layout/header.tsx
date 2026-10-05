@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PackageSearch, UserRound } from "lucide-react";
+import { PackageSearch, ShieldCheck, UserRound } from "lucide-react";
 
 import { CartButton } from "@/components/cart/cart-button";
 import { Logo } from "@/components/layout/logo";
@@ -8,13 +8,14 @@ import { NavBar } from "@/components/layout/nav-bar";
 import { SearchBar } from "@/components/layout/search-bar";
 import { TopBar } from "@/components/layout/top-bar";
 import { getCategories } from "@/lib/data/catalog";
+import { firstName, getCurrentUser } from "@/lib/supabase/auth";
 
 /**
  * Cabeçalho: barra de utilidades, linha principal (logo, busca grande, conta,
  * pedidos, carrinho) fixa no topo, e a navegação com mega-menu no desktop.
  */
 export async function Header() {
-  const categories = await getCategories();
+  const [categories, user] = await Promise.all([getCategories(), getCurrentUser()]);
 
   // A linha principal precisa ser irmã (não filha) do restante para o `sticky`
   // valer na página inteira: um elemento sticky só gruda dentro do pai.
@@ -22,10 +23,10 @@ export async function Header() {
     <>
       <TopBar />
 
-      <header className="sticky top-0 z-40 border-b border-brand-line bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85">
+      <header data-site-chrome className="sticky top-0 z-40 border-b border-brand-line bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85">
         <div className="container-ccm flex h-[72px] items-center gap-3 md:gap-6">
           <div className="flex items-center gap-1 lg:hidden">
-            <MobileMenu categories={categories} />
+            <MobileMenu categories={categories} userName={user ? firstName(user) : null} isAdmin={user?.role === "admin"} />
           </div>
 
           <Logo />
@@ -41,8 +42,8 @@ export async function Header() {
             >
               <UserRound className="size-6" strokeWidth={2.2} />
               <span className="flex flex-col items-start leading-none">
-                <span className="text-[0.68rem] text-brand-ink-soft">Olá, visitante</span>
-                <span className="text-sm font-bold">Entrar ou cadastrar</span>
+                <span className="text-[0.68rem] text-brand-ink-soft">Olá, {user ? firstName(user) : "visitante"}</span>
+                <span className="text-sm font-bold">{user ? "Minha conta" : "Entrar ou cadastrar"}</span>
               </span>
             </Link>
             <Link
@@ -55,6 +56,11 @@ export async function Header() {
                 <span className="text-sm font-bold">Meus pedidos</span>
               </span>
             </Link>
+            {user?.role === "admin" ? (
+              <Link href="/admin" className="press hidden h-11 items-center gap-2 rounded-xl bg-brand-yellow-soft px-3 text-sm font-bold text-brand-navy lg:inline-flex" title="Painel administrativo">
+                <ShieldCheck className="size-5" strokeWidth={2.2} /> Admin
+              </Link>
+            ) : null}
             <CartButton />
           </div>
         </div>

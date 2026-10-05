@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+
+import { ImagePlaceholder } from "@/components/product/image-placeholder";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 
@@ -36,7 +38,7 @@ export function CartLineItem({ line, variant = "drawer", highlight = false }: Ca
       )}
     >
       <Link href={`/produto/${line.slug}`} className={cn("relative shrink-0 overflow-hidden rounded-lg bg-muted", page ? "size-24 sm:size-28" : "size-[72px]")}>
-        <Image src={line.image} alt="" fill sizes={page ? "112px" : "72px"} className="object-cover" />
+        {line.image ? <Image src={line.image} alt="" fill sizes={page ? "112px" : "72px"} className="object-cover" /> : <ImagePlaceholder label="" />}
       </Link>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">

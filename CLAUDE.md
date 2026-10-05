@@ -21,6 +21,10 @@ npm run build
 npm run typecheck  # tsc --noEmit
 npm run lint
 npm run seed:gen   # regenera supabase/seed.sql a partir do mock
+
+cd backend && npm run dev                  # backend Express em :4000 (pedidos, Cielo, fotos)
+cd backend && npm run importar -- --imagens # mock → Supabase + fotos reais do QRofertas
+cd backend && npm run admin -- --email x    # torna a conta admin
 ```
 
 ## Estrutura
@@ -31,7 +35,12 @@ npm run seed:gen   # regenera supabase/seed.sql a partir do mock
 - `src/lib/cart/store.ts` carrinho (snapshot do produto por linha; servidor revalida no pedido)
 - `src/lib/utils/{format,masks,search}.ts` moeda, CPF/CNPJ/CEP/telefone, busca sem acento com ranking (portados do Multigiro)
 - `src/components/{layout,home,product,catalog,cart,checkout,account,motion,ui}`
-- `supabase/migrations/0001_init.sql` schema + RLS; `supabase/seed.sql` gerado
+- `src/app/conta/*` conta do cliente (login/cadastro/recuperação via Supabase Auth em `conta/actions.ts`, pedidos, dados, senha). `src/proxy.ts` renova a sessão e redireciona não logados de `/admin` e `/conta/(pedidos/|dados|senha)`.
+- `src/app/admin/*` painel admin (layout exige `role = admin` via `src/lib/admin/guard.ts`). Leituras em `src/lib/admin/data.ts` (sessão do admin + RLS), mutações em `src/app/admin/actions.ts` (server actions). Componentes em `src/components/admin`. A moldura da loja some no admin via `[data-site-chrome]` + `.admin-root` (globals.css).
+- `src/lib/api.ts` cliente do backend (`NEXT_PUBLIC_API_BASE`, Bearer da sessão Supabase). `src/lib/payments/card-core.ts` tokenização Cielo (SOP + 3DS) no navegador. `src/components/checkout/{payment-step,pix-panel,card-panel}.tsx` etapa de pagamento.
+- `src/lib/orders.ts` rótulos/tipos de pedido compartilhados (conta + admin).
+- `backend/` Express separado: `lib/pedido.mjs` (criação, totais, descontos, bloqueio de entrega), `lib/pagamentos.mjs` + `lib/cielo.mjs` + `lib/payment-lock.mjs` (porte fiel do mercado), `lib/imagens.mjs` + `lib/qrofertas/` (fotos), `routes/*`, `scripts/*`. Config em `backend/.env` (nunca versionar; chaves ficam só lá).
+- `supabase/migrations/0001_init.sql` schema + RLS + buckets; `supabase/seed.sql` gerado
 
 ## Marca
 
@@ -52,3 +61,6 @@ npm run seed:gen   # regenera supabase/seed.sql a partir do mock
 - Animação: só `transform`/`opacity`, curvas `--ease-out`/`--ease-in-out`, < 300 ms em UI, respeitar `prefers-reduced-motion`, hover só com `@media (hover: hover)`.
 - Filtros de listagem são LINKS (URL é o estado). Ver `src/lib/catalog-params.ts`.
 - Antes de entregar: `npm run typecheck` e testar 375 px / 768 px / 1440 px.
+- Pedidos e pagamentos nunca são criados pelo site direto no banco: sempre pelo backend (service role). O site só lê (RLS).
+- Chaves (Supabase service role, Cielo, QRofertas) só em `backend/.env`; o Pedro preenche à mão, nunca copiar de outro projeto.
+- Git: trabalhar só em `feature/pedro` (conferir `git branch --show-current`); nunca mexer em `main`/`feature/aureo` nem fazer merge sem pedido.

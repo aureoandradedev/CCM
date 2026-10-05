@@ -26,7 +26,18 @@ export async function proxy(request: NextRequest) {
   });
 
   // Não remover: mantém o token renovado para Server Components.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname, search } = request.nextUrl;
+  const protegida = pathname.startsWith("/admin") || /^\/conta\/(pedidos\/|dados|senha)/.test(pathname);
+  if (!user && protegida) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/conta";
+    url.search = `?next=${encodeURIComponent(pathname + search)}`;
+    return NextResponse.redirect(url);
+  }
 
   return response;
 }

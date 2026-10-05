@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { HardHat, LogIn, UserPlus } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { useActionState, useState } from "react";
 
+import { requestPasswordReset, signIn, signUp, type ActionState } from "@/app/conta/actions";
 import { Button } from "@/components/ui/button";
 import { maskDocument, maskPhone } from "@/lib/utils/masks";
 import { cn } from "@/lib/utils";
@@ -12,18 +12,18 @@ import { cn } from "@/lib/utils";
 const input =
   "h-11 w-full rounded-lg border border-brand-line bg-card px-3 text-sm text-brand-ink outline-none transition-colors placeholder:text-brand-ink-soft/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-/** Entrar / criar conta. A autenticação (Supabase Auth) é ligada na próxima fase. */
-export function AuthPanel() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+const initial: ActionState = {};
+
+/** Entrar / criar conta / recuperar senha, com Supabase Auth via server actions. */
+export function AuthPanel({ next = "/conta" }: { next?: string }) {
+  const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
   const [doc, setDoc] = useState("");
   const [phone, setPhone] = useState("");
+  const [loginState, loginAction, loginPending] = useActionState(signIn, initial);
+  const [signupState, signupAction, signupPending] = useActionState(signUp, initial);
+  const [resetState, resetAction, resetPending] = useActionState(requestPasswordReset, initial);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.info("Login e cadastro entram na próxima fase com o Supabase Auth.", {
-      description: "Enquanto isso, acompanhe pedidos pelo CPF/CNPJ ou fale com a televendas.",
-    });
-  };
+  const state = mode === "login" ? loginState : mode === "signup" ? signupState : resetState;
 
   return (
     <div className="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[1fr_1fr]">
@@ -41,55 +41,87 @@ export function AuthPanel() {
       </div>
 
       <div className="rounded-3xl border border-brand-line bg-card p-6 md:p-8">
-        <div className="grid grid-cols-2 rounded-xl bg-muted p-1" role="tablist" aria-label="Entrar ou criar conta">
-          {(["login", "signup"] as const).map((m) => (
-            <button
-              key={m}
-              role="tab"
-              aria-selected={mode === m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={cn("h-9 rounded-lg text-sm font-semibold transition-colors", mode === m ? "bg-card text-brand-navy shadow-sm dark:text-foreground" : "text-brand-ink-soft hover:text-brand-ink")}
-            >
-              {m === "login" ? "Entrar" : "Criar conta"}
-            </button>
-          ))}
-        </div>
+        {mode !== "reset" ? (
+          <div className="grid grid-cols-2 rounded-xl bg-muted p-1" role="tablist" aria-label="Entrar ou criar conta">
+            {(["login", "signup"] as const).map((m) => (
+              <button
+                key={m}
+                role="tab"
+                aria-selected={mode === m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={cn("h-9 rounded-lg text-sm font-semibold transition-colors", mode === m ? "bg-card text-brand-navy shadow-sm dark:text-foreground" : "text-brand-ink-soft hover:text-brand-ink")}
+              >
+                {m === "login" ? "Entrar" : "Criar conta"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div>
+            <h3 className="font-heading text-lg font-bold text-brand-navy dark:text-foreground">Recuperar senha</h3>
+            <p className="text-sm text-brand-ink-soft">Enviamos um link para você definir uma nova senha.</p>
+          </div>
+        )}
 
-        <form onSubmit={submit} className="mt-5 space-y-4">
-          {mode === "signup" ? (
-            <>
-              <label className="block text-xs font-semibold text-brand-ink">
-                Nome completo
-                <input className={cn(input, "mt-1")} autoComplete="name" required />
-              </label>
-              <label className="block text-xs font-semibold text-brand-ink">
-                CPF ou CNPJ
-                <input className={cn(input, "mt-1")} inputMode="numeric" value={doc} onChange={(e) => setDoc(maskDocument(e.target.value))} required />
-              </label>
-              <label className="block text-xs font-semibold text-brand-ink">
-                WhatsApp
-                <input className={cn(input, "mt-1")} inputMode="tel" value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} required />
-              </label>
-            </>
-          ) : null}
-          <label className="block text-xs font-semibold text-brand-ink">
-            E-mail
-            <input className={cn(input, "mt-1")} type="email" autoComplete="email" required />
-          </label>
-          <label className="block text-xs font-semibold text-brand-ink">
-            Senha
-            <input className={cn(input, "mt-1")} type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={8} required />
-          </label>
-          <Button type="submit" variant="brand" size="xl" className="w-full">
-            {mode === "login" ? <LogIn /> : <UserPlus />}
-            {mode === "login" ? "Entrar" : "Criar minha conta"}
-          </Button>
-          {mode === "login" ? (
+        {state.error ? (
+          <p role="alert" className="mt-4 rounded-lg border border-brand-red/30 bg-brand-red/5 px-3 py-2 text-sm text-brand-red">
+            {state.error}
+          </p>
+        ) : null}
+        {state.ok ? (
+          <p role="status" className="mt-4 rounded-lg border border-brand-green/30 bg-brand-green-soft px-3 py-2 text-sm text-brand-green">
+            {state.ok}
+          </p>
+        ) : null}
+
+        {mode === "login" ? (
+          <form action={loginAction} className="mt-5 space-y-4">
+            <input type="hidden" name="next" value={next} />
+            <label className="block text-xs font-semibold text-brand-ink">
+              E-mail
+              <input name="email" className={cn(input, "mt-1")} type="email" autoComplete="email" required />
+            </label>
+            <label className="block text-xs font-semibold text-brand-ink">
+              Senha
+              <input name="password" className={cn(input, "mt-1")} type="password" autoComplete="current-password" minLength={6} required />
+            </label>
+            <Button type="submit" variant="brand" size="xl" className="w-full" disabled={loginPending}>
+              <LogIn />
+              {loginPending ? "Entrando..." : "Entrar"}
+            </Button>
             <p className="text-center text-xs text-brand-ink-soft">
-              Esqueceu a senha? <button type="button" className="underline" onClick={submit}>Recuperar</button>
+              Esqueceu a senha?{" "}
+              <button type="button" className="underline" onClick={() => setMode("reset")}>
+                Recuperar
+              </button>
             </p>
-          ) : (
+          </form>
+        ) : mode === "signup" ? (
+          <form action={signupAction} className="mt-5 space-y-4">
+            <label className="block text-xs font-semibold text-brand-ink">
+              Nome completo
+              <input name="full_name" className={cn(input, "mt-1")} autoComplete="name" required />
+            </label>
+            <label className="block text-xs font-semibold text-brand-ink">
+              CPF ou CNPJ
+              <input name="document" className={cn(input, "mt-1")} inputMode="numeric" value={doc} onChange={(e) => setDoc(maskDocument(e.target.value))} required />
+            </label>
+            <label className="block text-xs font-semibold text-brand-ink">
+              WhatsApp
+              <input name="phone" className={cn(input, "mt-1")} inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} required />
+            </label>
+            <label className="block text-xs font-semibold text-brand-ink">
+              E-mail
+              <input name="email" className={cn(input, "mt-1")} type="email" autoComplete="email" required />
+            </label>
+            <label className="block text-xs font-semibold text-brand-ink">
+              Senha (mínimo 8 caracteres)
+              <input name="password" className={cn(input, "mt-1")} type="password" autoComplete="new-password" minLength={8} required />
+            </label>
+            <Button type="submit" variant="brand" size="xl" className="w-full" disabled={signupPending}>
+              <UserPlus />
+              {signupPending ? "Criando..." : "Criar minha conta"}
+            </Button>
             <p className="text-center text-xs text-brand-ink-soft">
               Ao criar a conta você aceita os{" "}
               <Link href="/termos-de-uso" className="underline">
@@ -97,8 +129,23 @@ export function AuthPanel() {
               </Link>
               .
             </p>
-          )}
-        </form>
+          </form>
+        ) : (
+          <form action={resetAction} className="mt-5 space-y-4">
+            <label className="block text-xs font-semibold text-brand-ink">
+              E-mail da conta
+              <input name="email" className={cn(input, "mt-1")} type="email" autoComplete="email" required />
+            </label>
+            <Button type="submit" variant="brand" size="xl" className="w-full" disabled={resetPending}>
+              {resetPending ? "Enviando..." : "Enviar link"}
+            </Button>
+            <p className="text-center text-xs text-brand-ink-soft">
+              <button type="button" className="underline" onClick={() => setMode("login")}>
+                Voltar para entrar
+              </button>
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );

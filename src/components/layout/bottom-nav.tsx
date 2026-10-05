@@ -42,6 +42,7 @@ export function BottomNav() {
 
   return (
     <nav
+      data-site-chrome
       aria-label="Navegação rápida"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >

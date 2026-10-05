@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 
+import { ImagePlaceholder } from "@/components/product/image-placeholder";
 import { cn } from "@/lib/utils";
 
 /**
@@ -31,7 +32,9 @@ export function ProductGallery({ images, name }: { images: string[]; name: strin
                 i === active ? "opacity-100" : "pointer-events-none opacity-0",
               )}
             />
-          ) : null,
+          ) : (
+            <ImagePlaceholder key="placeholder" label="Foto em breve" className="bg-white" />
+          ),
         )}
       </div>
 

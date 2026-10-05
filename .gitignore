@@ -57,3 +57,7 @@ serviceAccount*.json
 *.sublime-*
 Thumbs.db
 Desktop.ini
+supabase/.temp/
+
+.vercel
+.env*

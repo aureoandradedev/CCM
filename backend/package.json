@@ -1,0 +1,21 @@
+{
+  "name": "ccm-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend da Multigiro Central de Compras: pedidos, pagamentos Cielo (Pix + cartão), imagens (QRofertas) e scripts de importação.",
+  "scripts": {
+    "start": "node servidor.mjs",
+    "dev": "node --watch servidor.mjs",
+    "importar": "node scripts/importar-catalogo.mjs",
+    "admin": "node scripts/tornar-admin.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "axios": "^1.16.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.1.0"
+  }
+}

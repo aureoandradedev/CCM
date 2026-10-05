@@ -284,13 +284,59 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
   return all.filter((p) => set.has(p.id));
 }
 
+export interface SiteSettings {
+  avisoTopo: string;
+  bestSellerIds: string[];
+  bloqueio: { ativo: boolean; data: string | null; mensagem: string };
+  frete: { freeShippingFromCentavos: number; flatCentavos: number; pickupEnabled: boolean };
+  pixPct: number;
+}
+
+const DEFAULT_SITE_SETTINGS: SiteSettings = {
+  avisoTopo: "",
+  bestSellerIds: [],
+  bloqueio: { ativo: false, data: null, mensagem: "" },
+  frete: { freeShippingFromCentavos: 79900, flatCentavos: 4990, pickupEnabled: true },
+  pixPct: 5,
+};
+
+/** Configurações editadas no admin (site_settings). Sem banco: padrões. */
+export async function getSiteSettings(): Promise<SiteSettings> {
+  const sb = createPublicClient();
+  if (!sb) return DEFAULT_SITE_SETTINGS;
+  const { data } = await sb.from("site_settings").select("key, value");
+  const map = new Map((data ?? []).map((r) => [r.key as string, (r.value ?? {}) as Record<string, unknown>]));
+  const frete = map.get("frete") ?? {};
+  const bloqueio = map.get("entrega_bloqueio") ?? {};
+  const descontos = map.get("descontos") ?? {};
+  return {
+    avisoTopo: String((map.get("avisos") ?? {}).topo ?? ""),
+    bestSellerIds: ((map.get("best_sellers") ?? {}).ids as string[]) ?? [],
+    bloqueio: { ativo: bloqueio.ativo === true, data: (bloqueio.data as string) ?? null, mensagem: String(bloqueio.mensagem ?? "") },
+    frete: {
+      freeShippingFromCentavos: Number(frete.freeShippingFromCentavos ?? 79900),
+      flatCentavos: Number(frete.flatCentavos ?? 4990),
+      pickupEnabled: frete.pickupEnabled !== false,
+    },
+    pixPct: Number(descontos.pixPct ?? 5),
+  };
+}
+
 /** Vitrines da home: "ofertas", "mais vendidos", "atacado", "novidades", por categoria. */
 export async function getShowcase(kind: "ofertas" | "mais-vendidos" | "atacado" | "novidades" | { category: string }, limit = 10): Promise<Product[]> {
   const all = await loadAllProducts();
   let items: Product[];
   if (typeof kind === "object") items = all.filter((p) => p.categorySlug === kind.category);
   else if (kind === "ofertas") items = all.filter((p) => offerDiscountPct(p) > 0 || p.badges?.includes("oferta"));
-  else if (kind === "mais-vendidos") items = all.filter((p) => p.badges?.includes("mais-vendido"));
+  else if (kind === "mais-vendidos") {
+    // lista curada no admin (Conteúdo do site) tem prioridade sobre o selo
+    const ids = (await getSiteSettings()).bestSellerIds;
+    if (ids.length) {
+      const byId = new Map(all.map((p) => [p.id, p]));
+      return ids.map((id) => byId.get(id)).filter((p): p is Product => Boolean(p)).slice(0, limit);
+    }
+    items = all.filter((p) => p.badges?.includes("mais-vendido"));
+  }
   else if (kind === "atacado") items = all.filter((p) => hasWholesale(p) && (p.badges?.includes("atacado") || (p.wholesaleMinQty ?? 0) >= 10));
   else items = all.filter((p) => p.badges?.includes("novo") || p.badges?.includes("lancamento"));
   return sortProducts(items, "relevance").slice(0, limit);
