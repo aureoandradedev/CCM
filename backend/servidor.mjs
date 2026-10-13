@@ -9,14 +9,28 @@
  */
 import cors from "cors";
 import express from "express";
+import helmet from "helmet";
 
 import { config, supabaseConfigurado } from "./lib/config.mjs";
 import { imagens } from "./routes/imagens.mjs";
 import { pagamentos } from "./routes/pagamentos.mjs";
 
 const app = express();
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 app.disable("x-powered-by");
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: process.env.NODE_ENV === "production",
+  }),
+);
+app.use((_req, res, next) => {
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
+  next();
+});
 
 // CORS: origens da loja + localhost (dev). Requisição sem Origin (webhook, curl) passa.
 const localhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;

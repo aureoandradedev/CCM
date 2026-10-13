@@ -52,8 +52,14 @@ function hojeSaoPaulo() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-/* ---------------- rate limit simples por cliente (memória) ---------------- */
+/* ---------------- rate limit por cliente / documento (memória) ------------- */
 const janelas = new Map();
+setInterval(() => {
+  const agora = Date.now();
+  for (const [k, w] of janelas) {
+    if (w.every((t) => agora - t >= config.pedidoRateWindowMs)) janelas.delete(k);
+  }
+}, 5 * 60_000);
 function checarRateLimit(customerHash) {
   const agora = Date.now();
   const w = janelas.get(customerHash) || [];
@@ -64,7 +70,10 @@ function checarRateLimit(customerHash) {
 }
 
 function customerHashDe(document) {
-  if (!config.pedidoHmacSecret || config.pedidoHmacSecret.length < 32) throw new ErroPedido(503, "PEDIDO_HMAC_SECRET não configurado (mínimo 32 caracteres).");
+  if (!config.pedidoHmacSecret || config.pedidoHmacSecret.length < 32) {
+    console.error("[pedido] PEDIDO_HMAC_SECRET não configurado (mínimo 32 caracteres).");
+    throw new ErroPedido(503, "Serviço temporariamente indisponível.");
+  }
   return "c_" + createHmac("sha256", config.pedidoHmacSecret).update(digitos(document)).digest("hex").slice(0, 32);
 }
 
@@ -100,7 +109,10 @@ export async function montarItens(itensBrutos) {
     .from("products")
     .select("id, sku, name, unit, images, retail_price, wholesale_price, wholesale_min_qty, supplier_id, category_slug, stock, max_per_order, max_per_order_enabled, active")
     .in("id", ids);
-  if (error) throw new ErroPedido(500, "Falha ao ler produtos: " + error.message);
+  if (error) {
+    console.error("[pedido] Falha ao ler produtos:", error.message);
+    throw new ErroPedido(500, "Falha ao carregar os produtos. Tente novamente.");
+  }
   const porId = new Map((produtos || []).map((p) => [p.id, p]));
 
   const rejeitados = [];
@@ -261,20 +273,17 @@ export async function criarPedido(body, usuario = null) {
   if (metodoOnline(paymentMethod) && totais.total_centavos < 1) throw new ErroPedido(400, "Valor mínimo para pagamento online é R$ 0,01.");
 
   // idempotência: mesmo cliente + mesmo requestId + mesmo carrinho = mesmo pedido
-  const clientRequestId = String(b.clientRequestId || "").replace(/[^a-zA-Z0-9\-_]/g, "").slice(0, 64) || null;
-  const creationKey = clientRequestId ? `${customerHash}:${clientRequestId}:${cartHash(b.items)}` : null;
-  if (creationKey) {
+  const clientRequestId = String(b.clientRequestId || "");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientRequestId))
+    throw new ErroPedido(400, "clientRequestId deve ser um UUID válido.");
+  const creationKey = `${customerHash}:${clientRequestId}:${cartHash(b.items)}`;
+  {
     const { data: existente } = await db().from("orders").select("id, code, order_status, payment_status, pricing_version, total_centavos, freight_centavos, discount_centavos, subtotal_centavos").eq("creation_key", creationKey).maybeSingle();
     if (existente) return respostaPedido(existente, true);
   }
 
-  const { data: codeData, error: codeErr } = await db().rpc("next_order_code");
-  if (codeErr) throw new ErroPedido(500, "Falha ao gerar código do pedido: " + codeErr.message);
-  const code = String(codeData);
-
   const supplierIds = [...new Set(itens.map((i) => i.supplier_id).filter(Boolean))];
-  const pedido = {
-    code,
+  const orderData = {
     profile_id: usuario?.id || null,
     customer: { name, document, phone, email },
     address,
@@ -295,29 +304,17 @@ export async function criarPedido(body, usuario = null) {
     customer_hash: customerHash,
     client_request_id: clientRequestId,
   };
+  const orderItems = itens.map(({ category_slug: _, ...rest }) => rest);
 
-  const { data: criado, error } = await db().from("orders").insert(pedido).select("id, code, order_status, payment_status, pricing_version, total_centavos, freight_centavos, discount_centavos, subtotal_centavos").single();
+  const { data: criado, error } = await db().rpc("create_order_atomic", { p_order: orderData, p_items: orderItems });
   if (error) {
-    // corrida na creation_key: devolve o já criado
-    if (creationKey && /creation_key/.test(error.message)) {
-      const { data: existente } = await db().from("orders").select("id, code, order_status, payment_status, pricing_version, total_centavos, freight_centavos, discount_centavos, subtotal_centavos").eq("creation_key", creationKey).maybeSingle();
-      if (existente) return respostaPedido(existente, true);
+    if (/insufficient_stock/.test(error.message || "")) {
+      const m = error.message.match(/insufficient_stock:([^:]+)/);
+      throw new ErroPedido(409, `Estoque insuficiente para "${(m?.[1] || "produto").trim()}". Atualize o carrinho e tente novamente.`);
     }
-    throw new ErroPedido(500, "Falha ao gravar o pedido: " + error.message);
+    throw new ErroPedido(500, "Falha ao criar o pedido.");
   }
-
-  const { error: itensErr } = await db().from("order_items").insert(
-    itens.map((i) => {
-      // category_slug só serve para o cálculo de desconto por seção; não é coluna de order_items
-      const { category_slug: _categoria, ...linha } = i;
-      void _categoria;
-      return { ...linha, order_id: criado.id };
-    }),
-  );
-  if (itensErr) {
-    await db().from("orders").delete().eq("id", criado.id);
-    throw new ErroPedido(500, "Falha ao gravar os itens: " + itensErr.message);
-  }
+  if (criado.reaproveitado) return respostaPedido(criado, true);
 
   await registrarEvento(criado.id, "criado", { paymentMethod, deliveryMethod, itens: itens.length, total: totais.total_centavos }, usuario ? { kind: "customer", id: usuario.id } : { kind: "system" });
   return respostaPedido(criado, false);

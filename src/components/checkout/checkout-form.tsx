@@ -173,6 +173,7 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
           origin: "site",
         },
       });
+      try { sessionStorage.removeItem("ccm_req"); } catch {}
       setMetodoCriado(v.pagamento);
       setPedido(r);
     } catch (e) {
