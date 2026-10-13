@@ -21,6 +21,7 @@ const INSTITUTIONAL = [
   { href: "/profissionais", label: "Programa para profissionais" },
   { href: "/politica-privacidade", label: "Política de privacidade" },
   { href: "/termos-de-uso", label: "Termos de uso" },
+  { href: "/politica-cookies", label: "Política de cookies" },
 ];
 
 const PAYMENTS = ["Pix", "Visa", "Mastercard", "Elo", "Boleto", "Faturado PJ"];
