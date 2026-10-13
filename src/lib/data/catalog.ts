@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type {
   Banner,
   Brand,
@@ -122,7 +123,7 @@ const PRODUCT_SELECT =
 
 /* ------------------------------ carregamento ------------------------------ */
 
-async function loadAllProducts(): Promise<Product[]> {
+const loadAllProducts = cache(async function loadAllProducts(): Promise<Product[]> {
   const sb = createPublicClient();
   if (!sb) return mockCatalog.products;
   const { data, error } = await sb
@@ -136,7 +137,7 @@ async function loadAllProducts(): Promise<Product[]> {
     return mockCatalog.products;
   }
   return (data as unknown as ProductRow[]).map(mapProduct);
-}
+});
 
 export async function getCategories(): Promise<Category[]> {
   const sb = createPublicClient();
