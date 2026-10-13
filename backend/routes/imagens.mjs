@@ -2,6 +2,7 @@ import axios from "axios";
 import { Router } from "express";
 
 import { baixarImagem, buscarEGravarImagem, buscarImagemPorNome, hostPermitido, iniciarLote, listarCandidatosPorNome, statusLote, subirImagemProduto } from "../lib/imagens.mjs";
+import { limitProxy } from "../lib/rate-limit.mjs";
 import { db, exigirAdmin } from "../lib/supabase.mjs";
 
 export const imagens = Router();
@@ -30,7 +31,7 @@ imagens.get("/candidatos", exigirAdmin, async (req, res) => {
 });
 
 /** Proxy de bytes só para URLs devolvidas pela busca (pré-visualização no admin). */
-imagens.get("/bytes", async (req, res) => {
+imagens.get("/bytes", exigirAdmin, limitProxy, async (req, res) => {
   try {
     const url = String(req.query.url || "");
     if (!hostPermitido(url)) return res.status(400).json({ ok: false, erro: "host não permitido" });

@@ -31,7 +31,7 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname, search } = request.nextUrl;
-  const protegida = pathname.startsWith("/admin") || /^\/conta\/(pedidos\/|dados|senha)/.test(pathname);
+  const protegida = pathname.startsWith("/admin") || /^\/conta\/(pedidos\/|dados|senha|privacidade)/.test(pathname);
   if (!user && protegida) {
     const url = request.nextUrl.clone();
     url.pathname = "/conta";

@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { ErroPedido, calcularFreteParaExibicao, consultarPedido, criarPedido } from "../lib/pedido.mjs";
 import { cobrarCartao, criarPix, estornar, statusPix, token3ds, tokenSop, webhook } from "../lib/pagamentos.mjs";
+import { limitConsulta, limitFrete, limitPagamento, limitPolling, limitToken } from "../lib/rate-limit.mjs";
 import { exigirAdmin, usuarioDoBearer } from "../lib/supabase.mjs";
 
 export const pagamentos = Router();
@@ -13,7 +14,7 @@ function responderErro(res, e) {
 }
 
 /** Cria o pedido (preços/totais recalculados no servidor). Login é opcional. */
-pagamentos.post("/criar-pedido", async (req, res) => {
+pagamentos.post("/criar-pedido", limitPagamento, async (req, res) => {
   try {
     const usuario = await usuarioDoBearer(req).catch(() => null);
     res.json(await criarPedido(req.body, usuario));
@@ -22,7 +23,7 @@ pagamentos.post("/criar-pedido", async (req, res) => {
   }
 });
 
-pagamentos.post("/consultar-pedido", async (req, res) => {
+pagamentos.post("/consultar-pedido", limitConsulta, async (req, res) => {
   try {
     res.json(await consultarPedido(req.body || {}));
   } catch (e) {
@@ -30,7 +31,7 @@ pagamentos.post("/consultar-pedido", async (req, res) => {
   }
 });
 
-pagamentos.post("/calcular-frete", async (req, res) => {
+pagamentos.post("/calcular-frete", limitFrete, async (req, res) => {
   try {
     res.json(await calcularFreteParaExibicao(req.body));
   } catch (e) {
@@ -38,7 +39,7 @@ pagamentos.post("/calcular-frete", async (req, res) => {
   }
 });
 
-pagamentos.post("/pix", async (req, res) => {
+pagamentos.post("/pix", limitPagamento, async (req, res) => {
   try {
     res.json(await criarPix(req.body || {}));
   } catch (e) {
@@ -46,7 +47,7 @@ pagamentos.post("/pix", async (req, res) => {
   }
 });
 
-pagamentos.get("/pix/:orderId/status", async (req, res) => {
+pagamentos.get("/pix/:orderId/status", limitPolling, async (req, res) => {
   try {
     res.set("Cache-Control", "no-store");
     res.json(await statusPix(req.params.orderId));
@@ -61,7 +62,7 @@ pagamentos.post("/webhook", async (req, res) => {
   await webhook(req.body || {});
 });
 
-pagamentos.post("/cartao", async (req, res) => {
+pagamentos.post("/cartao", limitPagamento, async (req, res) => {
   try {
     res.json(await cobrarCartao(req.body || {}));
   } catch (e) {
@@ -69,7 +70,7 @@ pagamentos.post("/cartao", async (req, res) => {
   }
 });
 
-pagamentos.get("/cartao/sop-token", async (_req, res) => {
+pagamentos.get("/cartao/sop-token", limitToken, async (_req, res) => {
   try {
     res.set("Cache-Control", "no-store, max-age=0");
     res.json(await tokenSop());
@@ -78,7 +79,7 @@ pagamentos.get("/cartao/sop-token", async (_req, res) => {
   }
 });
 
-pagamentos.get("/cartao/3ds-token", async (_req, res) => {
+pagamentos.get("/cartao/3ds-token", limitToken, async (_req, res) => {
   try {
     res.set("Cache-Control", "no-store, max-age=0");
     res.json(await token3ds());
@@ -87,7 +88,7 @@ pagamentos.get("/cartao/3ds-token", async (_req, res) => {
   }
 });
 
-pagamentos.post("/estornar-pagamento", exigirAdmin, async (req, res) => {
+pagamentos.post("/estornar-pagamento", limitPagamento, exigirAdmin, async (req, res) => {
   try {
     res.json(await estornar(String(req.body?.orderId || ""), req.usuario));
   } catch (e) {

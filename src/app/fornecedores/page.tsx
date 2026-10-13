@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { InfoPage, InfoSection } from "@/components/layout/info-page";
+import { INTEGRATION_METHODS } from "@/lib/integrations/connectors";
 import { site, whatsappLink } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Seja um fornecedor",
-  description: "Venda para as obras da região pela Multigiro Central de Compras sem custo fixo: você cadastra o catálogo, recebe os pedidos e entrega.",
+  description: "Conecte sua empresa ao CCM em poucos minutos: importe seu catálogo por planilha, API, ERP ou cadastro manual e comece a vender para as obras da região.",
 };
 
 export default function SuppliersPage() {
@@ -17,10 +21,32 @@ export default function SuppliersPage() {
       title="Venda para centenas de obras sem montar loja."
       intro="A Multigiro Central de Compras leva o seu catálogo para quem está construindo no Sul do Espírito Santo. Você define preço de varejo e de atacado, recebe o pedido pronto e cuida só da entrega."
     >
+      {/* CTA principal — entrada da Central de Integração */}
+      <section className="overflow-hidden rounded-3xl bg-brand-navy p-6 text-white md:p-10">
+        <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-xl">
+            <Badge className="bg-brand-yellow text-brand-navy">Central de Integração</Badge>
+            <h2 className="mt-3 font-heading text-2xl font-extrabold md:text-3xl">Conecte sua empresa ao CCM em poucos minutos.</h2>
+            <p className="mt-2 text-sm text-white/80">
+              Importe seu catálogo do jeito que for mais fácil — planilha, API, ERP, feed ou cadastro manual. Sem depender da
+              nossa equipe para cada passo.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2">
+            <Button variant="brand" size="xl" render={<Link href="/fornecedores/integrar" />} className="gap-1">
+              Integrar minha empresa <ArrowRight className="size-4" />
+            </Button>
+            <Button variant="ghost" size="lg" render={<Link href="/fornecedores/integracoes" />} className="text-white hover:bg-white/10">
+              Ver minhas integrações
+            </Button>
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-4 md:grid-cols-3">
         {[
           ["Sem mensalidade", "Comissão só sobre pedido entregue e confirmado."],
-          ["Catálogo integrado", "Planilha, API ou ERP: a integração chega na próxima fase e o seu estoque atualiza sozinho."],
+          ["Catálogo integrado", "Planilha, API, ERP, feed ou cadastro manual: conecte do seu jeito e mantenha estoque e preço atualizados."],
           ["Pagamento garantido", "A Multigiro Central de Compras recebe do cliente e repassa em D+2 após a entrega confirmada."],
         ].map(([t, d]) => (
           <div key={t} className="rounded-3xl border border-brand-line bg-card p-6">
@@ -29,6 +55,29 @@ export default function SuppliersPage() {
           </div>
         ))}
       </div>
+
+      <InfoSection title="Formas de conectar seu catálogo">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {INTEGRATION_METHODS.map((m) => (
+            <Link
+              key={m.id}
+              href="/fornecedores/integrar"
+              className="press group flex flex-col gap-2 rounded-2xl border border-brand-line bg-card p-4 transition-colors hover:border-brand-navy/40"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-heading text-sm font-bold text-brand-navy dark:text-foreground">{m.title}</span>
+                {m.status === "coming_soon" ? (
+                  <Badge variant="secondary" className="bg-brand-line/60 text-brand-ink-soft">Em breve</Badge>
+                ) : (
+                  <Badge className="bg-brand-green-soft text-brand-green">Disponível</Badge>
+                )}
+              </div>
+              <p className="text-xs leading-snug text-brand-ink-soft">{m.tagline}</p>
+            </Link>
+          ))}
+        </div>
+      </InfoSection>
+
       <InfoSection title="Quero ser parceiro">
         <p>Mande o nome da empresa, cidade e as linhas de produto que você atende. A equipe comercial responde em até 1 dia útil.</p>
         <div className="flex flex-wrap gap-2 pt-2">

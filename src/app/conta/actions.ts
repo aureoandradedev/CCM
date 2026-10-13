@@ -115,6 +115,62 @@ export async function updatePassword(_prev: ActionState, formData: FormData): Pr
   redirect("/conta?senha=ok");
 }
 
+/** Exporta os dados pessoais do usuário autenticado (LGPD art. 18). */
+export async function exportMyData(): Promise<{ error?: string; data?: string }> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Faça login para continuar." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, document, person_type, phone, email, created_at")
+    .eq("id", user.id)
+    .single();
+
+  const { data: addresses } = await supabase
+    .from("addresses")
+    .select("label, cep, street, number, complement, district, city, state, reference, is_default, created_at")
+    .eq("profile_id", user.id);
+
+  const { data: orders } = await supabase
+    .from("orders")
+    .select(
+      "code, created_at, order_status, payment_status, payment_method, delivery_method, total_centavos, subtotal_centavos, discount_centavos, freight_centavos, items_count, notes, customer, address, paid_at, order_items(name, sku, unit, qty, price_tier, unit_price_centavos, line_centavos)",
+    )
+    .eq("profile_id", user.id)
+    .order("created_at", { ascending: false });
+
+  return {
+    data: JSON.stringify(
+      { exportado_em: new Date().toISOString(), perfil: profile, enderecos: addresses ?? [], pedidos: orders ?? [] },
+      null,
+      2,
+    ),
+  };
+}
+
+/** Anonimiza e exclui a conta do usuário autenticado (LGPD art. 18). */
+export async function requestAccountDeletion(): Promise<ActionState | never> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Faça login para continuar." };
+
+  const { error } = await supabase.rpc("anonymize_my_account");
+  if (error) {
+    console.error("anonymize_my_account error:", error.message);
+    return { error: "Não foi possível processar a solicitação. Tente novamente ou entre em contato pelo e-mail." };
+  }
+
+  await supabase.auth.signOut();
+  redirect("/");
+}
+
 /** Atualiza nome, documento e telefone do perfil. */
 export async function updateProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
   if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };

@@ -5,7 +5,9 @@ import { cn } from "@/lib/utils";
 
 /**
  * Marca oficial: wordmark "Multigiro · Central de Compras" (amarelo + azul)
- * com a cabeça do mascote ao lado no desktop. Os arquivos ficam em /public/brand.
+ * com o mascote de corpo inteiro ao lado no desktop. Os arquivos ficam em
+ * /public/brand. A imagem é retrato (686x961): altura fixa + largura automática
+ * e object-contain para o mascote aparecer inteiro, sem corte.
  */
 export function Logo({ className, compact = false }: { className?: string; compact?: boolean }) {
   return (
@@ -19,12 +21,12 @@ export function Logo({ className, compact = false }: { className?: string; compa
     >
       {!compact ? (
         <Image
-          src="/brand/mascote-head.png"
+          src="/brand/mascote-capacete-alpha.png"
           alt=""
-          width={44}
-          height={44}
+          width={686}
+          height={961}
           priority
-          className="hidden size-10 shrink-0 transition-transform duration-200 ease-[var(--ease-out)] group-hover:-rotate-6 sm:block md:size-11"
+          className="h-10 w-auto shrink-0 object-contain transition-transform duration-200 ease-[var(--ease-out)] group-hover:-rotate-6 sm:h-12 md:h-14"
         />
       ) : null}
       <Image

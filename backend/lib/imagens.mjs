@@ -27,7 +27,9 @@ export async function listarCandidatosPorNome(nome, contexto = {}) {
 
 export function hostPermitido(url) {
   try {
-    return HOSTS_PERMITIDOS.test(new URL(url).hostname);
+    const u = new URL(url);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    return HOSTS_PERMITIDOS.test(u.hostname);
   } catch {
     return false;
   }
