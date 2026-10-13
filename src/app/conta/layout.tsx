@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { KeyRound, LayoutDashboard, LogOut, PackageSearch, ShieldCheck, UserRound } from "lucide-react";
+import { KeyRound, LayoutDashboard, LogOut, PackageSearch, Shield, ShieldCheck, UserRound } from "lucide-react";
 
 import { signOut } from "@/app/conta/actions";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/conta/pedidos", label: "Meus pedidos", icon: PackageSearch },
   { href: "/conta/dados", label: "Meus dados", icon: UserRound },
   { href: "/conta/senha", label: "Senha", icon: KeyRound },
+  { href: "/conta/privacidade", label: "Privacidade", icon: Shield },
 ];
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
