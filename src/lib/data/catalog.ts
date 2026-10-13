@@ -123,7 +123,7 @@ const PRODUCT_SELECT =
 
 /* ------------------------------ carregamento ------------------------------ */
 
-const loadAllProducts = cache(async function loadAllProducts(): Promise<Product[]> {
+const loadAllProducts = cache(async (): Promise<Product[]> => {
   const sb = createPublicClient();
   if (!sb) return mockCatalog.products;
   const { data, error } = await sb
