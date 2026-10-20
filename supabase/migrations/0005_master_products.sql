@@ -139,9 +139,9 @@ create index if not exists catalog_items_match_status_idx
 -- 4. OFERTAS DE FORNECEDOR
 -- ============================================================================
 -- Cada oferta é uma proposta comercial de um fornecedor para um produto mestre.
--- SEM UNIQUE(master_product_id, supplier_id): permite histórico natural.
--- Regra de negócio: no máximo 1 oferta com status='ativa' por (master, supplier),
--- controlada pela aplicação ao ativar/desativar.
+-- Permite histórico natural (múltiplas linhas por master+supplier).
+-- Unicidade da oferta ativa garantida por índice UNIQUE parcial:
+--   apenas 1 com status='ativa' por (master_product_id, supplier_id).
 -- Ofertas antigas ficam como 'vencida' ou 'indisponivel' — histórico preservado.
 
 create table if not exists public.supplier_offers (
@@ -165,6 +165,11 @@ create table if not exists public.supplier_offers (
 
 create trigger supplier_offers_updated_at before update on public.supplier_offers
   for each row execute function public.set_updated_at();
+
+-- Garantia no banco: no máximo 1 oferta ativa por (fornecedor, produto mestre).
+-- Histórico (vencida, indisponivel, escolhida) não é afetado.
+create unique index if not exists offers_unique_active_idx
+  on public.supplier_offers (master_product_id, supplier_id) where status = 'ativa';
 
 -- Índice parcial: consultas frequentes buscam apenas ofertas ativas/escolhidas
 create index if not exists offers_master_active_idx
