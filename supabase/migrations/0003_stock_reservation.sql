@@ -217,5 +217,18 @@ BEGIN
 END;
 $$;
 
--- create_order_atomic is backend-only (service_role).
-REVOKE EXECUTE ON FUNCTION public.create_order_atomic(jsonb, jsonb) FROM anon, authenticated;
+-- create_order_atomic: backend-only (service_role)
+REVOKE ALL ON FUNCTION public.create_order_atomic(jsonb, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.create_order_atomic(jsonb, jsonb) FROM anon;
+REVOKE ALL ON FUNCTION public.create_order_atomic(jsonb, jsonb) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.create_order_atomic(jsonb, jsonb) TO service_role;
+
+-- release_order_stock: admin server actions (authenticated + is_admin() interna)
+REVOKE ALL ON FUNCTION public.release_order_stock(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.release_order_stock(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.release_order_stock(uuid) TO authenticated;
+
+-- reserve_order_stock: admin server actions (authenticated + is_admin() interna)
+REVOKE ALL ON FUNCTION public.reserve_order_stock(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.reserve_order_stock(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.reserve_order_stock(uuid) TO authenticated;
