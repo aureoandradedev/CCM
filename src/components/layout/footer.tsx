@@ -35,7 +35,7 @@ export async function Footer() {
       <div className="container-ccm grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="space-y-4">
           <Logo />
-          <p className="max-w-sm text-sm leading-relaxed text-brand-ink-soft">{site.tagline} Sem estoque parado, sem intermediário: cada pedido vai direto do fornecedor parceiro para a sua obra.</p>
+          <p className="max-w-sm text-sm leading-relaxed text-brand-ink-soft">{site.tagline} Produtos selecionados pela nossa equipe de compras, com preço de atacado a partir de poucas unidades.</p>
           <ul className="space-y-2 text-sm text-brand-ink">
             <li className="flex items-center gap-2">
               <Phone className="size-4 text-brand-navy dark:text-brand-yellow" />

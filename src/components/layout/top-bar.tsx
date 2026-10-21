@@ -20,7 +20,7 @@ export async function TopBar() {
             </li>
             <li className="hidden items-center gap-1.5 md:flex">
               <Truck className="size-3.5 text-brand-yellow" />
-              <span>Direto do fornecedor, sem intermediário</span>
+              <span>Produtos selecionados pela Central de Compras</span>
             </li>
           </ul>
         )}

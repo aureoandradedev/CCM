@@ -10,7 +10,7 @@ import { site, whatsappLink } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Seja um fornecedor",
-  description: "Conecte sua empresa ao CCM em poucos minutos: importe seu catálogo por planilha, API, ERP ou cadastro manual e comece a vender para as obras da região.",
+  description: "Forneça seus produtos para o CCM: envie catálogo, custos, estoque e condições comerciais. Nossa equipe analisa e seleciona as melhores ofertas para a Central de Compras.",
 };
 
 export default function SuppliersPage() {
@@ -18,8 +18,8 @@ export default function SuppliersPage() {
     <InfoPage
       crumb="Seja um fornecedor"
       eyebrow="Para distribuidores e fábricas"
-      title="Venda para centenas de obras sem montar loja."
-      intro="A Multigiro Central de Compras leva o seu catálogo para quem está construindo no Sul do Espírito Santo. Você define preço de varejo e de atacado, recebe o pedido pronto e cuida só da entrega."
+      title="Forneça seus produtos para o CCM."
+      intro="Conecte seu catálogo e envie preços, estoque e condições comerciais. Nossa equipe analisa as ofertas e seleciona os produtos com melhor oportunidade para a Central de Compras."
     >
       {/* CTA principal — entrada da Central de Integração */}
       <section className="overflow-hidden rounded-3xl bg-brand-navy p-6 text-white md:p-10">
@@ -28,8 +28,7 @@ export default function SuppliersPage() {
             <Badge className="bg-brand-yellow text-brand-navy">Central de Integração</Badge>
             <h2 className="mt-3 font-heading text-2xl font-extrabold md:text-3xl">Conecte sua empresa ao CCM em poucos minutos.</h2>
             <p className="mt-2 text-sm text-white/80">
-              Importe seu catálogo do jeito que for mais fácil — planilha, API, ERP, feed ou cadastro manual. Sem depender da
-              nossa equipe para cada passo.
+              Importe seu catálogo por planilha, API, ERP, feed ou cadastro manual. O CCM organiza e valida as informações para análise da equipe de compras.
             </p>
           </div>
           <div className="flex shrink-0 flex-col gap-2">
@@ -45,9 +44,9 @@ export default function SuppliersPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          ["Sem mensalidade", "Comissão só sobre pedido entregue e confirmado."],
-          ["Catálogo integrado", "Planilha, API, ERP, feed ou cadastro manual: conecte do seu jeito e mantenha estoque e preço atualizados."],
-          ["Pagamento garantido", "A Multigiro Central de Compras recebe do cliente e repassa em D+2 após a entrega confirmada."],
+          ["Sem loja para administrar", "Envie seu catálogo e mantenha custos, estoque e condições comerciais atualizados sem precisar gerenciar uma vitrine própria dentro do CCM."],
+          ["Catálogo integrado", "Envie por planilha, API, ERP, feed ou cadastro manual. O CCM padroniza as informações para análise de compras."],
+          ["Parceria comercial simples", "As condições comerciais são definidas diretamente com o CCM conforme o perfil de fornecimento e os produtos selecionados."],
         ].map(([t, d]) => (
           <div key={t} className="rounded-3xl border border-brand-line bg-card p-6">
             <p className="font-heading text-lg font-bold text-brand-navy dark:text-foreground">{t}</p>
@@ -79,7 +78,7 @@ export default function SuppliersPage() {
       </InfoSection>
 
       <InfoSection title="Quero ser parceiro">
-        <p>Mande o nome da empresa, cidade e as linhas de produto que você atende. A equipe comercial responde em até 1 dia útil.</p>
+        <p>Envie o nome da empresa, cidade e principais linhas de produtos. Nossa equipe comercial entra em contato para entender seu catálogo e condições de fornecimento.</p>
         <div className="flex flex-wrap gap-2 pt-2">
           <Button variant="whatsapp" size="lg" render={<a href={whatsappLink("Olá! Quero ser fornecedor parceiro da Multigiro Central de Compras.")} target="_blank" rel="noreferrer" />}>
             Falar pelo WhatsApp
