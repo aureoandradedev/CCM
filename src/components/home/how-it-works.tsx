@@ -23,7 +23,7 @@ const STEPS = [
   },
 ];
 
-/** Bloco de confiança: explica o modelo "direto do fornecedor" da Multigiro Central de Compras. */
+/** Bloco de confiança: explica o modelo da Multigiro Central de Compras. */
 export function HowItWorks() {
   return (
     <Reveal as="section" className="container-ccm" aria-labelledby="how-title" stagger={0.1}>

@@ -19,7 +19,7 @@ const POPULAR = ["cimento", "porcelanato", "tinta 18l", "cabo 2,5mm", "vaso sani
 
 /**
  * Busca do header: sugestões em tempo real (produtos + categorias) com
- * navegação por teclado. A busca é o CTA principal de um marketplace de
+ * navegação por teclado. A busca é o CTA principal de um e-commerce de
  * material de construção, então ela é grande e fica no centro.
  */
 export function SearchBar({ className, initialQuery = "", autoFocus = false }: { className?: string; initialQuery?: string; autoFocus?: boolean }) {

@@ -6,7 +6,7 @@
  * nunca promete uma conexão que não existe.
  *
  * Adicionar um ERP no futuro = acrescentar uma entrada aqui e seu adapter em
- * `adapters/`. Nada no núcleo do marketplace precisa mudar.
+ * `adapters/`. Nada no núcleo precisa mudar.
  */
 import type {
   IntegrationMethod,
@@ -32,7 +32,7 @@ export const INTEGRATION_METHODS: MethodDef[] = [
   {
     id: "erp",
     title: "Conectar meu ERP",
-    tagline: "Ligue seu sistema de gestão e deixe estoque e preço sincronizarem sozinhos.",
+    tagline: "Sincronize catálogo, custos, estoque, disponibilidade e prazo com o CCM.",
     icon: "Plug",
     status: "coming_soon",
     effort: "Em breve",
@@ -40,15 +40,15 @@ export const INTEGRATION_METHODS: MethodDef[] = [
   {
     id: "csv",
     title: "Importar Excel/CSV",
-    tagline: "Envie sua planilha de produtos e nós mapeamos as colunas para você.",
+    tagline: "Envie sua planilha de produtos e o CCM ajuda a mapear e validar as informações do catálogo.",
     icon: "FileSpreadsheet",
     status: "available",
     effort: "~5 minutos",
   },
   {
     id: "api",
-    title: "Usar a API do CCM",
-    tagline: "Tem sistema próprio? Integre produtos, estoque e pedidos via API REST.",
+    title: "Conectar via API",
+    tagline: "Sincronize catálogo, custos, estoque, disponibilidade e prazo com o CCM. Para equipes de tecnologia.",
     icon: "Code2",
     status: "available",
     effort: "Para desenvolvedores",
@@ -56,7 +56,7 @@ export const INTEGRATION_METHODS: MethodDef[] = [
   {
     id: "feed",
     title: "Feed / URL",
-    tagline: "Aponte um link JSON, XML ou CSV e o CCM lê seu catálogo periodicamente.",
+    tagline: "Informe um feed JSON, XML ou CSV para manter seu catálogo e dados comerciais sincronizados com o CCM.",
     icon: "Rss",
     status: "coming_soon",
     effort: "Em breve",
@@ -64,7 +64,7 @@ export const INTEGRATION_METHODS: MethodDef[] = [
   {
     id: "manual",
     title: "Cadastrar manualmente",
-    tagline: "Sem sistema? Cadastre seus produtos direto no painel do CCM.",
+    tagline: "Sem integração? Cadastre seus produtos e condições comerciais diretamente no painel do CCM.",
     icon: "PencilLine",
     status: "available",
     effort: "No seu ritmo",

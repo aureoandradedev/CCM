@@ -14,7 +14,7 @@ export default function IntegrarPage() {
       crumb="Integrar minha empresa"
       eyebrow="Central de Integração do Fornecedor"
       title="Conecte seu catálogo ao CCM"
-      intro="Escolha como quer trazer seus produtos. A gente mapeia, valida e deixa tudo pronto para vender — em poucos passos."
+      intro="Escolha como enviar seu catálogo. O CCM organiza e valida os dados para análise da equipe de compras."
     >
       <IntegrationWizard />
     </InfoPage>

@@ -8,7 +8,7 @@
  *     Sistema externo  →  Adapter/Connector  →  CanonicalProduct (padrão CCM)
  *
  * Adicionar um novo ERP no futuro = criar um novo connector + adapter que
- * produza `CanonicalProduct`. O restante do marketplace não muda.
+ * produza `CanonicalProduct`. O restante do sistema não muda.
  */
 
 /** Métodos de onboarding mostrados no wizard (etapa 1). */

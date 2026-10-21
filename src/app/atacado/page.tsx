@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 const PERKS = [
   { icon: Boxes, title: "Sem CNPJ", text: "O preço de atacado vale para qualquer cliente que atingir a quantidade mínima do produto." },
   { icon: Calculator, title: "Cai sozinho", text: "Ao chegar na quantidade, o carrinho troca para o preço de atacado automaticamente." },
-  { icon: Truck, title: "Direto do fornecedor", text: "Pedidos grandes saem do distribuidor ou da fábrica, sem intermediário." },
+  { icon: Truck, title: "Condições especiais", text: "Compras em volume com preços negociados pela Central de Compras junto aos melhores distribuidores da região." },
 ];
 
 export default async function WholesalePage({ searchParams }: { searchParams: Promise<SearchParamsRecord> }) {

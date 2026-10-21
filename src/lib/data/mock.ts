@@ -1370,7 +1370,7 @@ export const banners: Banner[] = [
 export const quickLinks: QuickLink[] = [
   { id: "pix", icon: "QrCode", title: "5% off no Pix", subtitle: "em todo o site", href: "/ofertas" },
   { id: "atacado", icon: "Boxes", title: "Preço de atacado", subtitle: "a partir de poucas un.", href: "/atacado" },
-  { id: "fornecedor", icon: "Truck", title: "Direto do fornecedor", subtitle: "sem intermediário", href: "/como-funciona" },
+  { id: "fornecedor", icon: "Truck", title: "Ofertas selecionadas", subtitle: "pela Central de Compras", href: "/como-funciona" },
   { id: "orcamento", icon: "ClipboardList", title: "Orçamento de obra", subtitle: "mande sua lista", href: "/orcamento" },
   { id: "whats", icon: "MessageCircle", title: "Televendas", subtitle: "fale com um vendedor", href: "/atendimento" },
 ];
