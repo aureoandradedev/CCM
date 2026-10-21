@@ -37,7 +37,7 @@ export function Newsletter() {
             <h2 id="news-title" className="font-heading text-2xl font-extrabold tracking-tight md:text-[1.75rem]">
               Ofertas de atacado direto no seu WhatsApp
             </h2>
-            <p className="mt-1 text-sm text-brand-navy/80">Uma mensagem por semana com o que baixou de preço nos fornecedores. Sem spam.</p>
+            <p className="mt-1 text-sm text-brand-navy/80">Uma mensagem por semana com ofertas exclusivas e novidades. Sem spam.</p>
           </div>
         </div>
         <form onSubmit={submit} className="flex flex-col gap-2 sm:flex-row">

@@ -15,6 +15,7 @@ import {
   Menu,
   PackageSearch,
   Percent,
+  Plug,
   Settings,
   ShoppingBag,
   Tag,
@@ -41,6 +42,8 @@ const NAV = [
   { href: "/admin/clientes", label: "Clientes e leads", icon: Users },
   { href: "/admin/categorias", label: "Categorias", icon: Layers },
   { href: "/admin/fornecedores", label: "Fornecedores", icon: Truck },
+  { href: "/admin/compras", label: "Compras", icon: Boxes },
+  { href: "/admin/integracoes", label: "Integrações", icon: Plug },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 

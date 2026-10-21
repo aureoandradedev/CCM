@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useShallow } from "zustand/react/shallow";
 import Image from "next/image";
-import { ArrowLeft, ArrowRight, ShieldCheck, Store } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 
 import { CartLineItem } from "@/components/cart/cart-line-item";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { FREE_SHIPPING_FROM } from "@/components/product/shipping-estimate";
 import { Button } from "@/components/ui/button";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { selectLines, selectTotals, useCartStore, type CartLine } from "@/lib/cart/store";
+import { selectLines, selectTotals, useCartStore } from "@/lib/cart/store";
 import { formatBRL } from "@/lib/utils/format";
 
 export function CartPage() {
@@ -18,13 +18,6 @@ export function CartPage() {
   const lines = useCartStore(useShallow(selectLines));
   const totals = useCartStore(useShallow(selectTotals));
   const clear = useCartStore((s) => s.clear);
-
-  const groups = new Map<string, { name: string; lead?: number; lines: CartLine[] }>();
-  for (const l of lines) {
-    const key = l.supplierId ?? "ccm";
-    if (!groups.has(key)) groups.set(key, { name: l.supplierName ?? "Multigiro", lead: l.leadTimeDays, lines: [] });
-    groups.get(key)!.lines.push(l);
-  }
 
   const missingForFree = Math.max(0, FREE_SHIPPING_FROM - totals.subtotal);
 
@@ -61,22 +54,11 @@ export function CartPage() {
       ) : (
         <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-6">
-            {Array.from(groups.entries()).map(([key, g]) => (
-              <section key={key} aria-labelledby={`sup-${key}`}>
-                <div className="mb-2 flex items-center gap-2 text-sm">
-                  <Store className="size-4 text-brand-navy dark:text-brand-yellow" />
-                  <h2 id={`sup-${key}`} className="font-semibold text-brand-ink">
-                    Entregue por <span className="text-brand-navy dark:text-foreground">{g.name}</span>
-                  </h2>
-                  {g.lead ? <span className="text-xs text-brand-ink-soft">· despacha em {g.lead} {g.lead === 1 ? "dia útil" : "dias úteis"}</span> : null}
-                </div>
-                <ul className="space-y-3">
-                  {g.lines.map((l) => (
-                    <CartLineItem key={l.productId} line={l} variant="page" />
-                  ))}
-                </ul>
-              </section>
-            ))}
+            <ul className="space-y-3">
+              {lines.map((l) => (
+                <CartLineItem key={l.productId} line={l} variant="page" />
+              ))}
+            </ul>
 
             <Button variant="link" className="px-0 text-brand-navy dark:text-foreground" render={<Link href="/departamentos" />}>
               <ArrowLeft />
@@ -129,7 +111,7 @@ export function CartPage() {
               </Button>
               <p className="mt-3 flex items-start gap-1.5 text-[0.72rem] text-brand-ink-soft">
                 <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-brand-green" />
-                Preços revalidados com o fornecedor na confirmação do pedido. Você só paga depois do aceite.
+                Preços revalidados na confirmação do pedido. Compra protegida.
               </p>
             </div>
           </aside>

@@ -68,12 +68,12 @@ export function IntegrationsDashboard() {
         <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-brand-yellow-soft text-brand-navy">
           <Plug className="size-7" strokeWidth={2} />
         </span>
-        <h3 className="font-heading text-lg font-bold text-brand-navy dark:text-foreground">Nenhuma integração ainda</h3>
+        <h3 className="font-heading text-lg font-bold text-brand-navy dark:text-foreground">Nenhuma integracao ainda</h3>
         <p className="mx-auto mt-1 max-w-sm text-sm text-brand-ink-soft">
-          Conecte sua empresa ao CCM e comece a vender. Leva poucos minutos.
+          Conecte seu catalogo ao CCM. Seus produtos passam por analise antes de entrar na vitrine.
         </p>
         <Button variant="brand" size="lg" render={<Link href="/fornecedores/integrar" />} className="mt-4">
-          Integrar minha empresa
+          Conectar meu catalogo
         </Button>
       </div>
     );

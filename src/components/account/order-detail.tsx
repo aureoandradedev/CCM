@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { MapPin, Package, Store } from "lucide-react";
+import { MapPin, Package } from "lucide-react";
 
 import { formatDateTime, methodLabel, paymentLabel, statusLabel, TONE_CLASS, type OrderItemRow, type OrderRow } from "@/lib/orders";
 import { formatBRL, formatUnit } from "@/lib/utils/format";
@@ -17,41 +17,28 @@ export function PaymentBadge({ status }: { status: string }) {
 
 /** Detalhe de um pedido (itens, totais, entrega). Usado na conta do cliente e no admin. */
 export function OrderDetail({ order, items, showCustomer = false }: { order: OrderRow; items: OrderItemRow[]; showCustomer?: boolean }) {
-  const grupos = new Map<string, OrderItemRow[]>();
-  for (const it of items) {
-    const k = it.supplier_id ?? "—";
-    if (!grupos.has(k)) grupos.set(k, []);
-    grupos.get(k)!.push(it);
-  }
-
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
       <div className="space-y-4">
-        {[...grupos.entries()].map(([supplier, list]) => (
-          <section key={supplier} className="rounded-2xl border border-brand-line bg-card">
-            <header className="flex items-center gap-2 border-b border-brand-line px-4 py-2.5 text-sm">
-              <Store className="size-4 text-brand-navy" />
-              <span className="font-semibold text-brand-ink">Fornecedor: {supplier}</span>
-            </header>
-            <ul className="divide-y divide-brand-line">
-              {list.map((it) => (
-                <li key={it.id} className="flex items-center gap-3 px-4 py-3 text-sm">
-                  <span className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    {it.image ? <Image src={it.image} alt="" fill sizes="56px" className="object-cover" /> : <Package className="m-auto size-6 text-brand-ink-soft" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 font-medium text-brand-ink">{it.name}</p>
-                    <p className="text-xs text-brand-ink-soft">
-                      {it.qty} {formatUnit(it.unit)} × {formatBRL(it.unit_price_centavos / 100)}
-                      {it.price_tier === "wholesale" ? <span className="ml-1 rounded bg-brand-orange px-1 text-[0.6rem] font-bold uppercase text-white">Atacado</span> : null}
-                    </p>
-                  </div>
-                  <span className="font-heading font-bold text-brand-navy tabular-nums">{formatBRL(it.line_centavos / 100)}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        <section className="rounded-2xl border border-brand-line bg-card">
+          <ul className="divide-y divide-brand-line">
+            {items.map((it) => (
+              <li key={it.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                <span className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  {it.image ? <Image src={it.image} alt="" fill sizes="56px" className="object-cover" /> : <Package className="m-auto size-6 text-brand-ink-soft" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 font-medium text-brand-ink">{it.name}</p>
+                  <p className="text-xs text-brand-ink-soft">
+                    {it.qty} {formatUnit(it.unit)} × {formatBRL(it.unit_price_centavos / 100)}
+                    {it.price_tier === "wholesale" ? <span className="ml-1 rounded bg-brand-orange px-1 text-[0.6rem] font-bold uppercase text-white">Atacado</span> : null}
+                  </p>
+                </div>
+                <span className="font-heading font-bold text-brand-navy tabular-nums">{formatBRL(it.line_centavos / 100)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
 
       <aside className="space-y-4">
@@ -106,7 +93,7 @@ export function OrderDetail({ order, items, showCustomer = false }: { order: Ord
 
         <div className="rounded-2xl border border-brand-line bg-card p-4 text-sm">
           <p className="flex items-center gap-2 font-semibold text-brand-ink">
-            <MapPin className="size-4 text-brand-navy" /> {order.delivery_method === "pickup" ? "Retirada no fornecedor" : "Entrega na obra"}
+            <MapPin className="size-4 text-brand-navy" /> {order.delivery_method === "pickup" ? "Retirada na loja" : "Entrega na obra"}
           </p>
           {order.address ? (
             <p className="mt-1 text-brand-ink-soft">

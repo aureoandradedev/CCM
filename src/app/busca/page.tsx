@@ -60,7 +60,7 @@ export default async function SearchPage({ searchParams }: Props) {
           brandName ?? q.marca
         )
       }
-      description={result.total ? undefined : "Não encontramos esse item no catálogo atual. Tente um sinônimo ou peça uma cotação: fornecedores novos entram toda semana."}
+      description={result.total ? undefined : "Nao encontramos esse item no catalogo atual. Tente um sinonimo ou peca uma cotacao pelo WhatsApp."}
       basePath="/busca"
       params={q}
       result={result}

@@ -21,14 +21,22 @@ export interface CsvResult {
   summary: ImportSummary;
   mapping: ColumnMapping;
   sourceName: string;
+  sourceType: "csv" | "xlsx";
 }
 
 const NONE = "__none__";
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const EXCEL_EXTS = new Set(["xlsx"]);
+
+function fileExt(name: string): string {
+  return (name.split(".").pop() ?? "").toLowerCase();
+}
 
 export function CsvImporter({ onChange }: { onChange: (result: CsvResult | null) => void }) {
   const [table, setTable] = useState<ParsedTable | null>(null);
   const [mapping, setMapping] = useState<ColumnMapping>({});
   const [fileName, setFileName] = useState("");
+  const [sourceType, setSourceType] = useState<"csv" | "xlsx">("csv");
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,29 +46,40 @@ export function CsvImporter({ onChange }: { onChange: (result: CsvResult | null)
     return buildSummary(table.rows, mapping);
   }, [table, mapping]);
 
-  // Propaga o resultado para o wizard sempre que muda.
   useEffect(() => {
-    if (table && summary) onChange({ summary, mapping, sourceName: fileName });
+    if (table && summary) onChange({ summary, mapping, sourceName: fileName, sourceType });
     else onChange(null);
-    // onChange é estável no pai; não entra nas deps para evitar loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table, summary, mapping, fileName]);
+  }, [table, summary, mapping, fileName, sourceType]);
 
   const handleFile = useCallback(async (file: File) => {
     setError(null);
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)} MB). O limite é 5 MB.`);
+      return;
+    }
+    const ext = fileExt(file.name);
+    const isExcel = EXCEL_EXTS.has(ext);
     try {
-      const text = await readFileAsText(file);
-      const parsed = parseDelimited(text);
+      let parsed: ParsedTable;
+      if (isExcel) {
+        const { parseExcel } = await import("@/lib/integrations/xlsx");
+        parsed = await parseExcel(file);
+      } else {
+        const text = await readFileAsText(file);
+        parsed = parseDelimited(text);
+      }
       if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-        setError("Não encontramos linhas na planilha. Exporte como CSV e tente de novo.");
+        setError("Não encontramos linhas na planilha. Verifique o arquivo e tente novamente.");
         setTable(null);
         return;
       }
       setTable(parsed);
       setMapping(suggestMapping(parsed.headers));
       setFileName(file.name);
+      setSourceType(isExcel ? "xlsx" : "csv");
     } catch {
-      setError("Não foi possível ler o arquivo. Salve como CSV (UTF-8) e tente novamente.");
+      setError("Não foi possível ler o arquivo. Verifique o formato e tente novamente.");
       setTable(null);
     }
   }, []);
@@ -69,6 +88,7 @@ export function CsvImporter({ onChange }: { onChange: (result: CsvResult | null)
     setTable(null);
     setMapping({});
     setFileName("");
+    setSourceType("csv");
     setError(null);
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -101,12 +121,12 @@ export function CsvImporter({ onChange }: { onChange: (result: CsvResult | null)
             Arraste sua planilha ou clique para enviar
           </span>
           <span className="text-sm text-brand-ink-soft">
-            Aceita <strong>.csv</strong> (no Excel: Arquivo → Salvar como → CSV). Separador por vírgula, ponto e vírgula ou tabulação.
+            Aceita <strong>.xlsx</strong> e <strong>.csv</strong> (até 5 MB). Separador por vírgula, ponto e vírgula ou tabulação.
           </span>
           <input
             ref={inputRef}
             type="file"
-            accept=".csv,text/csv,text/plain,.tsv"
+            accept=".csv,.xlsx,text/csv,text/plain,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="sr-only"
             onChange={(e) => {
               const f = e.target.files?.[0];

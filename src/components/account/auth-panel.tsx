@@ -31,7 +31,7 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
         <HardHat className="size-8 text-brand-yellow" />
         <h2 className="mt-4 font-heading text-[1.9rem] leading-tight font-extrabold tracking-tight">Uma conta para a obra inteira.</h2>
         <ul className="mt-5 space-y-3 text-sm text-white/80">
-          {["Histórico de pedidos por fornecedor", "Endereços de obra salvos", "Preço de atacado e faturamento para CNPJ", "Listas de materiais para repetir compras"].map((t) => (
+          {["Historico de pedidos", "Enderecos de obra salvos", "Preco de atacado e faturamento para CNPJ", "Listas de materiais para repetir compras"].map((t) => (
             <li key={t} className="flex gap-2">
               <span className="mt-1 size-1.5 shrink-0 rounded-full bg-brand-yellow" />
               {t}

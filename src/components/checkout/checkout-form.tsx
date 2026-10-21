@@ -228,7 +228,7 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
       ) : (
         <form onSubmit={handleSubmit(onSubmit, () => toast.error("Confira os campos destacados."))} noValidate className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-6">
-            <Section n={1} title="Quem recebe" hint="Usamos o CPF ou CNPJ para emitir a nota fiscal do fornecedor.">
+            <Section n={1} title="Quem recebe" hint="Usamos o CPF ou CNPJ para emitir a nota fiscal.">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Nome completo" error={errors.nome?.message} className="sm:col-span-2">
                   <input className={input} autoComplete="name" aria-invalid={!!errors.nome} {...register("nome")} />
@@ -245,13 +245,13 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
               </div>
             </Section>
 
-            <Section n={2} title="Entrega" hint="Entrega na obra direto do fornecedor ou retirada no fornecedor.">
+            <Section n={2} title="Entrega" hint="Entrega na obra ou retirada na loja.">
               {bloqueio?.ativo ? (
                 <p role="status" className="mb-3 flex items-start gap-2 rounded-xl border border-brand-orange/40 bg-brand-orange-soft px-3 py-2 text-sm text-brand-orange">
                   <Info className="mt-0.5 size-4 shrink-0" />
                   <span>
                     {bloqueio.mensagem || "Entregas temporariamente suspensas."}
-                    {bloqueio.data ? ` Voltam em ${new Date(`${bloqueio.data}T12:00:00-03:00`).toLocaleDateString("pt-BR")}.` : ""} Retirada no fornecedor segue normal.
+                    {bloqueio.data ? ` Voltam em ${new Date(`${bloqueio.data}T12:00:00-03:00`).toLocaleDateString("pt-BR")}.` : ""} Retirada na loja segue normal.
                   </span>
                 </p>
               ) : null}
@@ -260,7 +260,7 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
                 {(
                   [
                     ["delivery", "Entrega na obra", Truck, totals.subtotal >= FREE_SHIPPING_FROM ? "Frete grátis" : `Frete ${formatBRL(STANDARD_SHIPPING)}`],
-                    ["pickup", "Retirar no fornecedor", Store, "Sem frete"],
+                    ["pickup", "Retirar na loja", Store, "Sem frete"],
                   ] as const
                 ).map(([k, label, I, hint]) => (
                   <label key={k} className={cn("flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition-colors", entrega === k ? "border-brand-navy bg-brand-yellow-soft/60" : "border-brand-line bg-card hover:border-brand-navy/30")}>
@@ -314,7 +314,7 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
                   </Field>
                 </div>
               ) : null}
-              <Field label="Observações para o fornecedor" className="mt-4">
+              <Field label="Observacoes para entrega" className="mt-4">
                 <input className={input} placeholder="Ex.: entregar pela manhã, obra sem portão" maxLength={500} {...register("observacoes")} />
               </Field>
             </Section>

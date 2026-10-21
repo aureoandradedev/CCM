@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ClipboardCheck, Factory, Truck } from "lucide-react";
+import { ArrowRight, ClipboardCheck, Package, Truck } from "lucide-react";
 
 import { Reveal } from "@/components/motion/reveal";
 import { Button } from "@/components/ui/button";
@@ -12,14 +12,14 @@ const STEPS = [
     text: "Busque, compare varejo e atacado e adicione tudo em um carrinho só, de cimento a lâmpada.",
   },
   {
-    icon: Factory,
-    title: "O fornecedor parceiro separa",
-    text: "Cada item vai direto para o distribuidor ou fábrica mais perto. Sem estoque parado, sem intermediário.",
+    icon: Package,
+    title: "A equipe separa o pedido",
+    text: "Trabalhamos com os melhores distribuidores da regiao. Preco de atacado, sem estoque parado.",
   },
   {
     icon: Truck,
     title: "Entrega na sua obra",
-    text: "Você acompanha cada remessa pelo site e paga só quando o fornecedor confirma o pedido.",
+    text: "Voce acompanha pelo site e paga com seguranca pela Cielo. Pix ou cartao.",
   },
 ];
 
@@ -37,7 +37,7 @@ export function HowItWorks() {
               Central de compras, não depósito. Por isso o preço é de atacado.
             </h2>
             <p className="mt-4 max-w-md text-[0.95rem] leading-relaxed text-white/80">
-              A Multigiro Central de Compras conecta a sua obra aos fornecedores da região. Você compra em um lugar só e recebe direto de quem fabrica ou distribui.
+              A Multigiro Central de Compras negocia direto com distribuidores e fabricas para voce pagar preco de atacado, mesmo comprando pouco.
             </p>
             <Button variant="brand" size="lg" className="mt-6" render={<Link href="/como-funciona" />}>
               Entenda o modelo
@@ -71,7 +71,7 @@ export function HowItWorks() {
 
         <dl className="mt-10 grid grid-cols-2 gap-4 border-t border-white/10 pt-8 text-center sm:grid-cols-4">
           {[
-            ["+30", "fornecedores parceiros"],
+            ["+5.000", "itens no catalogo"],
             ["2 a 4 dias", "prazo médio de entrega"],
             ["0", "estoque parado"],
             ["5%", "de desconto no Pix"],

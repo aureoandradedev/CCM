@@ -17,7 +17,7 @@ export function ProductGrid({ products, emptyTitle = "Nenhum produto encontrado"
         <div>
           <p className="font-heading text-lg font-bold text-brand-navy dark:text-foreground">{emptyTitle}</p>
           <p className="mt-1 max-w-sm text-sm text-brand-ink-soft">
-            {emptyHint ?? "Tente outras palavras, tire um filtro ou fale com a televendas: a gente cota com os fornecedores."}
+            {emptyHint ?? "Tente outras palavras, tire um filtro ou fale com a televendas pelo WhatsApp."}
           </p>
         </div>
         <div className="flex flex-wrap justify-center gap-2">

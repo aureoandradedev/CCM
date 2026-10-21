@@ -20,7 +20,7 @@ interface Option {
  * Simulador de frete. Por enquanto a estimativa é local (prazo do fornecedor +
  * transporte); a cotação real vem quando a integração com os fornecedores entrar.
  */
-export function ShippingEstimate({ leadTimeDays = 3, subtotal, supplierCity }: { leadTimeDays?: number; subtotal: number; supplierCity?: string }) {
+export function ShippingEstimate({ leadTimeDays = 3, subtotal }: { leadTimeDays?: number; subtotal: number }) {
   const [cep, setCep] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<Option[] | null>(null);
@@ -39,7 +39,7 @@ export function ShippingEstimate({ leadTimeDays = 3, subtotal, supplierCity }: {
     const free = subtotal >= FREE_SHIPPING_FROM;
     setOptions([
       { label: "Entrega na obra", eta: `${leadTimeDays + 1} a ${leadTimeDays + 3} dias úteis`, price: free ? 0 : STANDARD_SHIPPING },
-      { label: `Retirar no fornecedor${supplierCity ? ` (${supplierCity})` : ""}`, eta: `${leadTimeDays} ${leadTimeDays === 1 ? "dia útil" : "dias úteis"}`, price: 0 },
+      { label: "Retirar na loja", eta: `${leadTimeDays} ${leadTimeDays === 1 ? "dia útil" : "dias úteis"}`, price: 0 },
     ]);
     setLoading(false);
   };
@@ -88,7 +88,7 @@ export function ShippingEstimate({ leadTimeDays = 3, subtotal, supplierCity }: {
           ))}
           {subtotal < FREE_SHIPPING_FROM ? (
             <li className="pt-2 text-xs text-brand-ink-soft">
-              Frete grátis para entrega a partir de {formatBRL(FREE_SHIPPING_FROM)} por fornecedor.
+              Frete grátis para pedidos a partir de {formatBRL(FREE_SHIPPING_FROM)}.
             </li>
           ) : null}
         </ul>

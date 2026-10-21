@@ -104,6 +104,68 @@ export const CANONICAL_FIELDS: CanonicalFieldDef[] = [
   { key: "status", label: "Status", required: false, type: "enum", aliases: ["status", "situacao", "situação", "ativo", "active"] },
 ];
 
+// ─── Integration Foundation (Phase 8) ─────────────────────────────────────
+
+export type IntegrationStatus =
+  | "disconnected"
+  | "configured"
+  | "testing"
+  | "connected"
+  | "syncing"
+  | "error"
+  | "paused";
+
+export type SyncMode = "full" | "delta";
+
+export type BatchStatus = "running" | "completed" | "partial" | "failed";
+
+export type ConnectorCapability =
+  | "full_catalog"
+  | "incremental_sync"
+  | "stock"
+  | "cost"
+  | "images"
+  | "lead_time";
+
+export type IntegrationErrorKind =
+  | "configuration_error"
+  | "authentication_error"
+  | "connection_error"
+  | "invalid_payload"
+  | "partial_import"
+  | "internal_error";
+
+/**
+ * Contrato canônico de integração (Fase 8).
+ *
+ * Qualquer connector (ERP, API, feed, arquivo, agente local) traduz o
+ * sistema externo para este formato. Depois disso, o restante do CCM
+ * não precisa conhecer o ERP de origem.
+ *
+ * Mapeia 1:1 para supplier_catalog_items (0005 + 0010).
+ */
+export interface ExternalCatalogItem {
+  external_id: string;
+  supplier_sku?: string;
+  ean?: string;
+  name: string;
+  description?: string;
+  brand?: string;
+  model?: string;
+  category?: string;
+  subcategory?: string;
+  unit?: string;
+  pack_info?: string;
+  cost_centavos: number;
+  stock?: number | null;
+  lead_time_days?: number;
+  image_url?: string;
+  images?: string[];
+  attributes?: Record<string, unknown>;
+  available?: boolean;
+  updated_at?: string;
+}
+
 /** Resultado da transformação de uma linha de origem em produto canônico. */
 export interface RowResult {
   index: number;
