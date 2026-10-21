@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, CheckCircle2, PartyPopper, Store } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, PartyPopper, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MethodCards } from "./method-cards";
@@ -16,7 +16,8 @@ import {
   saveIntegration,
   type ConnectedIntegration,
 } from "@/lib/integrations/session-store";
-import type { ImportSummary, IntegrationMethod, SyncCapability } from "@/lib/integrations/types";
+import { importCatalog } from "@/app/fornecedores/actions";
+import type { CanonicalProduct, ImportSummary, IntegrationMethod, SyncCapability } from "@/lib/integrations/types";
 import { cn } from "@/lib/utils";
 
 type Step = 1 | 2 | 3 | 4;
@@ -32,14 +33,19 @@ export function IntegrationWizard() {
   const [method, setMethod] = useState<IntegrationMethod | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [sourceName, setSourceName] = useState<string>("");
+  const [sourceType, setSourceType] = useState<"csv" | "xlsx" | "manual">("csv");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const onCsv = useCallback((r: CsvResult | null) => {
     setSummary(r?.summary ?? null);
     setSourceName(r?.sourceName ?? "");
+    setSourceType(r?.sourceType ?? "csv");
   }, []);
   const onManual = useCallback((s: ImportSummary | null) => {
     setSummary(s);
     setSourceName("Cadastro manual");
+    setSourceType("manual");
   }, []);
 
   const methodDef = method ? methodById(method) : null;
@@ -53,8 +59,39 @@ export function IntegrationWizard() {
     setStep(2);
   }
 
-  function finish() {
+  async function finish() {
     if (!method || !summary) return;
+    setImporting(true);
+    setImportError(null);
+
+    const products = summary.rows
+      .filter((r): r is typeof r & { product: CanonicalProduct } => !!r.product)
+      .map((r) => r.product);
+
+    try {
+      const result = await importCatalog({
+        sourceType,
+        sourceName,
+        products,
+        totals: {
+          total: summary.total,
+          valid: summary.valid,
+          invalid: summary.invalid,
+          warnings: summary.warnings,
+        },
+      });
+
+      if (!result.ok) {
+        setImportError(result.error ?? "Erro ao importar catálogo.");
+        setImporting(false);
+        return;
+      }
+    } catch {
+      setImportError("Erro de conexão. Verifique sua internet e tente novamente.");
+      setImporting(false);
+      return;
+    }
+
     const caps: SyncCapability[] = ["products", "stock", "price"];
     if (summary.withImages > 0) caps.push("images");
     const entry: ConnectedIntegration = {
@@ -74,6 +111,7 @@ export function IntegrationWizard() {
       lastSyncAt: new Date().toISOString(),
     };
     saveIntegration(entry);
+    setImporting(false);
     setStep(4);
   }
 
@@ -132,7 +170,7 @@ export function IntegrationWizard() {
         <section className="space-y-5">
           <header>
             <h2 className="font-heading text-xl font-extrabold text-brand-navy dark:text-foreground">Revisar catálogo</h2>
-            <p className="mt-1 text-sm text-brand-ink-soft">Confira o que encontramos antes de publicar na loja.</p>
+            <p className="mt-1 text-sm text-brand-ink-soft">Confira o que encontramos antes de importar o catálogo.</p>
           </header>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -146,17 +184,27 @@ export function IntegrationWizard() {
 
           {summary.invalid > 0 ? (
             <p className="rounded-xl border border-brand-line bg-brand-yellow-soft/40 px-4 py-3 text-sm text-brand-ink">
-              {summary.invalid} linha(s) com problema não serão publicadas agora — você pode corrigir e reimportar depois.
-              Os {summary.valid} produtos válidos já ficam prontos para vender.
+              {summary.invalid} linha(s) com problema não serão importadas agora — você pode corrigir e reimportar depois.
+              Os {summary.valid} itens válidos serão salvos no catálogo.
+            </p>
+          ) : null}
+
+          {importError ? (
+            <p className="rounded-xl border border-brand-red/30 bg-brand-red/5 px-4 py-3 text-sm font-medium text-brand-red">
+              {importError}
             </p>
           ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button variant="ghost" onClick={() => setStep(2)} className="gap-1 text-brand-ink-soft">
+            <Button variant="ghost" onClick={() => setStep(2)} disabled={importing} className="gap-1 text-brand-ink-soft">
               <ArrowLeft className="size-4" /> Voltar
             </Button>
-            <Button variant="brand" size="lg" onClick={finish} disabled={summary.valid === 0} className="gap-1">
-              <CheckCircle2 className="size-4" /> Concluir integração
+            <Button variant="brand" size="lg" onClick={finish} disabled={summary.valid === 0 || importing} className="gap-1">
+              {importing ? (
+                <><Loader2 className="size-4 animate-spin" /> Importando...</>
+              ) : (
+                <><CheckCircle2 className="size-4" /> Importar catálogo</>
+              )}
             </Button>
           </div>
         </section>
@@ -169,16 +217,16 @@ export function IntegrationWizard() {
             <PartyPopper className="size-8" />
           </div>
           <div>
-            <h2 className="font-heading text-2xl font-extrabold text-brand-navy dark:text-foreground">Sua integração está pronta.</h2>
+            <h2 className="font-heading text-2xl font-extrabold text-brand-navy dark:text-foreground">Catálogo importado com sucesso!</h2>
             <p className="mx-auto mt-2 max-w-md text-sm text-brand-ink-soft">
-              Seu catálogo foi conectado ao CCM. Os produtos prontos já podem ser vendidos; os que precisam de ajuste ficam
-              separados para revisão.
+              Seu catálogo foi recebido pelo CCM. Os itens válidos foram salvos e seguem para análise;
+              os que precisam de ajuste ficam separados para revisão.
             </p>
           </div>
           <div className="mx-auto grid max-w-lg gap-3 sm:grid-cols-3">
             <ReviewStat label="Encontrados" value={summary.total} tone="navy" />
-            <ReviewStat label="Prontos para venda" value={summary.valid} tone="green" />
-            <ReviewStat label="Para revisão" value={summary.invalid + summary.warnings} tone="orange" />
+            <ReviewStat label="Importados" value={summary.valid} tone="green" />
+            <ReviewStat label="Com problema" value={summary.invalid + summary.warnings} tone="orange" />
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button variant="brand" size="lg" onClick={() => router.push("/fornecedores/integracoes")} className="gap-1">
