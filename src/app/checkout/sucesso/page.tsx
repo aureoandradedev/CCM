@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { CheckCircle2, ClipboardCheck, Factory, Truck } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Package, Truck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/supabase/auth";
@@ -10,9 +10,9 @@ import { whatsappLink } from "@/lib/site";
 export const metadata: Metadata = { title: "Pedido recebido", robots: { index: false } };
 
 const STEPS = [
-  { icon: ClipboardCheck, title: "Pagamento confirmado", text: "Enviamos os itens para os fornecedores parceiros." },
-  { icon: Factory, title: "Fornecedor separa", text: "Cada fornecedor prepara a sua parte do pedido." },
-  { icon: Truck, title: "Entrega na obra", text: "Você acompanha cada remessa em Meus pedidos e pelo WhatsApp." },
+  { icon: ClipboardCheck, title: "Pagamento confirmado", text: "Seu pedido foi registrado e esta sendo preparado." },
+  { icon: Package, title: "Pedido em separacao", text: "A equipe separa os itens para despacho." },
+  { icon: Truck, title: "Entrega na obra", text: "Voce acompanha em Meus pedidos e pelo WhatsApp." },
 ];
 
 export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {

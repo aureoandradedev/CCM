@@ -66,7 +66,6 @@ function toLine(product: Product, qty: number): CartLine {
     wholesalePrice: product.wholesalePrice,
     wholesaleMinQty: product.wholesaleMinQty,
     supplierId: product.supplier?.id,
-    supplierName: product.supplier?.name,
     leadTimeDays: product.supplier?.leadTimeDays,
     qty,
     addedAt: Date.now(),

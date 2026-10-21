@@ -48,11 +48,6 @@ export function CartLineItem({ line, variant = "drawer", highlight = false }: Ca
               {line.name}
             </Link>
             {line.packInfo ? <p className="text-xs text-brand-ink-soft">{line.packInfo}</p> : null}
-            {page && line.supplierName ? (
-              <p className="mt-0.5 text-xs text-brand-ink-soft">
-                Vendido e entregue por <span className="font-medium text-brand-ink">{line.supplierName}</span>
-              </p>
-            ) : null}
           </div>
           <Button variant="ghost" size="icon-sm" onClick={() => remove(line.productId)} aria-label={`Remover ${line.name}`} className="-mt-1 -mr-1 shrink-0 text-brand-ink-soft hover:text-brand-red">
             <Trash2 />

@@ -22,8 +22,6 @@ export function CartDrawer() {
   const totals = useCartStore(useShallow(selectTotals));
   const clear = useCartStore((s) => s.clear);
 
-  const suppliers = new Set(lines.map((l) => l.supplierId).filter(Boolean));
-
   return (
     <Sheet open={hydrated && isOpen} onOpenChange={setOpen}>
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md" showCloseButton>
@@ -33,10 +31,8 @@ export function CartDrawer() {
           </SheetTitle>
           <SheetDescription>
             {lines.length
-              ? suppliers.size > 1
-                ? `Entregue por ${suppliers.size} fornecedores parceiros.`
-                : "Preço de atacado é aplicado automaticamente."
-              : "Adicione produtos para ver o preço de atacado."}
+              ? "Preco de atacado e aplicado automaticamente."
+              : "Adicione produtos para ver o preco de atacado."}
           </SheetDescription>
         </SheetHeader>
 
@@ -83,7 +79,7 @@ export function CartDrawer() {
               </div>
               <p className="flex items-center gap-1.5 text-[0.7rem] text-brand-ink-soft">
                 <ShieldCheck className="size-3.5 text-brand-green" />
-                Compra protegida. Pagamento só é confirmado após o fornecedor aceitar o pedido.
+                Compra protegida. Pagamento seguro pela Cielo.
               </p>
             </SheetFooter>
           </>

@@ -55,7 +55,7 @@ export default async function ProductPage({ params }: Props) {
       priceCurrency: "BRL",
       price: product.retailPrice,
       availability: product.stockStatus === "out" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-      seller: { "@type": "Organization", name: product.supplier?.name ?? site.fullName },
+      seller: { "@type": "Organization", name: site.fullName },
     },
     ...(product.rating ? { aggregateRating: { "@type": "AggregateRating", ratingValue: product.rating, reviewCount: product.reviewCount ?? 1 } } : {}),
   };
@@ -130,7 +130,6 @@ export default async function ProductPage({ params }: Props) {
                 ...(product.packInfo ? [["Embalagem", product.packInfo]] : []),
                 ...(product.wholesaleMinQty ? [["Atacado a partir de", `${product.wholesaleMinQty} ${formatUnit(product.unit)}`]] : []),
                 ...(product.specs ?? []).map((s) => [s.label, s.value]),
-                ...(product.supplier ? [["Fornecedor", product.supplier.name]] : []),
               ].map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-3 py-2.5">
                   <dt className="text-brand-ink-soft">{k}</dt>

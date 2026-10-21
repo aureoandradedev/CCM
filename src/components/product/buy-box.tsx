@@ -115,22 +115,18 @@ export function BuyBox({ product }: { product: Product }) {
         </div>
       </div>
 
-      <ShippingEstimate leadTimeDays={product.supplier?.leadTimeDays} subtotal={total} supplierCity={product.supplier?.city} />
+      <ShippingEstimate subtotal={total} />
 
-      {product.supplier ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-brand-line bg-card p-4 text-sm">
-          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-navy/8 text-brand-navy dark:bg-muted dark:text-foreground">
-            <Store className="size-5" />
-          </span>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-ink-soft">Vendido e entregue por</p>
-            <p className="font-heading text-base font-bold text-brand-navy dark:text-foreground">{product.supplier.name}</p>
-            <p className="text-xs text-brand-ink-soft">
-              {product.supplier.city ? `${product.supplier.city} · ` : ""}despacha em {product.supplier.leadTimeDays} {product.supplier.leadTimeDays === 1 ? "dia útil" : "dias úteis"} · fornecedor parceiro verificado
-            </p>
-          </div>
+      <div className="flex items-start gap-3 rounded-2xl border border-brand-line bg-card p-4 text-sm">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-navy/8 text-brand-navy dark:bg-muted dark:text-foreground">
+          <Store className="size-5" />
+        </span>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-ink-soft">Vendido e entregue por</p>
+          <p className="font-heading text-base font-bold text-brand-navy dark:text-foreground">Multigiro Central de Compras</p>
+          <p className="text-xs text-brand-ink-soft">Entrega na obra ou retirada na loja</p>
         </div>
-      ) : null}
+      </div>
 
       <ul className="grid grid-cols-3 gap-2 text-center text-[0.7rem] font-medium text-brand-ink-soft">
         {[
