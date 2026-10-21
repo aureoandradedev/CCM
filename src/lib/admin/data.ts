@@ -111,6 +111,80 @@ export async function adminSuppliers(): Promise<AdminSupplier[]> {
   return (data as AdminSupplier[] | null) ?? [];
 }
 
+/* -------------------------------- integrações ------------------------------ */
+
+export interface AdminIntegration {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  method: string;
+  connector_id: string | null;
+  status: string;
+  sync_mode: string;
+  product_count: number;
+  valid_count: number;
+  error_count: number;
+  last_sync_at: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+
+export async function adminIntegrations(): Promise<AdminIntegration[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb
+    .from("supplier_integrations")
+    .select("*, suppliers(name)")
+    .order("updated_at", { ascending: false });
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    supplier_id: r.supplier_id as string,
+    supplier_name: ((r.suppliers as Record<string, unknown>)?.name as string) ?? (r.supplier_id as string),
+    method: r.method as string,
+    connector_id: r.connector_id as string | null,
+    status: r.status as string,
+    sync_mode: (r.sync_mode as string) ?? "full",
+    product_count: r.product_count as number,
+    valid_count: r.valid_count as number,
+    error_count: r.error_count as number,
+    last_sync_at: r.last_sync_at as string | null,
+    last_error: (r.last_error as string | null) ?? null,
+    created_at: r.created_at as string,
+  }));
+}
+
+export interface AdminBatch {
+  id: string;
+  supplier_id: string;
+  integration_id: string | null;
+  method: string;
+  source_name: string | null;
+  total: number;
+  valid: number;
+  invalid: number;
+  items_created: number;
+  items_updated: number;
+  items_ignored: number;
+  error_count: number;
+  status: string;
+  sync_type: string;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export async function adminBatches(integrationId?: string, limit = 20): Promise<AdminBatch[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let q = sb
+    .from("integration_import_batches")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (integrationId) q = q.eq("integration_id", integrationId);
+  const { data } = await q;
+  return (data ?? []) as AdminBatch[];
+}
+
 /* ---------------------------------- pedidos -------------------------------- */
 
 export interface OrderFilters {
