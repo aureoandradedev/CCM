@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { EditableList } from "@/components/admin/editable-list";
 import { CategoryForm, SupplierForm } from "@/components/admin/settings-forms";
 import type { AdminCategory, AdminSupplier } from "@/lib/admin/types";
@@ -12,9 +14,12 @@ export function SuppliersAdmin({ suppliers }: { suppliers: AdminSupplier[] }) {
       newLabel="Novo fornecedor"
       renderRow={(s) => (
         <>
-          <p className="font-semibold text-brand-ink">
-            {s.name} {!s.active ? <span className="ml-1 rounded bg-muted px-1 text-[0.65rem] font-bold">INATIVO</span> : null}
-          </p>
+          <div className="flex items-center gap-2">
+            <Link href={`/admin/fornecedores/${s.id}`} className="font-semibold text-brand-navy hover:underline dark:text-foreground">
+              {s.name}
+            </Link>
+            {!s.active ? <span className="rounded bg-muted px-1 text-[0.65rem] font-bold">INATIVO</span> : null}
+          </div>
           <p className="text-xs text-brand-ink-soft">
             {s.city ?? "—"} · despacho {s.lead_time_days} dia(s) · {s.cnpj ? maskCNPJ(s.cnpj) : "sem CNPJ"} · {s.contact_name ?? ""} {s.contact_phone ?? ""}
           </p>

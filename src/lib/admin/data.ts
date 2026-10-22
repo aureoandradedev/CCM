@@ -13,6 +13,7 @@ import {
   type AdminProduct,
   type AdminProfile,
   type AdminSupplier,
+  type LinkedProfile,
   type OrderEvent,
   type SiteSettings,
 } from "./types";
@@ -109,6 +110,24 @@ export async function adminSuppliers(): Promise<AdminSupplier[]> {
   const sb = await createClient();
   const { data } = await sb.from("suppliers").select("id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at").order("name");
   return (data as AdminSupplier[] | null) ?? [];
+}
+
+export async function adminSupplierById(id: string): Promise<AdminSupplier | null> {
+  if (!configured()) return null;
+  const sb = await createClient();
+  const { data } = await sb.from("suppliers").select("id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at").eq("id", id).single();
+  return (data as AdminSupplier | null) ?? null;
+}
+
+export async function adminLinkedProfiles(supplierId: string): Promise<LinkedProfile[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb
+    .from("profiles")
+    .select("id, full_name, email, role")
+    .eq("supplier_id", supplierId)
+    .order("full_name");
+  return (data as LinkedProfile[] | null) ?? [];
 }
 
 /* -------------------------------- integrações ------------------------------ */

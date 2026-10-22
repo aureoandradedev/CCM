@@ -184,10 +184,10 @@ async function phaseNormalize(
   } catch (err) {
     result.ok = false;
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "phase_error", phase: "normalize",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
     return result;
   }
 }
@@ -279,10 +279,10 @@ async function phaseMatch(
   } catch (err) {
     result.ok = false;
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "phase_error", phase: "match",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
     return result;
   }
 }
@@ -372,10 +372,10 @@ async function phaseOffers(
   } catch (err) {
     result.ok = false;
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "phase_error", phase: "offers",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
     return result;
   }
 }
@@ -425,10 +425,10 @@ async function phaseInactiveItems(
   } catch (err) {
     result.ok = false;
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "phase_error", phase: "inactive_items",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
     return result;
   }
 }
@@ -472,10 +472,10 @@ async function phaseDetectExceptions(
     detectedTypes.add("review_match");
   } catch (err) {
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "detect_error", phase: "detect_review_match",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
   }
 
   // ── 5b: Load shared data (offers, rankings, selections, master products) ─
@@ -531,10 +531,10 @@ async function phaseDetectExceptions(
     sharedDataLoaded = true;
   } catch (err) {
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "detect_error", phase: "detect_shared_data",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
   }
 
   // ── 5c: Review ranking + economy opportunity ────────────────────────────
@@ -600,10 +600,10 @@ async function phaseDetectExceptions(
       detectedTypes.add("economy_opportunity");
     } catch (err) {
       result.errors++;
-      await logAudit(sb, {
+      try { await logAudit(sb, {
         run_id: runId, action: "detect_error", phase: "detect_ranking",
         detail: { error: (err as Error).message },
-      }).catch(() => {});
+      }); } catch {}
     }
   }
 
@@ -694,10 +694,10 @@ async function phaseDetectExceptions(
       detectedTypes.add("source_changed");
     } catch (err) {
       result.errors++;
-      await logAudit(sb, {
+      try { await logAudit(sb, {
         run_id: runId, action: "detect_error", phase: "detect_sourcing",
         detail: { error: (err as Error).message },
-      }).catch(() => {});
+      }); } catch {}
     }
   }
 
@@ -733,10 +733,10 @@ async function phaseDetectExceptions(
     detectedTypes.add("no_offer");
   } catch (err) {
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "detect_error", phase: "detect_no_offer",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
   }
 
   // ── 5f: Stale publication detection ─────────────────────────────────────
@@ -846,10 +846,10 @@ async function phaseDetectExceptions(
     detectedTypes.add("stale_publication");
   } catch (err) {
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "detect_error", phase: "detect_publication",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
   }
 
   // ── 5g: Inactive item exceptions ────────────────────────────────────────
@@ -877,16 +877,16 @@ async function phaseDetectExceptions(
     detectedTypes.add("inactive_item");
   } catch (err) {
     result.errors++;
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId, action: "detect_error", phase: "detect_inactive",
       detail: { error: (err as Error).message },
-    }).catch(() => {});
+    }); } catch {}
   }
 
   result.processed = exceptions.length;
   result.ok = detectedTypes.size > 0;
 
-  await logAudit(sb, {
+  try { await logAudit(sb, {
     run_id: runId,
     action: "detect_exceptions_complete",
     phase: "detect_exceptions",
@@ -898,7 +898,7 @@ async function phaseDetectExceptions(
         return acc;
       }, {} as Record<string, number>),
     },
-  }).catch(() => {});
+  }); } catch {}
 
   return { exceptions, phase: result, detectedTypes };
 }
@@ -1018,7 +1018,7 @@ export async function runOrchestrator(
 
     // ── Renew lease before Phase 2 ───────────────────────────────────────
     if (!(await renewLease(sb, runId))) {
-      await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "normalize" } }).catch(() => {});
+      try { await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "normalize" } }); } catch {}
       return { status: "failed", run_id: runId, phases, exceptions_created: 0, exceptions_auto_resolved: 0, duration_ms: Date.now() - start, error: "Lease perdido após normalize." };
     }
 
@@ -1030,7 +1030,7 @@ export async function runOrchestrator(
 
     // ── Renew lease before Phase 3 ───────────────────────────────────────
     if (!(await renewLease(sb, runId))) {
-      await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "match" } }).catch(() => {});
+      try { await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "match" } }); } catch {}
       return { status: "failed", run_id: runId, phases, exceptions_created: 0, exceptions_auto_resolved: 0, duration_ms: Date.now() - start, error: "Lease perdido após match." };
     }
 
@@ -1042,7 +1042,7 @@ export async function runOrchestrator(
 
     // ── Renew lease before Phase 4 ───────────────────────────────────────
     if (!(await renewLease(sb, runId))) {
-      await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "offers" } }).catch(() => {});
+      try { await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "offers" } }); } catch {}
       return { status: "failed", run_id: runId, phases, exceptions_created: 0, exceptions_auto_resolved: 0, duration_ms: Date.now() - start, error: "Lease perdido após offers." };
     }
 
@@ -1052,7 +1052,7 @@ export async function runOrchestrator(
 
     // ── Renew lease before Phase 5 ───────────────────────────────────────
     if (!(await renewLease(sb, runId))) {
-      await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "inactive_items" } }).catch(() => {});
+      try { await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "inactive_items" } }); } catch {}
       return { status: "failed", run_id: runId, phases, exceptions_created: 0, exceptions_auto_resolved: 0, duration_ms: Date.now() - start, error: "Lease perdido após inactive_items." };
     }
 
@@ -1063,7 +1063,7 @@ export async function runOrchestrator(
 
     // ── Renew lease before Phase 6 ───────────────────────────────────────
     if (!(await renewLease(sb, runId))) {
-      await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "detect_exceptions" } }).catch(() => {});
+      try { await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "detect_exceptions" } }); } catch {}
       return { status: "failed", run_id: runId, phases, exceptions_created: 0, exceptions_auto_resolved: 0, duration_ms: Date.now() - start, error: "Lease perdido após detect_exceptions." };
     }
 
@@ -1104,11 +1104,11 @@ export async function runOrchestrator(
   } catch (err) {
     const errorMessage = (err as Error).message;
 
-    await logAudit(sb, {
+    try { await logAudit(sb, {
       run_id: runId,
       action: "orchestrator_complete",
       detail: { status: "failed", error: errorMessage, duration_ms: Date.now() - start },
-    }).catch(() => {});
+    }); } catch {}
 
     return {
       status: "failed",
@@ -1121,7 +1121,7 @@ export async function runOrchestrator(
     };
   } finally {
     if (leaseAcquired) {
-      await sb.rpc("release_orchestrator_lease", { p_run_id: runId }).catch(() => {});
+      try { await sb.rpc("release_orchestrator_lease", { p_run_id: runId }); } catch {}
     }
   }
 }

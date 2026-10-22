@@ -16,6 +16,16 @@ export interface ActionResult {
   orchestratorResult?: OrchestratorResult;
 }
 
+function friendlyError(raw: string): string {
+  if (/Could not find the function/.test(raw)) {
+    return "Funcionalidade indisponível — as migrations do banco precisam ser atualizadas. Contate o administrador do sistema.";
+  }
+  if (/Could not find the table/.test(raw) || /relation .* does not exist/.test(raw)) {
+    return "Tabela não encontrada no banco de dados. As migrations precisam ser aplicadas.";
+  }
+  return raw;
+}
+
 async function run(
   fn: (sb: Awaited<ReturnType<typeof createClient>>, adminId: string) => Promise<ActionResult | void>,
 ): Promise<ActionResult> {
@@ -24,9 +34,11 @@ async function run(
     const sb = await createClient();
     const r = (await fn(sb, admin.id)) ?? {};
     revalidatePath("/admin/compras", "layout");
+    if (r.error) r.error = friendlyError(r.error);
     return r;
   } catch (e) {
-    return { error: (e as Error).message || "Erro inesperado." };
+    const raw = (e as Error).message || "Erro inesperado.";
+    return { error: friendlyError(raw) };
   }
 }
 

@@ -109,7 +109,7 @@ export const CAPABILITY_LABELS: Record<SyncCapability, string> = {
   products: "Produtos",
   catalog: "Catálogo",
   stock: "Estoque",
-  price: "Preço",
+  price: "Custo",
   availability: "Disponibilidade",
   images: "Imagens",
   orders: "Pedidos",

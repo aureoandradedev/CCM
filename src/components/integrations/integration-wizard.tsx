@@ -175,10 +175,10 @@ export function IntegrationWizard() {
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <ReviewStat label="Produtos encontrados" value={summary.total} tone="navy" />
-            <ReviewStat label="Prontos para venda" value={summary.valid} tone="green" />
+            <ReviewStat label="Itens válidos" value={summary.valid} tone="green" />
             <ReviewStat label="Precisam de revisão" value={summary.invalid + summary.warnings} tone="orange" />
             <ReviewStat label="Com estoque" value={summary.withStock} tone="slate" />
-            <ReviewStat label="Com preço" value={summary.withPrice} tone="slate" />
+            <ReviewStat label="Com custo" value={summary.withPrice} tone="slate" />
             <ReviewStat label="Com imagem" value={summary.withImages} tone="slate" />
           </div>
 

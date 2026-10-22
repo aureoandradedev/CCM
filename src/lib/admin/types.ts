@@ -75,6 +75,13 @@ export interface AdminSupplier {
   created_at: string;
 }
 
+export interface LinkedProfile {
+  id: string;
+  full_name: string | null;
+  email: string;
+  role: string;
+}
+
 export interface AdminBanner {
   id: string;
   eyebrow: string | null;

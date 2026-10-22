@@ -520,6 +520,52 @@ export async function saveSupplier(_p: ActionResult, fd: FormData): Promise<Acti
   }, ["/admin/fornecedores", "/admin/produtos"]);
 }
 
+export async function linkUserToSupplier(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  const email = str(fd, "email").toLowerCase();
+  const supplierId = str(fd, "supplier_id");
+  if (!email || !supplierId) return { error: "E-mail e fornecedor são obrigatórios." };
+
+  return run(async (sb) => {
+    const { data: supplier } = await sb.from("suppliers").select("id").eq("id", supplierId).single();
+    if (!supplier) return { error: "Fornecedor não encontrado." };
+
+    const { data: profile } = await sb
+      .from("profiles")
+      .select("id, supplier_id, full_name")
+      .eq("email", email)
+      .single();
+
+    if (!profile) return { error: `Nenhuma conta encontrada com o e-mail ${email}.` };
+    if (profile.supplier_id === supplierId) return { error: "Usuário já está vinculado a este fornecedor." };
+    if (profile.supplier_id) return { error: "Usuário já está vinculado a outro fornecedor. Desvincule primeiro." };
+
+    const { error } = await sb
+      .from("profiles")
+      .update({ supplier_id: supplierId })
+      .eq("id", profile.id);
+
+    if (error) return { error: error.message };
+    return { ok: `${profile.full_name || email} vinculado(a) ao fornecedor.` };
+  }, ["/admin/fornecedores"]);
+}
+
+export async function unlinkUserFromSupplier(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  const profileId = str(fd, "profile_id");
+  const supplierId = str(fd, "supplier_id");
+  if (!profileId || !supplierId) return { error: "Dados inválidos." };
+
+  return run(async (sb) => {
+    const { error } = await sb
+      .from("profiles")
+      .update({ supplier_id: null })
+      .eq("id", profileId)
+      .eq("supplier_id", supplierId);
+
+    if (error) return { error: error.message };
+    return { ok: "Usuário desvinculado." };
+  }, ["/admin/fornecedores"]);
+}
+
 export async function saveCategory(_p: ActionResult, fd: FormData): Promise<ActionResult> {
   return run(async (sb) => {
     const name = str(fd, "name");
