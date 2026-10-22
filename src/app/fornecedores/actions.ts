@@ -27,8 +27,12 @@ const productSchema = z.object({
   gtin: z.string().max(20).optional(),
   description: z.string().max(MAX_DESC).optional(),
   brand: z.string().max(MAX_BRAND).optional(),
+  model: z.string().max(MAX_BRAND).optional(),
   category: z.string().max(MAX_CATEGORY).optional(),
+  subcategory: z.string().max(MAX_CATEGORY).optional(),
   unit: z.string().max(MAX_UNIT).optional(),
+  packInfo: z.string().max(100).optional(),
+  leadTimeDays: z.number().int().min(0).max(365).optional(),
   promoPrice: z.number().positive().max(MAX_COST_REAIS).optional(),
   weightKg: z.number().positive().max(10_000).optional(),
   images: z.array(z.string().max(MAX_URL)).max(10).optional(),
@@ -139,16 +143,17 @@ export async function importCatalog(input: CatalogImportInput): Promise<CatalogI
         name: p.name,
         description: p.description || null,
         brand: p.brand || null,
+        model: p.model || null,
         category_original: p.category || null,
+        subcategory_original: p.subcategory || null,
         unit: p.unit || null,
+        pack_info: p.packInfo || null,
         cost_centavos: p.price != null ? Math.round(p.price * 100) : null,
         stock: typeof p.stock === "number" ? p.stock : null,
+        lead_time_days: typeof p.leadTimeDays === "number" ? p.leadTimeDays : null,
         image_url: p.images?.[0] || null,
         attributes: {
           ...(p.weightKg != null ? { weight_kg: p.weightKg } : {}),
-          ...(p.promoPrice != null
-            ? { promo_price_centavos: Math.round(p.promoPrice * 100) }
-            : {}),
           ...(p.images && p.images.length > 1
             ? { extra_images: p.images.slice(1) }
             : {}),

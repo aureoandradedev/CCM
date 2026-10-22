@@ -8,18 +8,22 @@ import { z } from "zod";
 import { parseImages, parseNumberBR, parseStatus, type ColumnMapping } from "./mapping";
 import type { CanonicalProduct, ImportSummary, RowResult } from "./types";
 
-/** Schema canônico mínimo para um produto entrar na loja. */
+/** Schema canônico mínimo para um item do catálogo do fornecedor. */
 export const canonicalProductSchema = z.object({
   sku: z.string().trim().min(1, "SKU obrigatório"),
   name: z.string().trim().min(2, "Nome muito curto"),
-  price: z.number({ error: "Preço inválido" }).positive("Preço deve ser maior que zero"),
+  price: z.number({ error: "Custo inválido" }).positive("Custo deve ser maior que zero"),
   stock: z.number({ error: "Estoque inválido" }).int("Estoque deve ser inteiro").min(0, "Estoque negativo"),
   gtin: z.string().trim().optional(),
   description: z.string().trim().optional(),
   brand: z.string().trim().optional(),
+  model: z.string().trim().optional(),
   category: z.string().trim().optional(),
+  subcategory: z.string().trim().optional(),
   promoPrice: z.number().positive().optional(),
   unit: z.string().trim().optional(),
+  packInfo: z.string().trim().optional(),
+  leadTimeDays: z.number().int().min(0).optional(),
   weightKg: z.number().positive().optional(),
   images: z.array(z.string().url()).optional(),
   status: z.enum(["active", "inactive", "draft"]).optional(),
@@ -48,11 +52,19 @@ function buildProduct(raw: Record<string, string>, mapping: ColumnMapping) {
   if (description) product.description = description;
   const brand = get("brand")?.trim();
   if (brand) product.brand = brand;
+  const model = get("model")?.trim();
+  if (model) product.model = model;
   const category = get("category")?.trim();
   if (category) product.category = category;
+  const subcategory = get("subcategory")?.trim();
+  if (subcategory) product.subcategory = subcategory;
   const unit = get("unit")?.trim();
   if (unit) product.unit = unit;
+  const packInfo = get("packInfo")?.trim();
+  if (packInfo) product.packInfo = packInfo;
 
+  const leadTime = parseNumberBR(get("leadTimeDays"));
+  if (leadTime != null) product.leadTimeDays = Math.trunc(leadTime);
   const promo = parseNumberBR(get("promoPrice"));
   if (promo != null) product.promoPrice = promo;
   const weight = parseNumberBR(get("weightKg"));
@@ -80,13 +92,9 @@ export function validateRow(index: number, raw: Record<string, string>, mapping:
   }
 
   const product = parsed.data as CanonicalProduct;
-  // avisos não bloqueiam a venda, mas sinalizam revisão
   if (!product.gtin) warnings.push("Sem EAN/GTIN");
   if (!product.images?.length) warnings.push("Sem imagem");
   if (!product.category) warnings.push("Sem categoria");
-  if (product.promoPrice != null && product.promoPrice >= product.price) {
-    warnings.push("Preço promocional não é menor que o preço");
-  }
 
   return { index, raw, product, errors: [], warnings };
 }

@@ -217,8 +217,9 @@ export function CsvImporter({ onChange }: { onChange: (result: CsvResult | null)
                   <th className="px-3 py-2 font-semibold">Status</th>
                   <th className="px-3 py-2 font-semibold">SKU</th>
                   <th className="px-3 py-2 font-semibold">Nome</th>
-                  <th className="px-3 py-2 font-semibold">Preço</th>
+                  <th className="px-3 py-2 font-semibold">Custo</th>
                   <th className="px-3 py-2 font-semibold">Estoque</th>
+                  <th className="px-3 py-2 font-semibold">Prazo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-line">
@@ -243,6 +244,7 @@ export function CsvImporter({ onChange }: { onChange: (result: CsvResult | null)
                       {row.product?.price != null ? row.product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
                     </td>
                     <td className="px-3 py-2 tabular-nums text-brand-ink">{row.product?.stock ?? "—"}</td>
+                    <td className="px-3 py-2 tabular-nums text-brand-ink">{row.product?.leadTimeDays != null ? `${row.product.leadTimeDays}d` : "—"}</td>
                   </tr>
                 ))}
               </tbody>

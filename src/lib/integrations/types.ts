@@ -62,11 +62,15 @@ export interface CanonicalProduct {
   name: string;
   description?: string;
   brand?: string;
+  model?: string;
   category?: string;
+  subcategory?: string;
   price: number;
   promoPrice?: number;
   stock: number;
   unit?: string; // un, cx, kg, m, m2, saco...
+  packInfo?: string;
+  leadTimeDays?: number;
   weightKg?: number;
   dimensions?: CanonicalDimensions;
   images?: string[];
@@ -90,15 +94,18 @@ export interface CanonicalFieldDef {
 
 export const CANONICAL_FIELDS: CanonicalFieldDef[] = [
   { key: "sku", label: "SKU / Código", required: true, type: "string", hint: "Identificador único do produto no seu sistema", aliases: ["sku", "codigo", "código", "cod", "ref", "referencia", "referência", "id", "item"] },
-  { key: "name", label: "Nome", required: true, type: "string", hint: "Nome que aparece na loja", aliases: ["nome", "name", "descricao", "descrição", "produto", "titulo", "título", "title"] },
-  { key: "price", label: "Preço", required: true, type: "number", hint: "Preço de venda (R$)", aliases: ["preco", "preço", "price", "valor", "preco_venda", "vlr", "valor_unitario"] },
+  { key: "name", label: "Nome", required: true, type: "string", hint: "Nome do produto", aliases: ["nome", "name", "produto", "titulo", "título", "title", "descricao", "descrição"] },
+  { key: "price", label: "Custo / preço de fornecimento", required: true, type: "number", hint: "Custo unitário (R$)", aliases: ["custo", "preco", "preço", "preco_custo", "preço_custo", "custo_unitario", "custo_unitário", "valor", "valor_unitario", "valor_unitário", "price", "cost", "vlr"] },
   { key: "stock", label: "Estoque", required: true, type: "number", hint: "Quantidade disponível", aliases: ["estoque", "stock", "saldo", "qtd", "quantidade", "disponivel", "disponível", "qty"] },
   { key: "gtin", label: "EAN / GTIN", required: false, type: "string", hint: "Código de barras", aliases: ["ean", "gtin", "barras", "codigo_barras", "código_barras", "cod_barras", "upc"] },
   { key: "description", label: "Descrição", required: false, type: "string", aliases: ["descricao", "descrição", "description", "detalhes", "obs", "observacao"] },
   { key: "brand", label: "Marca", required: false, type: "string", aliases: ["marca", "brand", "fabricante", "fornecedor_marca"] },
+  { key: "model", label: "Modelo", required: false, type: "string", aliases: ["modelo", "model", "referencia_modelo", "ref_modelo"] },
   { key: "category", label: "Categoria", required: false, type: "string", aliases: ["categoria", "category", "secao", "seção", "departamento", "grupo", "linha"] },
-  { key: "promoPrice", label: "Preço promocional", required: false, type: "number", aliases: ["promocional", "promo", "preco_promocional", "preço_promocional", "oferta", "desconto", "preco_oferta"] },
+  { key: "subcategory", label: "Subcategoria", required: false, type: "string", aliases: ["subcategoria", "subcategory", "subgrupo", "sublinha", "tipo"] },
   { key: "unit", label: "Unidade", required: false, type: "string", hint: "un, cx, kg, m, m²...", aliases: ["unidade", "unit", "un", "medida", "um"] },
+  { key: "packInfo", label: "Embalagem", required: false, type: "string", hint: "Ex.: cx c/ 12, pct c/ 5", aliases: ["embalagem", "pack", "pack_info", "pacote", "caixa", "fardo"] },
+  { key: "leadTimeDays", label: "Prazo de fornecimento (dias)", required: false, type: "number", hint: "Dias úteis para entrega", aliases: ["prazo", "prazo_dias", "lead_time", "lead_time_days", "prazo_entrega", "prazo_de_entrega", "dias_entrega"] },
   { key: "weightKg", label: "Peso (kg)", required: false, type: "number", aliases: ["peso", "weight", "peso_kg", "kg"] },
   { key: "images", label: "Imagens", required: false, type: "list", hint: "URLs separadas por vírgula ou |", aliases: ["imagem", "imagens", "image", "images", "foto", "fotos", "url_imagem", "img"] },
   { key: "status", label: "Status", required: false, type: "enum", aliases: ["status", "situacao", "situação", "ativo", "active"] },

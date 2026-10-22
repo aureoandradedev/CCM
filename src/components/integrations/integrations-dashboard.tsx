@@ -110,7 +110,7 @@ export function IntegrationsDashboard() {
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <Metric label="Produtos" value={it.productCount.toLocaleString("pt-BR")} />
-              <Metric label="Prontos" value={it.validCount.toLocaleString("pt-BR")} tone="green" />
+              <Metric label="Válidos" value={it.validCount.toLocaleString("pt-BR")} tone="green" />
               <Metric label="Com erro" value={it.errorCount.toLocaleString("pt-BR")} tone={it.errorCount > 0 ? "red" : "slate"} />
             </div>
 
