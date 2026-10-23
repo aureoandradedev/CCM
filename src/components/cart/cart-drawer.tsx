@@ -31,8 +31,8 @@ export function CartDrawer() {
           </SheetTitle>
           <SheetDescription>
             {lines.length
-              ? "Preco de atacado e aplicado automaticamente."
-              : "Adicione produtos para ver o preco de atacado."}
+              ? "Preço de atacado é aplicado automaticamente."
+              : "Adicione produtos para ver o preço de atacado."}
           </SheetDescription>
         </SheetHeader>
 

@@ -14,12 +14,12 @@ const STEPS = [
   {
     icon: Package,
     title: "A equipe separa o pedido",
-    text: "Trabalhamos com os melhores distribuidores da regiao. Preco de atacado, sem estoque parado.",
+    text: "Trabalhamos com os melhores distribuidores da região. Preço de atacado, sem estoque parado.",
   },
   {
     icon: Truck,
     title: "Entrega na sua obra",
-    text: "Voce acompanha pelo site e paga com seguranca pela Cielo. Pix ou cartao.",
+    text: "Você acompanha pelo site e paga com segurança pela Cielo. Pix ou cartão.",
   },
 ];
 
@@ -37,7 +37,7 @@ export function HowItWorks() {
               Central de compras, não depósito. Por isso o preço é de atacado.
             </h2>
             <p className="mt-4 max-w-md text-[0.95rem] leading-relaxed text-white/80">
-              A Multigiro Central de Compras negocia direto com distribuidores e fabricas para voce pagar preco de atacado, mesmo comprando pouco.
+              A Multigiro Central de Compras negocia direto com distribuidores e fábricas para você pagar preço de atacado, mesmo comprando pouco.
             </p>
             <Button variant="brand" size="lg" className="mt-6" render={<Link href="/como-funciona" />}>
               Entenda o modelo
@@ -71,7 +71,7 @@ export function HowItWorks() {
 
         <dl className="mt-10 grid grid-cols-2 gap-4 border-t border-white/10 pt-8 text-center sm:grid-cols-4">
           {[
-            ["+5.000", "itens no catalogo"],
+            ["+5.000", "itens no catálogo"],
             ["2 a 4 dias", "prazo médio de entrega"],
             ["0", "estoque parado"],
             ["5%", "de desconto no Pix"],
