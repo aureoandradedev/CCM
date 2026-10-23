@@ -184,6 +184,144 @@ export async function publishProduct(_prev: ActionResult, fd: FormData): Promise
   });
 }
 
+// ─── Criar produto mestre a partir de item ────────────────────────────────
+
+export async function createMasterFromItem(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const itemId = String(fd.get("itemId") ?? "");
+  const name = String(fd.get("name") ?? "").trim();
+  const brandSlug = String(fd.get("brandSlug") ?? "").trim() || null;
+  const brandName = String(fd.get("brandName") ?? "").trim() || null;
+  const model = String(fd.get("model") ?? "").trim() || null;
+  const ean = String(fd.get("ean") ?? "").trim() || null;
+  const categorySlug = String(fd.get("categorySlug") ?? "").trim() || null;
+  const subcategorySlug = String(fd.get("subcategorySlug") ?? "").trim() || null;
+  const unit = String(fd.get("unit") ?? "un").trim();
+  if (!itemId || !name) return { error: "Item e nome são obrigatórios." };
+
+  return run(async (sb) => {
+    const { data: item } = await sb
+      .from("supplier_catalog_items")
+      .select("id, match_status")
+      .eq("id", itemId)
+      .single();
+    if (!item) return { error: "Item não encontrado." };
+
+    let resolvedBrandSlug = brandSlug;
+    if (brandSlug) {
+      const { data: existing } = await sb.from("brands").select("slug").eq("slug", brandSlug).maybeSingle();
+      if (!existing) {
+        const { error: brandErr } = await sb.from("brands").insert({ slug: brandSlug, name: brandName || brandSlug });
+        if (brandErr) resolvedBrandSlug = null;
+      }
+    }
+
+    const { data: master, error: insertErr } = await sb
+      .from("master_products")
+      .insert({
+        name,
+        brand_slug: resolvedBrandSlug,
+        brand_name: brandName,
+        model,
+        ean,
+        category_slug: categorySlug || null,
+        subcategory_slug: subcategorySlug || null,
+        unit,
+      })
+      .select("id")
+      .single();
+
+    if (insertErr) return { error: insertErr.message };
+
+    const { error: linkErr } = await sb
+      .from("supplier_catalog_items")
+      .update({
+        master_product_id: master.id,
+        match_status: "aprovado",
+        match_confidence: 100,
+        match_signals: [{ signal: "admin_created_master", weight: 100, matched: true, detail: "Produto mestre criado pelo admin" }],
+      })
+      .eq("id", itemId);
+
+    if (linkErr) return { error: linkErr.message };
+    return { ok: `Produto mestre "${name}" criado e item vinculado.` };
+  });
+}
+
+// ─── Associar item a master existente ─────────────────────────────────────
+
+export async function associateToMaster(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const itemId = String(fd.get("itemId") ?? "");
+  const masterProductId = String(fd.get("masterProductId") ?? "");
+  if (!itemId || !masterProductId) return { error: "Item e produto mestre são obrigatórios." };
+
+  return run(async (sb) => {
+    const { data: master } = await sb
+      .from("master_products")
+      .select("id, name")
+      .eq("id", masterProductId)
+      .single();
+    if (!master) return { error: "Produto mestre não encontrado." };
+
+    const { error } = await sb
+      .from("supplier_catalog_items")
+      .update({
+        master_product_id: masterProductId,
+        match_status: "aprovado",
+        match_confidence: 100,
+        match_signals: [{ signal: "admin_manual_association", weight: 100, matched: true, detail: `Associado manualmente a "${master.name}"` }],
+      })
+      .eq("id", itemId);
+
+    if (error) return { error: error.message };
+    return { ok: `Item vinculado a "${master.name}".` };
+  });
+}
+
+// ─── Buscar masters (para o modal de associação) ──────────────────────────
+
+export async function searchMasters(query: string): Promise<{ id: string; name: string; brand_slug: string | null; model: string | null; ean: string | null }[]> {
+  try {
+    await assertAdmin();
+    const sb = await createClient();
+    const q = query.trim();
+    if (!q) return [];
+
+    const { data } = await sb
+      .from("master_products")
+      .select("id, name, brand_slug, model, ean")
+      .or(`name.ilike.%${q}%,brand_slug.ilike.%${q}%,model.ilike.%${q}%,ean.ilike.%${q}%`)
+      .order("name")
+      .limit(20);
+
+    return (data ?? []) as { id: string; name: string; brand_slug: string | null; model: string | null; ean: string | null }[];
+  } catch {
+    return [];
+  }
+}
+
+// ─── Rejeitar item normalizado (ignorar) ──────────────────────────────────
+
+export async function rejectNormalizedItem(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const itemId = String(fd.get("itemId") ?? "");
+  if (!itemId) return { error: "Item inválido." };
+
+  return run(async (sb) => {
+    const { error } = await sb
+      .from("supplier_catalog_items")
+      .update({
+        match_status: "rejeitado",
+        master_product_id: null,
+        match_confidence: null,
+        match_signals: null,
+      })
+      .eq("id", itemId)
+      .eq("match_status", "normalizado");
+
+    if (error) return { error: error.message };
+    return { ok: "Item ignorado." };
+  });
+}
+
 // ─── Orquestrador ──────────────────────────────────────────────────────────
 
 export async function processarPendencias(_prev: ActionResult): Promise<ActionResult> {

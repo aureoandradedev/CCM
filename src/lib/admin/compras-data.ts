@@ -204,6 +204,79 @@ export async function matchingQueue(page = 1) {
   };
 }
 
+export async function matchingQueueByStatus(status: string, page = 1) {
+  const sb = await createClient();
+  const from = (page - 1) * PER_PAGE;
+
+  let q = sb
+    .from("supplier_catalog_items")
+    .select(
+      "id, catalog_id, name, supplier_sku, ean, brand, model, category_original, match_status, match_confidence, match_signals, master_product_id, supplier_id, normalized_data, suppliers(name), master_products(id, name, ean)",
+      { count: "exact" },
+    );
+
+  if (status === "sem_master") {
+    q = q.eq("match_status", "normalizado").is("master_product_id", null);
+  } else if (status === "revisao") {
+    q = q.in("match_status", ["match_sugerido", "revisao_manual"]);
+  } else {
+    q = q.eq("match_status", status);
+  }
+
+  q = q.order("match_confidence", { ascending: false, nullsFirst: false }).range(from, from + PER_PAGE - 1);
+
+  const { data, count } = await q;
+
+  return {
+    items: (data ?? []).map((r) => {
+      const i = r as Record<string, unknown>;
+      return {
+        id: i.id as string,
+        catalog_id: i.catalog_id as string,
+        name: i.name as string,
+        supplier_sku: i.supplier_sku as string | null,
+        ean: i.ean as string | null,
+        brand: i.brand as string | null,
+        model: i.model as string | null,
+        category_original: i.category_original as string | null,
+        match_status: i.match_status as string,
+        match_confidence: i.match_confidence as number | null,
+        match_signals: i.match_signals,
+        master_product_id: i.master_product_id as string | null,
+        supplier_id: i.supplier_id as string,
+        supplier_name: (i.suppliers as { name: string } | null)?.name ?? "—",
+        master_product_name: (i.master_products as { name: string } | null)?.name ?? null,
+        master_product_ean: (i.master_products as { ean: string } | null)?.ean ?? null,
+        normalized_data: i.normalized_data as Record<string, unknown> | null,
+      };
+    }),
+    total: count ?? 0,
+  };
+}
+
+export async function matchingStatusCounts() {
+  const sb = await createClient();
+
+  const [
+    { count: revisao },
+    { count: semMaster },
+    { count: aprovado },
+    { count: rejeitado },
+  ] = await Promise.all([
+    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).in("match_status", ["match_sugerido", "revisao_manual"]),
+    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "normalizado").is("master_product_id", null),
+    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "aprovado"),
+    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "rejeitado"),
+  ]);
+
+  return {
+    revisao: revisao ?? 0,
+    sem_master: semMaster ?? 0,
+    aprovado: aprovado ?? 0,
+    rejeitado: rejeitado ?? 0,
+  };
+}
+
 export async function offerProducts(page = 1) {
   const sb = await createClient();
 

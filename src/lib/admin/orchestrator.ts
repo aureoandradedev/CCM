@@ -739,6 +739,36 @@ async function phaseDetectExceptions(
     }); } catch {}
   }
 
+  // ── 5e2: Normalized items with no master candidate (no_master_candidate) ─
+  try {
+    const { data: noMasterItems } = await sb
+      .from("supplier_catalog_items")
+      .select("id, name, supplier_id")
+      .eq("match_status", "normalizado")
+      .is("master_product_id", null);
+
+    for (const item of noMasterItems ?? []) {
+      exceptions.push({
+        type: "no_master_candidate",
+        severity: "medium",
+        entity_type: "supplier_catalog_item",
+        entity_id: item.id,
+        master_product_id: null,
+        supplier_id: item.supplier_id,
+        title: `Sem produto mestre: ${item.name}`,
+        detail: { match_status: "normalizado" },
+        fingerprint: `no_master_candidate:${item.id}`,
+      });
+    }
+    detectedTypes.add("no_master_candidate");
+  } catch (err) {
+    result.errors++;
+    try { await logAudit(sb, {
+      run_id: runId, action: "detect_error", phase: "detect_no_master_candidate",
+      detail: { error: (err as Error).message },
+    }); } catch {}
+  }
+
   // ── 5f: Stale publication detection ─────────────────────────────────────
   try {
     const { data: publishedProducts } = await sb
@@ -1186,8 +1216,8 @@ export async function exceptionStats(
   sb: SupabaseClient,
 ): Promise<Record<string, number>> {
   const types: ExceptionType[] = [
-    "review_match", "review_ranking", "no_offer", "source_changed",
-    "economy_opportunity", "stale_sourcing", "stale_publication", "inactive_item",
+    "review_match", "review_ranking", "no_offer", "no_master_candidate",
+    "source_changed", "economy_opportunity", "stale_sourcing", "stale_publication", "inactive_item",
   ];
 
   const stats: Record<string, number> = { total: 0 };

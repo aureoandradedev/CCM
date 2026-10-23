@@ -13,6 +13,7 @@ import {
   EAN_OVERRIDE_SCORE,
   HARD_CONFLICT_ATTRIBUTES,
   MIN_SCORE_GAP,
+  AMBIGUITY_MIN_SCORE,
   STOP_TOKENS,
 } from "./config";
 
@@ -403,6 +404,16 @@ export function matchItem(
   const second = candidates.length > 1 ? candidates[1] : null;
   const ambiguous = second != null && (best.score - second.score) < MIN_SCORE_GAP;
 
+  if (best.score <= 0) {
+    return {
+      item_id: item.id,
+      master_product_id: null,
+      match_confidence: 0,
+      match_signals: [],
+      match_status: "normalizado",
+    };
+  }
+
   let status: MatchResult["match_status"];
 
   if (best.has_hard_conflict) {
@@ -415,7 +426,9 @@ export function matchItem(
     });
   } else if (best.score >= MATCH_THRESHOLDS.HIGH_CONFIDENCE && !ambiguous) {
     status = "match_sugerido";
-  } else if (best.score >= MATCH_THRESHOLDS.REVIEW || ambiguous) {
+  } else if (best.score >= MATCH_THRESHOLDS.REVIEW) {
+    status = "revisao_manual";
+  } else if (ambiguous && best.score >= AMBIGUITY_MIN_SCORE) {
     status = "revisao_manual";
   } else {
     status = "normalizado";
