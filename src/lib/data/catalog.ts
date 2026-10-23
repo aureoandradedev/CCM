@@ -51,7 +51,6 @@ interface ProductRow {
   stock_status: Product["stockStatus"];
   tags: string[] | null;
   yield_hint: string | null;
-  supplier: { id: string; name: string; lead_time_days: number; city: string | null } | null;
 }
 
 interface CategoryRow {
@@ -94,9 +93,7 @@ function mapProduct(r: ProductRow): Product {
     shortDescription: r.short_description,
     description: r.description ?? undefined,
     specs: r.specs ?? undefined,
-    supplier: r.supplier
-      ? { id: r.supplier.id, name: r.supplier.name, leadTimeDays: r.supplier.lead_time_days, city: r.supplier.city ?? undefined }
-      : undefined,
+    supplier: undefined,
     stockStatus: r.stock_status,
     tags: r.tags ?? undefined,
     yieldHint: r.yield_hint ?? undefined,
@@ -119,7 +116,7 @@ function mapCategory(r: CategoryRow): Category {
 }
 
 const PRODUCT_SELECT =
-  "id, slug, sku, name, brand_name, brand_slug, category_slug, subcategory_slug, unit, pack_info, retail_price, wholesale_price, wholesale_min_qty, list_price, pix_discount_pct, images, rating, review_count, badges, short_description, description, specs, stock_status, tags, yield_hint, supplier:suppliers(id, name, lead_time_days, city)";
+  "id, slug, sku, name, brand_name, brand_slug, category_slug, subcategory_slug, unit, pack_info, retail_price, wholesale_price, wholesale_min_qty, list_price, pix_discount_pct, images, rating, review_count, badges, short_description, description, specs, stock_status, tags, yield_hint";
 
 /* ------------------------------ carregamento ------------------------------ */
 
@@ -127,9 +124,8 @@ const loadAllProducts = cache(async (): Promise<Product[]> => {
   const sb = createPublicClient();
   if (!sb) return mockCatalog.products;
   const { data, error } = await sb
-    .from("products")
+    .from("products_public")
     .select(PRODUCT_SELECT)
-    .eq("active", true)
     .order("created_at", { ascending: false })
     .limit(1000);
   if (error || !data) {
@@ -271,7 +267,7 @@ export async function getProducts(query: ProductQuery = {}): Promise<ProductQuer
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   const sb = createPublicClient();
   if (!sb) return mockCatalog.products.find((p) => p.slug === slug) ?? null;
-  const { data, error } = await sb.from("products").select(PRODUCT_SELECT).eq("slug", slug).eq("active", true).maybeSingle();
+  const { data, error } = await sb.from("products_public").select(PRODUCT_SELECT).eq("slug", slug).maybeSingle();
   if (error) {
     console.error("[catalog] falha ao carregar produto:", error.message);
     return mockCatalog.products.find((p) => p.slug === slug) ?? null;

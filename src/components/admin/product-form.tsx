@@ -67,7 +67,7 @@ export function ProductForm({ product, id, categories, suppliers, brands }: { pr
                 ))}
               </select>
             </Field>
-            <Field label="Fornecedor" hint="Quem fatura e entrega este item.">
+            <Field label="Fornecedor" hint="Fornecedor parceiro responsável por este item.">
               <select name="supplier_id" defaultValue={p?.supplier_id ?? ""} className={selectCls}>
                 <option value="">—</option>
                 {suppliers.map((s) => (

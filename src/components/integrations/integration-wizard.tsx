@@ -233,7 +233,7 @@ export function IntegrationWizard() {
               Ir para meus produtos <ArrowRight className="size-4" />
             </Button>
             <Button variant="outline-navy" size="lg" render={<Link href="/" />} className="gap-1">
-              <Store className="size-4" /> Ver minha loja
+              <Store className="size-4" /> Ver a vitrine
             </Button>
           </div>
         </section>

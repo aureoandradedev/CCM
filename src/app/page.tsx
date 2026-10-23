@@ -52,14 +52,14 @@ export default async function HomePage() {
       <HeroCarousel banners={banners} />
       <QuickLinks links={quickLinks} />
       <DepartmentRail categories={categories} />
-      <ProductRail eyebrow="Só esta semana" title="Ofertas da semana" subtitle="Preço de fábrica com desconto extra no Pix" href="/ofertas" products={ofertas} priorityFirst={4} />
+      <ProductRail eyebrow="Só esta semana" title="Ofertas da semana" subtitle="Condição especial com desconto extra no Pix" href="/ofertas" products={ofertas} priorityFirst={4} />
       <PromoBanners banners={PROMOS} />
       <ProductRail eyebrow="Compre em quantidade" title="Mais vendidos no atacado" subtitle="O preço cai sozinho ao atingir a quantidade mínima" href="/atacado" hrefLabel="Ver tudo do atacado" products={atacado} />
       <HowItWorks />
       <ProductRail eyebrow="Quem constrói recomenda" title="Os mais vendidos" href="/busca?ordenar=relevance" products={maisVendidos} />
       <InspirationGrid items={inspirations} />
       <ProductRail eyebrow="Pintura" title="Renove a casa com tinta premium" href="/categoria/tintas-e-acessorios" hrefLabel="Ver tintas" products={tintas} />
-      <ProductRail eyebrow="Banheiro e cozinha" title="Louças e metais de fábrica" href="/categoria/loucas-e-metais" hrefLabel="Ver louças e metais" products={loucas} />
+      <ProductRail eyebrow="Banheiro e cozinha" title="Louças e metais com preço negociado" href="/categoria/loucas-e-metais" hrefLabel="Ver louças e metais" products={loucas} />
       <BrandsStrip brands={brands.slice(0, 20)} />
       <Newsletter />
     </div>
