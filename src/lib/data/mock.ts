@@ -1359,7 +1359,7 @@ export const banners: Banner[] = [
     id: "hero-loucas",
     eyebrow: "Louças e metais",
     title: "Banheiro de revista, preço de atacado.",
-    subtitle: "Deca e Docol com entrega direto da fábrica para a sua obra.",
+    subtitle: "Deca e Docol com preço negociado e entrega direto na sua obra.",
     cta: "Explorar louças",
     href: "/categoria/loucas-e-metais",
     image: img("bath", 1600),

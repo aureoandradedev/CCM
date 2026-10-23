@@ -7,7 +7,7 @@ export default async function AdminSuppliersPage() {
   const suppliers = await adminSuppliers();
   return (
     <>
-      <PageTitle title="Fornecedores" subtitle="Quem fatura e entrega cada produto. A integração automática com fornecedores é fase futura." />
+      <PageTitle title="Fornecedores" subtitle="Parceiros que fornecem os produtos. A integração automática é fase futura." />
       <SuppliersAdmin suppliers={suppliers} />
     </>
   );

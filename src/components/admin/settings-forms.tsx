@@ -21,7 +21,7 @@ export function FreightForm({ value }: { value: FreteSettings }) {
         </Field>
       </div>
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="pickup" defaultChecked={value.pickupEnabled} className="size-4 accent-brand-navy" /> Permitir retirada no fornecedor
+        <input type="checkbox" name="pickup" defaultChecked={value.pickupEnabled} className="size-4 accent-brand-navy" /> Permitir retirada na loja
       </label>
       <Button type="submit" variant="navy" size="sm" disabled={pending}>
         {pending ? "Salvando..." : "Salvar frete"}

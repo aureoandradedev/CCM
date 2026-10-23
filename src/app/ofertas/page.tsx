@@ -26,7 +26,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
     <CatalogListing
       eyebrow="Só esta semana"
       title="Ofertas da semana"
-      description="Preço de fábrica com desconto extra de 5% no Pix. As ofertas valem enquanto o fornecedor mantiver o lote."
+      description="Condição especial com desconto extra de 5% no Pix. As ofertas valem enquanto durar o estoque."
       basePath="/ofertas"
       params={{ ...q, ofertas: false }}
       result={result}
