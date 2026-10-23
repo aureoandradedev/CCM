@@ -20,6 +20,7 @@ export type ExceptionType =
   | "review_match"
   | "review_ranking"
   | "no_offer"
+  | "no_master_candidate"
   | "source_changed"
   | "economy_opportunity"
   | "stale_sourcing"

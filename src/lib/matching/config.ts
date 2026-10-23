@@ -44,8 +44,10 @@ export const EAN_OVERRIDE_SCORE = 95;
 
 export const MATCH_THRESHOLDS = {
   HIGH_CONFIDENCE: 75,
-  REVIEW: 45,
+  REVIEW: 40,
 } as const;
+
+export const AMBIGUITY_MIN_SCORE = 15;
 
 export const HARD_CONFLICT_ATTRIBUTES = new Set([
   "voltage",

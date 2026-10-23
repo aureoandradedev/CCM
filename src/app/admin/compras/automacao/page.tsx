@@ -57,6 +57,7 @@ export default async function AutomacaoPage(props: {
           { key: "review_match", label: "Match", color: "text-yellow-600" },
           { key: "review_ranking", label: "Ranking", color: "text-orange-600" },
           { key: "no_offer", label: "Sem oferta", color: "text-red-600" },
+          { key: "no_master_candidate", label: "Sem master", color: "text-pink-600" },
           { key: "source_changed", label: "Mudou", color: "text-amber-600" },
           { key: "stale_sourcing", label: "Sourcing", color: "text-red-700" },
           { key: "stale_publication", label: "Publicação", color: "text-purple-600" },

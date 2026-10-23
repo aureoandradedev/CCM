@@ -2,7 +2,9 @@
 
 import { useActionState } from "react";
 
-import { approveMatch, rejectMatch, selectOffer, publishProduct, processarPendencias, resolveException } from "./actions";
+import { useState, useTransition } from "react";
+
+import { approveMatch, rejectMatch, selectOffer, publishProduct, processarPendencias, resolveException, createMasterFromItem, associateToMaster, rejectNormalizedItem, searchMasters } from "./actions";
 
 export function MatchActions({ itemId, masterProductId }: { itemId: string; masterProductId: string }) {
   const [, approve, approvePending] = useActionState(approveMatch, {});
@@ -123,6 +125,7 @@ const TYPE_LABELS: Record<string, string> = {
   review_match: "Match pendente",
   review_ranking: "Ranking ambíguo",
   no_offer: "Sem oferta",
+  no_master_candidate: "Sem produto mestre",
   source_changed: "Dados alterados",
   economy_opportunity: "Economia",
   stale_sourcing: "Seleção desatualizada",
@@ -167,6 +170,163 @@ export function ResolveExceptionForm({ exceptionId }: { exceptionId: string }) {
       {resolveState?.ok && <span className="text-xs text-green-600">{resolveState.ok}</span>}
       {dismissState?.error && <span className="text-xs text-red-600">{dismissState.error}</span>}
       {dismissState?.ok && <span className="text-xs text-green-600">{dismissState.ok}</span>}
+    </div>
+  );
+}
+
+// ─── Criar master a partir de item ────────────────────────────────────────
+
+interface ItemData {
+  id: string;
+  name: string;
+  brand: string | null;
+  model: string | null;
+  ean: string | null;
+  category_original: string | null;
+  normalized_data: Record<string, unknown> | null;
+}
+
+export function CreateMasterForm({ item }: { item: ItemData }) {
+  const [state, action, pending] = useActionState(createMasterFromItem, {});
+  const nd = item.normalized_data ?? {};
+
+  return (
+    <form action={action} className="space-y-3 rounded-lg border border-brand-line bg-white p-4">
+      <h3 className="text-sm font-semibold text-brand-fg">Criar produto mestre</h3>
+      <input type="hidden" name="itemId" value={item.id} />
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <label className="col-span-2 block">
+          <span className="font-medium text-brand-fg/70">Nome *</span>
+          <input name="name" defaultValue={String(nd.name ?? item.name ?? "")} required className="mt-1 w-full rounded border border-brand-line px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="font-medium text-brand-fg/70">Marca (slug)</span>
+          <input name="brandSlug" defaultValue={String(nd.brand_slug ?? item.brand ?? "")} className="mt-1 w-full rounded border border-brand-line px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="font-medium text-brand-fg/70">Marca (nome)</span>
+          <input name="brandName" defaultValue={String(nd.brand_name ?? item.brand ?? "")} className="mt-1 w-full rounded border border-brand-line px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="font-medium text-brand-fg/70">Modelo</span>
+          <input name="model" defaultValue={String(nd.model ?? item.model ?? "")} className="mt-1 w-full rounded border border-brand-line px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="font-medium text-brand-fg/70">EAN</span>
+          <input name="ean" defaultValue={String(item.ean ?? "")} className="mt-1 w-full rounded border border-brand-line px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="font-medium text-brand-fg/70">Categoria (slug)</span>
+          <input name="categorySlug" defaultValue={String(nd.category_slug ?? "")} className="mt-1 w-full rounded border border-brand-line px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="font-medium text-brand-fg/70">Subcategoria (slug)</span>
+          <input name="subcategorySlug" defaultValue={String(nd.subcategory_slug ?? "")} className="mt-1 w-full rounded border border-brand-line px-2 py-1.5 text-sm" />
+        </label>
+        <label className="block">
+          <span className="font-medium text-brand-fg/70">Unidade</span>
+          <input name="unit" defaultValue="un" className="mt-1 w-full rounded border border-brand-line px-2 py-1.5 text-sm" />
+        </label>
+      </div>
+      <button disabled={pending} className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
+        {pending ? "Criando…" : "Criar master e aprovar"}
+      </button>
+      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state?.ok && <p className="text-xs text-green-600">{state.ok}</p>}
+    </form>
+  );
+}
+
+// ─── Associar a master existente ──────────────────────────────────────────
+
+export function AssociateMasterForm({ itemId }: { itemId: string }) {
+  const [state, action, pending] = useActionState(associateToMaster, {});
+  const [results, setResults] = useState<{ id: string; name: string; brand_slug: string | null; model: string | null; ean: string | null }[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [searching, startSearch] = useTransition();
+  const [query, setQuery] = useState("");
+
+  function handleSearch(q: string) {
+    setQuery(q);
+    if (q.trim().length < 2) { setResults([]); return; }
+    startSearch(async () => {
+      const r = await searchMasters(q);
+      setResults(r);
+    });
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-brand-line bg-white p-4">
+      <h3 className="text-sm font-semibold text-brand-fg">Associar a master existente</h3>
+      <input
+        type="text"
+        placeholder="Buscar por nome, marca, modelo ou EAN…"
+        value={query}
+        onChange={(e) => handleSearch(e.target.value)}
+        className="w-full rounded border border-brand-line px-2 py-1.5 text-sm"
+      />
+      {searching && <p className="text-xs text-brand-fg/50">Buscando…</p>}
+      {results.length > 0 && (
+        <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
+          {results.map((m) => (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => setSelected(m.id)}
+                className={`w-full rounded px-2 py-1 text-left transition ${selected === m.id ? "bg-blue-100 text-blue-800" : "hover:bg-gray-50"}`}
+              >
+                <span className="font-medium">{m.name}</span>
+                {m.brand_slug && <span className="ml-1 text-brand-fg/50">({m.brand_slug})</span>}
+                {m.model && <span className="ml-1 text-brand-fg/50">mod: {m.model}</span>}
+                {m.ean && <span className="ml-1 text-brand-fg/50">EAN: {m.ean}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {selected && (
+        <form action={action} className="flex items-center gap-2">
+          <input type="hidden" name="itemId" value={itemId} />
+          <input type="hidden" name="masterProductId" value={selected} />
+          <button disabled={pending} className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+            {pending ? "Vinculando…" : "Vincular"}
+          </button>
+          <button type="button" onClick={() => { setSelected(null); setResults([]); setQuery(""); }} className="text-xs text-brand-fg/50 hover:underline">
+            Cancelar
+          </button>
+        </form>
+      )}
+      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state?.ok && <p className="text-xs text-green-600">{state.ok}</p>}
+    </div>
+  );
+}
+
+// ─── Ações para item sem master ───────────────────────────────────────────
+
+export function NoMasterActions({ item }: { item: ItemData }) {
+  const [mode, setMode] = useState<"idle" | "create" | "associate">("idle");
+  const [rejectState, rejectAction, rejectPending] = useActionState(rejectNormalizedItem, {});
+
+  if (mode === "create") return <CreateMasterForm item={item} />;
+  if (mode === "associate") return <AssociateMasterForm itemId={item.id} />;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <button onClick={() => setMode("create")} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700">
+        Criar master
+      </button>
+      <button onClick={() => setMode("associate")} className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700">
+        Associar
+      </button>
+      <form action={rejectAction}>
+        <input type="hidden" name="itemId" value={item.id} />
+        <button disabled={rejectPending} className="rounded bg-gray-400 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-500 disabled:opacity-50">
+          {rejectPending ? "…" : "Ignorar"}
+        </button>
+      </form>
+      {rejectState?.error && <span className="text-xs text-red-600">{rejectState.error}</span>}
+      {rejectState?.ok && <span className="text-xs text-green-600">{rejectState.ok}</span>}
     </div>
   );
 }
