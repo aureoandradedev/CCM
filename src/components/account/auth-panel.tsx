@@ -31,7 +31,7 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
         <HardHat className="size-8 text-brand-yellow" />
         <h2 className="mt-4 font-heading text-[1.9rem] leading-tight font-extrabold tracking-tight">Uma conta para a obra inteira.</h2>
         <ul className="mt-5 space-y-3 text-sm text-white/80">
-          {["Historico de pedidos", "Enderecos de obra salvos", "Preco de atacado e faturamento para CNPJ", "Listas de materiais para repetir compras"].map((t) => (
+          {["Histórico de pedidos", "Endereços de obra salvos", "Preço de atacado e faturamento para CNPJ", "Listas de materiais para repetir compras"].map((t) => (
             <li key={t} className="flex gap-2">
               <span className="mt-1 size-1.5 shrink-0 rounded-full bg-brand-yellow" />
               {t}
@@ -75,7 +75,7 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
         ) : null}
 
         {mode === "login" ? (
-          <form action={loginAction} className="mt-5 space-y-4">
+          <form key="login" action={loginAction} className="mt-5 space-y-4">
             <input type="hidden" name="next" value={next} />
             <label className="block text-xs font-semibold text-brand-ink">
               E-mail
@@ -97,7 +97,7 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
             </p>
           </form>
         ) : mode === "signup" ? (
-          <form action={signupAction} className="mt-5 space-y-4">
+          <form key="signup" action={signupAction} className="mt-5 space-y-4">
             <label className="block text-xs font-semibold text-brand-ink">
               Nome completo
               <input name="full_name" className={cn(input, "mt-1")} autoComplete="name" required />
@@ -131,7 +131,7 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
             </p>
           </form>
         ) : (
-          <form action={resetAction} className="mt-5 space-y-4">
+          <form key="reset" action={resetAction} className="mt-5 space-y-4">
             <label className="block text-xs font-semibold text-brand-ink">
               E-mail da conta
               <input name="email" className={cn(input, "mt-1")} type="email" autoComplete="email" required />
