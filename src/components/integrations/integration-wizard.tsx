@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, PartyPopper, Store } from "lucide-react";
@@ -10,6 +10,8 @@ import { MethodCards } from "./method-cards";
 import { CsvImporter, type CsvResult } from "./csv-importer";
 import { ManualImporter } from "./manual-importer";
 import { ApiPanel, ErpPanel, FeedPanel } from "./prepared-panels";
+import { SupplierAuthModal } from "./supplier-auth-modal";
+import { SupplierOnboarding } from "./supplier-onboarding";
 import { isMethodAvailable, methodById } from "@/lib/integrations/connectors";
 import {
   newIntegrationId,
@@ -23,9 +25,39 @@ import { cn } from "@/lib/utils";
 type Step = 1 | 2 | 3 | 4;
 
 const STEP_LABELS = ["Método", "Configurar", "Revisar", "Pronto"];
+const DRAFT_KEY = "ccm_import_draft";
 
 /** Métodos que realmente importam um catálogo agora (geram etapas 3 e 4). */
 const IMPORTS_CATALOG: IntegrationMethod[] = ["csv", "manual"];
+
+interface DraftState {
+  method: IntegrationMethod;
+  summary: ImportSummary;
+  sourceName: string;
+  sourceType: "csv" | "xlsx" | "manual";
+  savedAt: number;
+}
+
+function saveDraft(draft: DraftState) {
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* SSR / quota */ }
+}
+
+function loadDraft(): DraftState | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as DraftState;
+    if (Date.now() - d.savedAt > 3_600_000) {
+      sessionStorage.removeItem(DRAFT_KEY);
+      return null;
+    }
+    return d;
+  } catch { return null; }
+}
+
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* SSR */ }
+}
 
 export function IntegrationWizard() {
   const router = useRouter();
@@ -36,6 +68,20 @@ export function IntegrationWizard() {
   const [sourceType, setSourceType] = useState<"csv" | "xlsx" | "manual">("csv");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [supplierNotLinked, setSupplierNotLinked] = useState(false);
+
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      setMethod(draft.method);
+      setSummary(draft.summary);
+      setSourceName(draft.sourceName);
+      setSourceType(draft.sourceType);
+      setStep(3);
+      clearDraft();
+    }
+  }, []);
 
   const onCsv = useCallback((r: CsvResult | null) => {
     setSummary(r?.summary ?? null);
@@ -56,6 +102,7 @@ export function IntegrationWizard() {
     setMethod(id);
     setSummary(null);
     setSourceName("");
+    setSupplierNotLinked(false);
     setStep(2);
   }
 
@@ -63,6 +110,7 @@ export function IntegrationWizard() {
     if (!method || !summary) return;
     setImporting(true);
     setImportError(null);
+    setSupplierNotLinked(false);
 
     const products = summary.rows
       .filter((r): r is typeof r & { product: CanonicalProduct } => !!r.product)
@@ -82,6 +130,17 @@ export function IntegrationWizard() {
       });
 
       if (!result.ok) {
+        if (result.errorCode === "auth_required") {
+          saveDraft({ method, summary, sourceName, sourceType, savedAt: Date.now() });
+          setShowAuthModal(true);
+          setImporting(false);
+          return;
+        }
+        if (result.errorCode === "supplier_not_linked") {
+          setSupplierNotLinked(true);
+          setImporting(false);
+          return;
+        }
         setImportError(result.error ?? "Erro ao importar catálogo.");
         setImporting(false);
         return;
@@ -92,6 +151,7 @@ export function IntegrationWizard() {
       return;
     }
 
+    clearDraft();
     const caps: SyncCapability[] = ["products", "stock", "price"];
     if (summary.withImages > 0) caps.push("images");
     const entry: ConnectedIntegration = {
@@ -113,6 +173,11 @@ export function IntegrationWizard() {
     saveIntegration(entry);
     setImporting(false);
     setStep(4);
+  }
+
+  function handleAuthenticated() {
+    setShowAuthModal(false);
+    finish();
   }
 
   return (
@@ -195,18 +260,27 @@ export function IntegrationWizard() {
             </p>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button variant="ghost" onClick={() => setStep(2)} disabled={importing} className="gap-1 text-brand-ink-soft">
-              <ArrowLeft className="size-4" /> Voltar
-            </Button>
-            <Button variant="brand" size="lg" onClick={finish} disabled={summary.valid === 0 || importing} className="gap-1">
-              {importing ? (
-                <><Loader2 className="size-4 animate-spin" /> Importando...</>
-              ) : (
-                <><CheckCircle2 className="size-4" /> Importar catálogo</>
-              )}
-            </Button>
-          </div>
+          {supplierNotLinked ? (
+            <SupplierOnboarding
+              onLinked={() => { setSupplierNotLinked(false); finish(); }}
+              onBack={() => { setSupplierNotLinked(false); setStep(2); }}
+            />
+          ) : null}
+
+          {!supplierNotLinked ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Button variant="ghost" onClick={() => setStep(2)} disabled={importing} className="gap-1 text-brand-ink-soft">
+                <ArrowLeft className="size-4" /> Voltar
+              </Button>
+              <Button variant="brand" size="lg" onClick={finish} disabled={summary.valid === 0 || importing} className="gap-1">
+                {importing ? (
+                  <><Loader2 className="size-4 animate-spin" /> Importando...</>
+                ) : (
+                  <><CheckCircle2 className="size-4" /> Importar catálogo</>
+                )}
+              </Button>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -238,6 +312,15 @@ export function IntegrationWizard() {
           </div>
         </section>
       ) : null}
+
+      <SupplierAuthModal
+        open={showAuthModal}
+        onOpenChange={(open) => {
+          setShowAuthModal(open);
+          if (!open) clearDraft();
+        }}
+        onAuthenticated={handleAuthenticated}
+      />
     </div>
   );
 }

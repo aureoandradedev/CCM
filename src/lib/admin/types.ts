@@ -75,6 +75,19 @@ export interface AdminSupplier {
   created_at: string;
 }
 
+export interface AccessRequest {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  profile_id: string;
+  profile_name: string | null;
+  profile_email: string;
+  status: "pending" | "approved" | "rejected";
+  note: string | null;
+  requested_at: string;
+  reviewed_at: string | null;
+}
+
 export interface LinkedProfile {
   id: string;
   full_name: string | null;

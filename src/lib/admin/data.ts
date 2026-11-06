@@ -11,6 +11,7 @@ import {
   type AdminCategory,
   type AdminLead,
   type AdminProduct,
+  type AccessRequest,
   type AdminProfile,
   type AdminSupplier,
   type LinkedProfile,
@@ -128,6 +129,46 @@ export async function adminLinkedProfiles(supplierId: string): Promise<LinkedPro
     .eq("supplier_id", supplierId)
     .order("full_name");
   return (data as LinkedProfile[] | null) ?? [];
+}
+
+/* ----------------------------- solicitações de acesso ----------------------- */
+
+export async function adminAccessRequests(statusFilter: "pending" | "all" = "pending"): Promise<AccessRequest[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let q = sb
+    .from("supplier_access_requests")
+    .select("id, supplier_id, profile_id, status, note, requested_at, reviewed_at, suppliers(name), profiles(full_name, email)")
+    .order("requested_at", { ascending: false })
+    .limit(200);
+  if (statusFilter === "pending") q = q.eq("status", "pending");
+  const { data } = await q;
+  return (data ?? []).map((r) => {
+    const sup = r.suppliers as unknown as Record<string, unknown> | null;
+    const prof = r.profiles as unknown as Record<string, unknown> | null;
+    return {
+      id: r.id as string,
+      supplier_id: r.supplier_id as string,
+      supplier_name: (sup?.name as string) ?? (r.supplier_id as string),
+      profile_id: r.profile_id as string,
+      profile_name: (prof?.full_name as string | null) ?? null,
+      profile_email: (prof?.email as string) ?? "",
+      status: r.status as AccessRequest["status"],
+      note: r.note as string | null,
+      requested_at: r.requested_at as string,
+      reviewed_at: r.reviewed_at as string | null,
+    };
+  });
+}
+
+export async function adminPendingRequestCount(): Promise<number> {
+  if (!configured()) return 0;
+  const sb = await createClient();
+  const { count } = await sb
+    .from("supplier_access_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  return count ?? 0;
 }
 
 /* -------------------------------- integrações ------------------------------ */

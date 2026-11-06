@@ -566,6 +566,43 @@ export async function unlinkUserFromSupplier(_p: ActionResult, fd: FormData): Pr
   }, ["/admin/fornecedores"]);
 }
 
+export async function approveAccessRequest(requestId: string): Promise<ActionResult> {
+  return run(async (sb) => {
+    const { data: result, error: rpcErr } = await sb.rpc("approve_supplier_access", {
+      p_request_id: requestId,
+    });
+    if (rpcErr) return { error: `Erro ao aprovar: ${rpcErr.message}` };
+    const res = result as { ok: boolean; error?: string };
+    if (!res.ok) return { error: res.error ?? "Erro inesperado." };
+    return { ok: "Solicitação aprovada e usuário vinculado." };
+  }, ["/admin/fornecedores"]);
+}
+
+export async function rejectAccessRequest(requestId: string, note?: string): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const { data: req } = await sb
+      .from("supplier_access_requests")
+      .select("id, status")
+      .eq("id", requestId)
+      .single();
+    if (!req) return { error: "Solicitação não encontrada." };
+    if (req.status !== "pending") return { error: "Esta solicitação já foi processada." };
+
+    const { error } = await sb
+      .from("supplier_access_requests")
+      .update({
+        status: "rejected",
+        note: note?.trim() || null,
+        reviewed_by: adminId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", requestId);
+    if (error) return { error: error.message };
+
+    return { ok: "Solicitação recusada." };
+  }, ["/admin/fornecedores"]);
+}
+
 export async function saveCategory(_p: ActionResult, fd: FormData): Promise<ActionResult> {
   return run(async (sb) => {
     const name = str(fd, "name");
