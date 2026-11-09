@@ -662,6 +662,98 @@ export async function saveCategory(_p: ActionResult, fd: FormData): Promise<Acti
 
 /* ================================== ADMINS ================================ */
 
+/* ========================= PEDIDOS DE COMPRA (Fase 14) ==================== */
+
+export async function generatePurchaseOrder(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb) => {
+    const supplierId = str(fd, "supplier_id");
+    const cycleDate = str(fd, "cycle_date");
+    if (!supplierId || !cycleDate) return { error: "Fornecedor e data do ciclo são obrigatórios." };
+
+    const { data, error } = await sb.rpc("generate_purchase_order", {
+      p_supplier_id: supplierId,
+      p_cycle_date: cycleDate,
+    });
+    if (error) return { error: error.message };
+    const res = data as { ok?: boolean; error?: string; purchase_order_id?: string; total_centavos?: number; minimum_met?: boolean };
+    if (res.error) return { error: res.error };
+
+    const label = res.minimum_met
+      ? `Pedido gerado: R$ ${((res.total_centavos ?? 0) / 100).toFixed(2)}`
+      : `Pedido abaixo do mínimo: R$ ${((res.total_centavos ?? 0) / 100).toFixed(2)}`;
+
+    return { ok: label, id: res.purchase_order_id };
+  }, ["/admin/compras"]);
+}
+
+export async function decidePurchaseOrder(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const poId = str(fd, "purchase_order_id");
+    const decision = str(fd, "decision");
+    if (!poId || !decision) return { error: "Dados inválidos." };
+
+    const { error } = await sb.from("supplier_purchase_orders").update({
+      decision,
+      decided_by: adminId,
+      decided_at: new Date().toISOString(),
+      status: decision === "wait_next_cycle" ? "cancelled" : "sent",
+    }).eq("id", poId).eq("status", "draft");
+
+    if (error) return { error: error.message };
+    return { ok: "Decisão registrada." };
+  }, ["/admin/compras"]);
+}
+
+/* ============================== ESTOQUE CCM ============================== */
+
+export async function adjustInventory(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb) => {
+    const masterProductId = str(fd, "master_product_id");
+    const movementType = str(fd, "movement_type") as "purchase_leftover" | "sale_from_stock" | "adjustment" | "write_off";
+    const quantity = intOrNull(fd, "quantity");
+    const unitCost = intOrNull(fd, "unit_cost_centavos");
+
+    if (!masterProductId) return { error: "Produto obrigatório." };
+    if (!movementType) return { error: "Tipo de movimento obrigatório." };
+    if (quantity === null || quantity === 0) return { error: "Quantidade obrigatória." };
+
+    if (movementType === "purchase_leftover" && quantity > 0) {
+      const { error } = await sb.rpc("record_leftover", {
+        p_master_product_id: masterProductId,
+        p_quantity: quantity,
+        p_unit_cost_centavos: unitCost ?? 0,
+        p_source_supplier_id: str(fd, "supplier_id") || null,
+        p_source_purchase_order_id: str(fd, "purchase_order_id") || null,
+      });
+      if (error) return { error: error.message };
+      return { ok: `Sobra registrada: +${quantity} un.` };
+    }
+
+    if (movementType === "sale_from_stock" && quantity > 0) {
+      const { error } = await sb.rpc("consume_leftover", {
+        p_master_product_id: masterProductId,
+        p_quantity: quantity,
+      });
+      if (error) return { error: error.message };
+      return { ok: `Consumo registrado: -${quantity} un.` };
+    }
+
+    const qtyChange = movementType === "write_off" ? -Math.abs(quantity) : quantity;
+    const { data, error } = await sb.rpc("record_inventory_movement", {
+      p_master_product_id: masterProductId,
+      p_movement_type: movementType,
+      p_quantity: qtyChange,
+      p_unit_cost_centavos: unitCost,
+      p_reason: str(fd, "reason") || null,
+    });
+    if (error) return { error: error.message };
+    const res = data as { ok?: boolean; error?: string } | null;
+    if (res?.error) return { error: res.error };
+
+    return { ok: "Movimento registrado." };
+  }, ["/admin/compras"]);
+}
+
 /* ================================== ADMINS ================================ */
 
 export async function setAdminRole(_p: ActionResult, fd: FormData): Promise<ActionResult> {

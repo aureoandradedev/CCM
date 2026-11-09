@@ -86,6 +86,46 @@ export interface AdminSupplier {
 export type SaleMode = "por_unidade" | "embalagem_fechada" | "unidade_e_caixa" | "nao_vender";
 export type UnidadeCompra = "unidade" | "caixa" | "fardo" | "rolo";
 
+export interface InventorySummary {
+  master_product_id: string;
+  product_name: string;
+  category_slug: string | null;
+  quantity: number;
+  unit_cost_centavos: number;
+  total_value_centavos: number;
+  ceiling_centavos: number | null;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  supplier_id: string;
+  supplier_name?: string;
+  cycle_date: string;
+  status: "draft" | "sent" | "confirmed" | "partial" | "completed" | "cancelled";
+  total_centavos: number;
+  item_count: number;
+  minimum_centavos: number | null;
+  minimum_met: boolean;
+  freight_centavos: number;
+  decision: string | null;
+  expected_delivery: string | null;
+  created_at: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  purchase_order_id: string;
+  master_product_id: string;
+  product_name: string;
+  quantity_units: number;
+  quantity_packages: number;
+  package_unit: string;
+  qtd_por_embalagem: number;
+  unit_cost_centavos: number;
+  total_centavos: number;
+  leftover_units: number;
+}
+
 export interface AccessRequest {
   id: string;
   supplier_id: string;

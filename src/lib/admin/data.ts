@@ -14,8 +14,11 @@ import {
   type AccessRequest,
   type AdminProfile,
   type AdminSupplier,
+  type InventorySummary,
   type LinkedProfile,
   type OrderEvent,
+  type PurchaseOrder,
+  type PurchaseOrderItem,
   type SiteSettings,
 } from "./types";
 
@@ -481,4 +484,44 @@ export function newProductId(): string {
 /** Campanha agendada cujo horário já passou e ainda não foi ativada. */
 export function campanhaAtrasada(c: AdminCampaign): boolean {
   return c.status === "agendada" && new Date(c.starts_at).getTime() <= Date.now();
+}
+
+/* ------------------------------- estoque CCM (Fase 13) ----------------------- */
+
+export async function adminInventorySummary(): Promise<InventorySummary[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb.from("v_leftover_summary")
+    .select("master_product_id, product_name, category_slug, quantity, unit_cost_centavos, total_value_centavos, ceiling_centavos");
+  return (data as InventorySummary[] | null) ?? [];
+}
+
+export async function adminInventoryTotal(): Promise<{ total_value_centavos: number; ceiling_centavos: number | null }> {
+  const items = await adminInventorySummary();
+  const total = items.reduce((sum, i) => sum + i.total_value_centavos, 0);
+  const ceiling = items[0]?.ceiling_centavos ?? null;
+  return { total_value_centavos: total, ceiling_centavos: ceiling };
+}
+
+/* ------------------------------- pedidos de compra (Fase 14) ----------------- */
+
+export async function adminPurchaseOrders(opts: { supplier_id?: string; status?: string; limit?: number } = {}): Promise<PurchaseOrder[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let q = sb.from("supplier_purchase_orders")
+    .select("id, supplier_id, cycle_date, status, total_centavos, item_count, minimum_centavos, minimum_met, freight_centavos, decision, expected_delivery, created_at");
+  if (opts.supplier_id) q = q.eq("supplier_id", opts.supplier_id);
+  if (opts.status) q = q.eq("status", opts.status);
+  const { data } = await q.order("cycle_date", { ascending: false }).limit(opts.limit ?? 50);
+  return (data as PurchaseOrder[] | null) ?? [];
+}
+
+export async function adminPurchaseOrderItems(poId: string): Promise<PurchaseOrderItem[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb.from("purchase_order_items")
+    .select("id, purchase_order_id, master_product_id, product_name, quantity_units, quantity_packages, package_unit, qtd_por_embalagem, unit_cost_centavos, total_centavos, leftover_units")
+    .eq("purchase_order_id", poId)
+    .order("product_name");
+  return (data as PurchaseOrderItem[] | null) ?? [];
 }
