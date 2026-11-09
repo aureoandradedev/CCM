@@ -1,7 +1,11 @@
 "use server";
 
 import { z } from "zod";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { isValidCNPJ, isValidCPF, isValidEmail, maskPhone, onlyDigits } from "@/lib/utils/masks";
+import type { ActionState } from "@/app/conta/actions";
 import type { CanonicalProduct } from "@/lib/integrations/types";
 
 // ── Limites ──────────────────────────────────────────────────────────
@@ -64,7 +68,23 @@ export interface CatalogImportResult {
   ok: boolean;
   catalogId?: string;
   error?: string;
+  errorCode?: "auth_required" | "supplier_not_linked";
   counts?: { total: number; inserted: number; errors: number; warnings: number };
+}
+
+// ── Tipos onboarding ────────────────────────────────────────────────
+
+export interface OnboardingStatus {
+  authenticated: boolean;
+  linked: boolean;
+  pending: { id: string; supplierName: string; requestedAt: string } | null;
+}
+
+export interface SupplierRegistrationResult {
+  ok: boolean;
+  error?: string;
+  supplierId?: string;
+  conflict?: boolean;
 }
 
 // ── Server action ────────────────────────────────────────────────────
@@ -89,7 +109,7 @@ export async function importCatalog(input: CatalogImportInput): Promise<CatalogI
     error: authError,
   } = await supabase.auth.getUser();
   if (authError || !user) {
-    return { ok: false, error: "Faça login para importar seu catálogo." };
+    return { ok: false, error: "Faça login para importar seu catálogo.", errorCode: "auth_required" };
   }
 
   const { data: profile } = await supabase
@@ -99,7 +119,7 @@ export async function importCatalog(input: CatalogImportInput): Promise<CatalogI
     .single();
 
   if (!profile?.supplier_id) {
-    return { ok: false, error: "Sua conta não está vinculada a um fornecedor." };
+    return { ok: false, error: "Sua conta não está vinculada a um fornecedor.", errorCode: "supplier_not_linked" };
   }
 
   const supplierId = profile.supplier_id;
@@ -190,4 +210,202 @@ export async function importCatalog(input: CatalogImportInput): Promise<CatalogI
       warnings: data.totals.warnings,
     },
   };
+}
+
+// ── Onboarding: registrar empresa / solicitar acesso ────────────────
+
+const UFS = new Set([
+  "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
+  "PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO",
+]);
+
+const registrationSchema = z.object({
+  cnpj: z.string().length(14),
+  trade_name: z.string().min(3).max(200),
+  name: z.string().min(2).max(200),
+  contact_phone: z.string().min(10).max(20),
+  contact_email: z.string().email().max(200),
+  city: z.string().min(2).max(100),
+  state: z.string().length(2),
+});
+
+export async function registerSupplier(input: {
+  cnpj: string;
+  trade_name: string;
+  name: string;
+  contact_phone: string;
+  contact_email: string;
+  city: string;
+  state: string;
+}): Promise<SupplierRegistrationResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Faça login primeiro." };
+
+  const digits = onlyDigits(input.cnpj);
+  if (!isValidCNPJ(digits)) return { ok: false, error: "CNPJ inválido." };
+  if (!UFS.has(input.state.toUpperCase())) return { ok: false, error: "UF inválida." };
+
+  const parsed = registrationSchema.safeParse({
+    ...input,
+    cnpj: digits,
+    contact_phone: onlyDigits(input.contact_phone),
+    state: input.state.toUpperCase(),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: `Dados inválidos: ${parsed.error.issues[0]?.message ?? "verifique os campos."}` };
+  }
+  const d = parsed.data;
+
+  const { data: result, error: rpcErr } = await supabase.rpc("register_supplier_and_link", {
+    p_cnpj: d.cnpj,
+    p_name: d.name,
+    p_trade_name: d.trade_name,
+    p_contact_phone: d.contact_phone,
+    p_contact_email: d.contact_email,
+    p_city: d.city,
+    p_state: d.state,
+  });
+
+  if (rpcErr) return { ok: false, error: "Erro ao cadastrar fornecedor. Tente novamente." };
+
+  const res = result as { ok: boolean; error?: string; supplierId?: string; conflict?: boolean };
+  if (!res.ok) return { ok: false, error: res.error ?? "Erro inesperado.", conflict: res.conflict };
+  return { ok: true, supplierId: res.supplierId };
+}
+
+export async function requestSupplierAccess(cnpj: string): Promise<SupplierRegistrationResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Faça login primeiro." };
+
+  const digits = onlyDigits(cnpj);
+  if (!isValidCNPJ(digits)) return { ok: false, error: "CNPJ inválido." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("supplier_id")
+    .eq("id", user.id)
+    .single();
+  if (profile?.supplier_id) return { ok: false, error: "Sua conta já está vinculada a um fornecedor." };
+
+  const { data: supplier } = await supabase
+    .from("suppliers")
+    .select("id, name")
+    .eq("cnpj", digits)
+    .single();
+  if (!supplier) return { ok: false, error: "Nenhuma empresa encontrada com este CNPJ." };
+
+  const { error: reqErr } = await supabase.from("supplier_access_requests").insert({
+    supplier_id: supplier.id,
+    profile_id: user.id,
+    status: "pending",
+  });
+
+  if (reqErr) {
+    if (/unique|duplicate/i.test(reqErr.message) || reqErr.code === "23505") {
+      return { ok: false, error: "Já existe uma solicitação pendente para esta empresa." };
+    }
+    return { ok: false, error: "Erro ao criar solicitação. Tente novamente." };
+  }
+
+  return { ok: true, supplierId: supplier.id };
+}
+
+export async function getOnboardingStatus(): Promise<OnboardingStatus> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { authenticated: false, linked: false, pending: null };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("supplier_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.supplier_id) return { authenticated: true, linked: true, pending: null };
+
+  const { data: request } = await supabase
+    .from("supplier_access_requests")
+    .select("id, supplier_id, requested_at, suppliers(name)")
+    .eq("profile_id", user.id)
+    .eq("status", "pending")
+    .order("requested_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (request) {
+    const sup = request.suppliers as unknown as Record<string, unknown> | null;
+    const supplierName = (sup?.name as string) ?? request.supplier_id;
+    return {
+      authenticated: true,
+      linked: false,
+      pending: { id: request.id, supplierName, requestedAt: request.requested_at },
+    };
+  }
+
+  return { authenticated: true, linked: false, pending: null };
+}
+
+// ── Auth para modal de importação (sem redirect) ────────────────────
+
+const NOT_CONFIGURED = "Banco de dados ainda não configurado.";
+
+async function siteUrl(): Promise<string> {
+  const h = await headers();
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  return process.env.NEXT_PUBLIC_SITE_URL ?? `${proto}://${host}`;
+}
+
+export async function signInForImport(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!isValidEmail(email) || password.length < 6) return { error: "Confira e-mail e senha." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    if (/invalid login/i.test(error.message)) return { error: "E-mail ou senha incorretos." };
+    if (/not confirmed/i.test(error.message)) return { error: "Confirme seu e-mail antes de entrar." };
+    return { error: error.message };
+  }
+  return { ok: "Autenticado!" };
+}
+
+export async function signUpForImport(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const fullName = String(formData.get("full_name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const document = onlyDigits(formData.get("document"));
+  const phone = onlyDigits(formData.get("phone"));
+
+  if (fullName.length < 3) return { error: "Digite seu nome completo." };
+  if (!isValidEmail(email)) return { error: "E-mail inválido." };
+  if (password.length < 8) return { error: "A senha precisa ter pelo menos 8 caracteres." };
+  if (!isValidCPF(document) && !isValidCNPJ(document)) return { error: "CPF ou CNPJ inválido." };
+  if (phone.length < 10) return { error: "WhatsApp com DDD." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${await siteUrl()}/auth/callback?next=/fornecedores/integrar`,
+      data: {
+        full_name: fullName,
+        document,
+        phone: maskPhone(phone),
+        person_type: document.length === 14 ? "pj" : "pf",
+      },
+    },
+  });
+  if (error) {
+    if (/already registered/i.test(error.message)) return { error: "Este e-mail já tem conta. Tente entrar." };
+    return { error: error.message };
+  }
+  if (!data.session) return { ok: "Conta criada! Confirme seu e-mail e volte para fazer login." };
+  return { ok: "Conta criada!" };
 }

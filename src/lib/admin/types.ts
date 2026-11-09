@@ -73,6 +73,92 @@ export interface AdminSupplier {
   contact_phone: string | null;
   active: boolean;
   created_at: string;
+  trade_name: string | null;
+  state: string | null;
+  pedido_minimo_tipo: "valor" | "volume" | null;
+  pedido_minimo_centavos: number | null;
+  dias_pedido: number[] | null;
+  frete_tipo: "gratis_acima" | "fixo" | null;
+  frete_gratis_acima_centavos: number | null;
+  frete_valor_centavos: number | null;
+}
+
+export type SaleMode = "por_unidade" | "embalagem_fechada" | "unidade_e_caixa" | "nao_vender";
+export type UnidadeCompra = "unidade" | "caixa" | "fardo" | "rolo";
+
+export interface CcmConfig {
+  id: string;
+  key: string;
+  scope: "global" | "section" | "product";
+  scope_ref: string | null;
+  value: unknown;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export interface CcmConfigHistory {
+  id: string;
+  config_id: string;
+  key: string;
+  scope: string;
+  scope_ref: string | null;
+  old_value: unknown;
+  new_value: unknown;
+  changed_by: string;
+  changed_at: string;
+}
+
+export interface InventorySummary {
+  master_product_id: string;
+  product_name: string;
+  category_slug: string | null;
+  quantity: number;
+  unit_cost_centavos: number;
+  total_value_centavos: number;
+  ceiling_centavos: number | null;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  supplier_id: string;
+  supplier_name?: string;
+  cycle_date: string;
+  status: "draft" | "sent" | "confirmed" | "partial" | "completed" | "cancelled";
+  total_centavos: number;
+  item_count: number;
+  minimum_centavos: number | null;
+  minimum_met: boolean;
+  freight_centavos: number;
+  decision: string | null;
+  expected_delivery: string | null;
+  created_at: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  purchase_order_id: string;
+  master_product_id: string;
+  product_name: string;
+  quantity_units: number;
+  quantity_packages: number;
+  package_unit: string;
+  qtd_por_embalagem: number;
+  unit_cost_centavos: number;
+  total_centavos: number;
+  leftover_units: number;
+}
+
+export interface AccessRequest {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  profile_id: string;
+  profile_name: string | null;
+  profile_email: string;
+  status: "pending" | "approved" | "rejected";
+  note: string | null;
+  requested_at: string;
+  reviewed_at: string | null;
 }
 
 export interface LinkedProfile {

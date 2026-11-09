@@ -1,10 +1,11 @@
+import { CcmConfigsPanel } from "@/components/admin/ccm-configs-panel";
 import { AdminRoleForm, FreightForm } from "@/components/admin/settings-forms";
 import { Card, NotConfigured, PageTitle } from "@/components/admin/ui";
-import { adminAdmins, adminSettings, configured } from "@/lib/admin/data";
+import { adminAdmins, adminConfigs, adminSettings, configured } from "@/lib/admin/data";
 
 export default async function AdminSettingsPage() {
   if (!configured()) return <NotConfigured />;
-  const [settings, admins] = await Promise.all([adminSettings(), adminAdmins()]);
+  const [settings, admins, configs] = await Promise.all([adminSettings(), adminAdmins(), adminConfigs()]);
   return (
     <>
       <PageTitle title="Configurações" />
@@ -22,6 +23,9 @@ export default async function AdminSettingsPage() {
             ))}
           </ul>
           <AdminRoleForm />
+        </Card>
+        <Card title="Configurações CCM (operação)" className="lg:col-span-2">
+          <CcmConfigsPanel configs={configs} />
         </Card>
         <Card title="Integrações" className="lg:col-span-2">
           <dl className="grid gap-3 text-sm sm:grid-cols-3">

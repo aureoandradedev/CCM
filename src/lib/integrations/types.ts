@@ -77,6 +77,11 @@ export interface CanonicalProduct {
   status?: CanonicalStatus;
   variations?: CanonicalVariation[];
   supplierId?: string; // preenchido no servidor, nunca pelo arquivo
+
+  // CCM Etapa 1 — embalagem
+  unidadeCompra?: string; // unidade, caixa, fardo, rolo
+  qtdPorEmbalagem?: number;
+  vendeAvulso?: boolean;
 }
 
 /**
@@ -109,6 +114,9 @@ export const CANONICAL_FIELDS: CanonicalFieldDef[] = [
   { key: "weightKg", label: "Peso (kg)", required: false, type: "number", aliases: ["peso", "weight", "peso_kg", "kg"] },
   { key: "images", label: "Imagens", required: false, type: "list", hint: "URLs separadas por vírgula ou |", aliases: ["imagem", "imagens", "image", "images", "foto", "fotos", "url_imagem", "img"] },
   { key: "status", label: "Status", required: false, type: "enum", aliases: ["status", "situacao", "situação", "ativo", "active"] },
+  { key: "unidadeCompra", label: "Unidade de compra", required: false, type: "string", hint: "unidade, caixa, fardo, rolo", aliases: ["unidade_compra", "unidadecompra", "tipo_embalagem", "tipo_emb", "emb_tipo", "purchase_unit"] },
+  { key: "qtdPorEmbalagem", label: "Qtd por embalagem", required: false, type: "number", hint: "Quantidade por embalagem (1 se unidade)", aliases: ["qtd_por_embalagem", "qtd_embalagem", "qtdembalagem", "un_por_caixa", "un_cx", "pack_qty", "qtd_por_cx", "pecas_emb", "pcs_emb"] },
+  { key: "vendeAvulso", label: "Vende avulso", required: false, type: "enum", hint: "sim / não", aliases: ["vende_avulso", "avulso", "vendeavulso", "venda_avulsa", "sell_single"] },
 ];
 
 // ─── Integration Foundation (Phase 8) ─────────────────────────────────────

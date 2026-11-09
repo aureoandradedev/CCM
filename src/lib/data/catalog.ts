@@ -51,6 +51,11 @@ interface ProductRow {
   stock_status: Product["stockStatus"];
   tags: string[] | null;
   yield_hint: string | null;
+  sale_mode: string | null;
+  unidade_compra: string | null;
+  qtd_por_embalagem: number | null;
+  package_discount_pct: number | null;
+  expected_availability_date: string | null;
 }
 
 interface CategoryRow {
@@ -97,6 +102,11 @@ function mapProduct(r: ProductRow): Product {
     stockStatus: r.stock_status,
     tags: r.tags ?? undefined,
     yieldHint: r.yield_hint ?? undefined,
+    saleMode: r.sale_mode ?? undefined,
+    unidadeCompra: r.unidade_compra ?? undefined,
+    qtdPorEmbalagem: r.qtd_por_embalagem ?? undefined,
+    packageDiscountPct: r.package_discount_pct != null ? Number(r.package_discount_pct) : undefined,
+    expectedAvailabilityDate: r.expected_availability_date ?? undefined,
   };
 }
 
@@ -116,7 +126,7 @@ function mapCategory(r: CategoryRow): Category {
 }
 
 const PRODUCT_SELECT =
-  "id, slug, sku, name, brand_name, brand_slug, category_slug, subcategory_slug, unit, pack_info, retail_price, wholesale_price, wholesale_min_qty, list_price, pix_discount_pct, images, rating, review_count, badges, short_description, description, specs, stock_status, tags, yield_hint";
+  "id, slug, sku, name, brand_name, brand_slug, category_slug, subcategory_slug, unit, pack_info, retail_price, wholesale_price, wholesale_min_qty, list_price, pix_discount_pct, images, rating, review_count, badges, short_description, description, specs, stock_status, tags, yield_hint, sale_mode, unidade_compra, qtd_por_embalagem, package_discount_pct, expected_availability_date";
 
 /* ------------------------------ carregamento ------------------------------ */
 
@@ -126,6 +136,7 @@ const loadAllProducts = cache(async (): Promise<Product[]> => {
   const { data, error } = await sb
     .from("products_public")
     .select(PRODUCT_SELECT)
+    .neq("sale_mode", "nao_vender")
     .order("created_at", { ascending: false })
     .limit(1000);
   if (error || !data) {

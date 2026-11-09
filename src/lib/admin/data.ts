@@ -11,10 +11,16 @@ import {
   type AdminCategory,
   type AdminLead,
   type AdminProduct,
+  type AccessRequest,
   type AdminProfile,
   type AdminSupplier,
+  type CcmConfig,
+  type CcmConfigHistory,
+  type InventorySummary,
   type LinkedProfile,
   type OrderEvent,
+  type PurchaseOrder,
+  type PurchaseOrderItem,
   type SiteSettings,
 } from "./types";
 
@@ -105,17 +111,19 @@ export async function adminBrands(): Promise<AdminBrand[]> {
   return (data as AdminBrand[] | null) ?? [];
 }
 
+const SUPPLIER_COLUMNS = "id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at, trade_name, state, pedido_minimo_tipo, pedido_minimo_centavos, dias_pedido, frete_tipo, frete_gratis_acima_centavos, frete_valor_centavos";
+
 export async function adminSuppliers(): Promise<AdminSupplier[]> {
   if (!configured()) return [];
   const sb = await createClient();
-  const { data } = await sb.from("suppliers").select("id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at").order("name");
+  const { data } = await sb.from("suppliers").select(SUPPLIER_COLUMNS).order("name");
   return (data as AdminSupplier[] | null) ?? [];
 }
 
 export async function adminSupplierById(id: string): Promise<AdminSupplier | null> {
   if (!configured()) return null;
   const sb = await createClient();
-  const { data } = await sb.from("suppliers").select("id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at").eq("id", id).single();
+  const { data } = await sb.from("suppliers").select(SUPPLIER_COLUMNS).eq("id", id).single();
   return (data as AdminSupplier | null) ?? null;
 }
 
@@ -128,6 +136,46 @@ export async function adminLinkedProfiles(supplierId: string): Promise<LinkedPro
     .eq("supplier_id", supplierId)
     .order("full_name");
   return (data as LinkedProfile[] | null) ?? [];
+}
+
+/* ----------------------------- solicitações de acesso ----------------------- */
+
+export async function adminAccessRequests(statusFilter: "pending" | "all" = "pending"): Promise<AccessRequest[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let q = sb
+    .from("supplier_access_requests")
+    .select("id, supplier_id, profile_id, status, note, requested_at, reviewed_at, suppliers(name), profiles(full_name, email)")
+    .order("requested_at", { ascending: false })
+    .limit(200);
+  if (statusFilter === "pending") q = q.eq("status", "pending");
+  const { data } = await q;
+  return (data ?? []).map((r) => {
+    const sup = r.suppliers as unknown as Record<string, unknown> | null;
+    const prof = r.profiles as unknown as Record<string, unknown> | null;
+    return {
+      id: r.id as string,
+      supplier_id: r.supplier_id as string,
+      supplier_name: (sup?.name as string) ?? (r.supplier_id as string),
+      profile_id: r.profile_id as string,
+      profile_name: (prof?.full_name as string | null) ?? null,
+      profile_email: (prof?.email as string) ?? "",
+      status: r.status as AccessRequest["status"],
+      note: r.note as string | null,
+      requested_at: r.requested_at as string,
+      reviewed_at: r.reviewed_at as string | null,
+    };
+  });
+}
+
+export async function adminPendingRequestCount(): Promise<number> {
+  if (!configured()) return 0;
+  const sb = await createClient();
+  const { count } = await sb
+    .from("supplier_access_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  return count ?? 0;
 }
 
 /* -------------------------------- integrações ------------------------------ */
@@ -438,4 +486,66 @@ export function newProductId(): string {
 /** Campanha agendada cujo horário já passou e ainda não foi ativada. */
 export function campanhaAtrasada(c: AdminCampaign): boolean {
   return c.status === "agendada" && new Date(c.starts_at).getTime() <= Date.now();
+}
+
+/* ------------------------------- configs CCM (Fase 10+) ---------------------- */
+
+export async function adminConfigs(key?: string): Promise<CcmConfig[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let q = sb.from("ccm_configs").select("id, key, scope, scope_ref, value, updated_by, updated_at");
+  if (key) q = q.eq("key", key);
+  const { data } = await q.order("key").order("scope");
+  return (data as CcmConfig[] | null) ?? [];
+}
+
+export async function adminConfigHistory(configId: string): Promise<CcmConfigHistory[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb.from("ccm_config_history")
+    .select("id, config_id, key, scope, scope_ref, old_value, new_value, changed_by, changed_at")
+    .eq("config_id", configId)
+    .order("changed_at", { ascending: false })
+    .limit(50);
+  return (data as CcmConfigHistory[] | null) ?? [];
+}
+
+/* ------------------------------- estoque CCM (Fase 13) ----------------------- */
+
+export async function adminInventorySummary(): Promise<InventorySummary[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb.from("v_leftover_summary")
+    .select("master_product_id, product_name, category_slug, quantity, unit_cost_centavos, total_value_centavos, ceiling_centavos");
+  return (data as InventorySummary[] | null) ?? [];
+}
+
+export async function adminInventoryTotal(): Promise<{ total_value_centavos: number; ceiling_centavos: number | null }> {
+  const items = await adminInventorySummary();
+  const total = items.reduce((sum, i) => sum + i.total_value_centavos, 0);
+  const ceiling = items[0]?.ceiling_centavos ?? null;
+  return { total_value_centavos: total, ceiling_centavos: ceiling };
+}
+
+/* ------------------------------- pedidos de compra (Fase 14) ----------------- */
+
+export async function adminPurchaseOrders(opts: { supplier_id?: string; status?: string; limit?: number } = {}): Promise<PurchaseOrder[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let q = sb.from("supplier_purchase_orders")
+    .select("id, supplier_id, cycle_date, status, total_centavos, item_count, minimum_centavos, minimum_met, freight_centavos, decision, expected_delivery, created_at");
+  if (opts.supplier_id) q = q.eq("supplier_id", opts.supplier_id);
+  if (opts.status) q = q.eq("status", opts.status);
+  const { data } = await q.order("cycle_date", { ascending: false }).limit(opts.limit ?? 50);
+  return (data as PurchaseOrder[] | null) ?? [];
+}
+
+export async function adminPurchaseOrderItems(poId: string): Promise<PurchaseOrderItem[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb.from("purchase_order_items")
+    .select("id, purchase_order_id, master_product_id, product_name, quantity_units, quantity_packages, package_unit, qtd_por_embalagem, unit_cost_centavos, total_centavos, leftover_units")
+    .eq("purchase_order_id", poId)
+    .order("product_name");
+  return (data as PurchaseOrderItem[] | null) ?? [];
 }

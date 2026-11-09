@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, ClipboardList, GitCompare, Scale } from "lucide-react";
+import { Bot, ClipboardList, DollarSign, GitCompare, Package, Scale, Settings, ShoppingCart, Warehouse } from "lucide-react";
 
 import { Kpi, NotConfigured, PageTitle } from "@/components/admin/ui";
 import { configured } from "@/lib/admin/data";
@@ -21,6 +21,11 @@ export default async function ComprasDashboard() {
     { href: "/admin/compras/matching", label: "Revisao de matching", icon: GitCompare, desc: `${d.items.match_sugerido + d.items.revisao_manual} item(ns) aguardando` },
     { href: "/admin/compras/ofertas", label: "Comparacao de ofertas", icon: Scale, desc: `${d.offers.total} produto(s) com oferta` },
     { href: "/admin/compras/automacao", label: "Automacao do comprador", icon: Bot, desc: `${stats.total} excecao(oes) aberta(s)` },
+    { href: "/admin/compras/condicoes", label: "Condições comerciais", icon: ShoppingCart, desc: "Termos por fornecedor (R1.1)" },
+    { href: "/admin/compras/pedidos-compra", label: "Pedidos de compra", icon: Package, desc: "Ciclos, mínimos, envio (R4)" },
+    { href: "/admin/compras/estoque", label: "Estoque CCM", icon: Warehouse, desc: "Sobras e inventário (R3)" },
+    { href: "/admin/compras/precos", label: "Preços e fornecedores", icon: DollarSign, desc: "Automação de preço e troca (R5, R6)" },
+    { href: "/admin/compras/configuracoes-venda", label: "Config. de venda", icon: Settings, desc: "Seções, limites, flags (R3.2, R5.2)" },
   ];
 
   return (
