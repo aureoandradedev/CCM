@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Product } from "@/types/catalog";
 import { PriceBlock } from "@/components/product/price-block";
 import { QtyStepper } from "@/components/product/qty-stepper";
+import { SaleModeInfo } from "@/components/product/sale-mode-info";
 import { ShippingEstimate } from "@/components/product/shipping-estimate";
 import { Button } from "@/components/ui/button";
 import { WhatsappIcon } from "@/components/ui/social-icons";
@@ -29,7 +30,7 @@ export function BuyBox({ product }: { product: Product }) {
   const total = lineTotal(product, qty);
   const min = product.wholesaleMinQty ?? 0;
   const progress = ws ? Math.min(100, Math.round((qty / min) * 100)) : 0;
-  const out = product.stockStatus === "out";
+  const out = product.stockStatus === "out" || product.saleMode === "nao_vender";
   const u = formatUnit(product.unit);
 
   const handleAdd = () => {
@@ -114,6 +115,8 @@ export function BuyBox({ product }: { product: Product }) {
           </Button>
         </div>
       </div>
+
+      <SaleModeInfo product={product} />
 
       <ShippingEstimate subtotal={total} />
 
