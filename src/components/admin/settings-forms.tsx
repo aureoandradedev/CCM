@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { saveDescontos, saveFreight, saveSupplier, saveCategory, setAdminRole, type ActionResult } from "@/app/admin/actions";
 import { Feedback, Field, inputCls, selectCls, textareaCls } from "@/components/admin/ui";
@@ -64,14 +64,27 @@ export function DiscountsForm({ value, categories }: { value: DescontosSettings;
   );
 }
 
+const WEEKDAYS = [
+  { value: "1", label: "Seg" },
+  { value: "2", label: "Ter" },
+  { value: "3", label: "Qua" },
+  { value: "4", label: "Qui" },
+  { value: "5", label: "Sex" },
+  { value: "6", label: "Sáb" },
+  { value: "0", label: "Dom" },
+];
+
 export function SupplierForm({ supplier, onDone }: { supplier: AdminSupplier | null; onDone?: () => void }) {
   const [state, action, pending] = useActionState<ActionResult, FormData>(saveSupplier, {});
+  const diasSet = new Set(supplier?.dias_pedido ?? []);
   return (
     <form action={action} className="grid gap-3 rounded-2xl border border-brand-line bg-card p-4 sm:grid-cols-2">
       <input type="hidden" name="id" value={supplier?.id ?? ""} />
       <div className="sm:col-span-2">
         <Feedback state={state} />
       </div>
+
+      {/* --- Dados básicos --- */}
       <Field label="Nome">
         <input name="name" defaultValue={supplier?.name ?? ""} className={inputCls} required />
       </Field>
@@ -81,7 +94,7 @@ export function SupplierForm({ supplier, onDone }: { supplier: AdminSupplier | n
       <Field label="Cidade">
         <input name="city" defaultValue={supplier?.city ?? ""} className={inputCls} />
       </Field>
-      <Field label="Prazo de despacho (dias úteis)">
+      <Field label="Prazo de entrega no CD (dias úteis)">
         <input name="lead_time_days" defaultValue={supplier?.lead_time_days ?? 3} className={inputCls} inputMode="numeric" />
       </Field>
       <Field label="Contato">
@@ -96,6 +109,41 @@ export function SupplierForm({ supplier, onDone }: { supplier: AdminSupplier | n
       <label className="flex items-center gap-2 self-end pb-2 text-sm">
         <input type="checkbox" name="active" defaultChecked={supplier?.active ?? true} className="size-4 accent-brand-navy" /> Ativo
       </label>
+
+      {/* --- Condições comerciais --- */}
+      <div className="sm:col-span-2 mt-2 border-t border-brand-line pt-3">
+        <p className="text-xs font-bold uppercase tracking-wider text-brand-ink-soft">Condições comerciais</p>
+      </div>
+
+      <Field label="Pedido mínimo (tipo)">
+        <select name="pedido_minimo_tipo" defaultValue={supplier?.pedido_minimo_tipo ?? ""} className={selectCls}>
+          <option value="">Sem mínimo</option>
+          <option value="valor">Valor (R$)</option>
+          <option value="volume">Volume (unidades)</option>
+        </select>
+      </Field>
+      <Field label="Pedido mínimo (centavos)" hint="Ex.: 50000 = R$ 500,00">
+        <input name="pedido_minimo_centavos" defaultValue={supplier?.pedido_minimo_centavos ?? ""} className={inputCls} inputMode="numeric" />
+      </Field>
+
+      <Field label="Dias de pedido" hint="Marque os dias em que aceita pedido." className="sm:col-span-2">
+        <DayCheckboxes diasSet={diasSet} />
+      </Field>
+
+      <Field label="Frete (tipo)">
+        <select name="frete_tipo" defaultValue={supplier?.frete_tipo ?? ""} className={selectCls}>
+          <option value="">Não definido</option>
+          <option value="fixo">Fixo</option>
+          <option value="gratis_acima">Grátis acima de valor</option>
+        </select>
+      </Field>
+      <Field label="Frete valor (centavos)" hint="Valor cobrado / fixo">
+        <input name="frete_valor_centavos" defaultValue={supplier?.frete_valor_centavos ?? ""} className={inputCls} inputMode="numeric" />
+      </Field>
+      <Field label="Grátis acima de (centavos)" hint="Só para tipo 'gratis_acima'">
+        <input name="frete_gratis_acima_centavos" defaultValue={supplier?.frete_gratis_acima_centavos ?? ""} className={inputCls} inputMode="numeric" />
+      </Field>
+
       <div className="flex gap-2 sm:col-span-2">
         <Button type="submit" variant="brand" disabled={pending}>
           {pending ? "Salvando..." : "Salvar fornecedor"}
@@ -107,6 +155,41 @@ export function SupplierForm({ supplier, onDone }: { supplier: AdminSupplier | n
         ) : null}
       </div>
     </form>
+  );
+}
+
+function DayCheckboxes({ diasSet }: { diasSet: Set<number> }) {
+  const [selected, setSelected] = useState<Set<number>>(diasSet);
+  const toggle = (day: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  };
+  return (
+    <div className="flex flex-wrap gap-2 mt-1">
+      <input type="hidden" name="dias_pedido" value={[...selected].join(",")} />
+      {WEEKDAYS.map((w) => {
+        const day = Number(w.value);
+        const active = selected.has(day);
+        return (
+          <button
+            key={w.value}
+            type="button"
+            onClick={() => toggle(day)}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              active
+                ? "border-brand-navy bg-brand-navy text-white"
+                : "border-brand-line bg-background text-brand-ink-soft hover:border-brand-navy/40"
+            }`}
+          >
+            {w.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

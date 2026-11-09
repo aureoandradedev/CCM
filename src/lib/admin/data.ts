@@ -106,17 +106,19 @@ export async function adminBrands(): Promise<AdminBrand[]> {
   return (data as AdminBrand[] | null) ?? [];
 }
 
+const SUPPLIER_COLUMNS = "id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at, trade_name, state, pedido_minimo_tipo, pedido_minimo_centavos, dias_pedido, frete_tipo, frete_gratis_acima_centavos, frete_valor_centavos";
+
 export async function adminSuppliers(): Promise<AdminSupplier[]> {
   if (!configured()) return [];
   const sb = await createClient();
-  const { data } = await sb.from("suppliers").select("id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at").order("name");
+  const { data } = await sb.from("suppliers").select(SUPPLIER_COLUMNS).order("name");
   return (data as AdminSupplier[] | null) ?? [];
 }
 
 export async function adminSupplierById(id: string): Promise<AdminSupplier | null> {
   if (!configured()) return null;
   const sb = await createClient();
-  const { data } = await sb.from("suppliers").select("id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at").eq("id", id).single();
+  const { data } = await sb.from("suppliers").select(SUPPLIER_COLUMNS).eq("id", id).single();
   return (data as AdminSupplier | null) ?? null;
 }
 

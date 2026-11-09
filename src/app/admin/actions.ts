@@ -503,6 +503,14 @@ export async function saveSupplier(_p: ActionResult, fd: FormData): Promise<Acti
     const name = str(fd, "name");
     if (name.length < 2) return { error: "Nome do fornecedor." };
     const id = str(fd, "id") || slugify(name);
+
+    const diasPedidoRaw = str(fd, "dias_pedido");
+    let diasPedido: number[] | null = null;
+    if (diasPedidoRaw) {
+      diasPedido = diasPedidoRaw.split(",").map(Number).filter((n) => n >= 0 && n <= 6);
+      if (diasPedido.length === 0) diasPedido = null;
+    }
+
     const row = {
       id,
       name,
@@ -513,6 +521,12 @@ export async function saveSupplier(_p: ActionResult, fd: FormData): Promise<Acti
       contact_email: str(fd, "contact_email") || null,
       contact_phone: str(fd, "contact_phone") || null,
       active: bool(fd, "active"),
+      pedido_minimo_tipo: str(fd, "pedido_minimo_tipo") || null,
+      pedido_minimo_centavos: intOrNull(fd, "pedido_minimo_centavos"),
+      dias_pedido: diasPedido,
+      frete_tipo: str(fd, "frete_tipo") || null,
+      frete_gratis_acima_centavos: intOrNull(fd, "frete_gratis_acima_centavos"),
+      frete_valor_centavos: intOrNull(fd, "frete_valor_centavos"),
     };
     const { error } = await sb.from("suppliers").upsert(row, { onConflict: "id" });
     if (error) return { error: error.message };
@@ -645,6 +659,8 @@ export async function saveCategory(_p: ActionResult, fd: FormData): Promise<Acti
     return { ok: "Categoria salva.", id: slug };
   }, ["/admin/categorias", "/admin/produtos"]);
 }
+
+/* ================================== ADMINS ================================ */
 
 /* ================================== ADMINS ================================ */
 

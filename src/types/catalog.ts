@@ -64,6 +64,18 @@ export interface Product {
   tags?: string[];
   /** rendimento/consumo, ex.: "1 saco rende 0,5 m² de alvenaria" */
   yieldHint?: string;
+
+  // --- CCM Etapa 1 ---
+  /** modo de venda: por_unidade, embalagem_fechada, unidade_e_caixa, nao_vender */
+  saleMode?: string;
+  /** unidade de compra do fornecedor */
+  unidadeCompra?: string;
+  /** quantidade por embalagem do fornecedor */
+  qtdPorEmbalagem?: number;
+  /** desconto da caixa no modo unidade_e_caixa (%) */
+  packageDiscountPct?: number;
+  /** data estimada de disponibilidade no CD (ISO string YYYY-MM-DD) */
+  expectedAvailabilityDate?: string;
 }
 
 export interface Subcategory {

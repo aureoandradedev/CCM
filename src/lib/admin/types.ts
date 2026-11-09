@@ -73,7 +73,18 @@ export interface AdminSupplier {
   contact_phone: string | null;
   active: boolean;
   created_at: string;
+  trade_name: string | null;
+  state: string | null;
+  pedido_minimo_tipo: "valor" | "volume" | null;
+  pedido_minimo_centavos: number | null;
+  dias_pedido: number[] | null;
+  frete_tipo: "gratis_acima" | "fixo" | null;
+  frete_gratis_acima_centavos: number | null;
+  frete_valor_centavos: number | null;
 }
+
+export type SaleMode = "por_unidade" | "embalagem_fechada" | "unidade_e_caixa" | "nao_vender";
+export type UnidadeCompra = "unidade" | "caixa" | "fardo" | "rolo";
 
 export interface AccessRequest {
   id: string;
