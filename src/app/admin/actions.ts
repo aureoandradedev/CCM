@@ -662,6 +662,32 @@ export async function saveCategory(_p: ActionResult, fd: FormData): Promise<Acti
 
 /* ================================== ADMINS ================================ */
 
+/* ================================ CONFIGS CCM ============================== */
+
+export async function saveCcmConfig(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb) => {
+    const key = str(fd, "key");
+    const scope = str(fd, "scope") || "global";
+    const scopeRef = str(fd, "scope_ref") || null;
+    const rawValue = str(fd, "value");
+    if (!key || !rawValue) return { error: "Chave e valor são obrigatórios." };
+
+    let value: unknown;
+    try { value = JSON.parse(rawValue); } catch { value = rawValue; }
+
+    const { data, error } = await sb.rpc("save_ccm_config", {
+      p_key: key,
+      p_scope: scope,
+      p_scope_ref: scopeRef,
+      p_value: value,
+    });
+    if (error) return { error: error.message };
+    const res = data as { ok?: boolean; error?: string };
+    if (res.error) return { error: res.error };
+    return { ok: "Configuração salva." };
+  }, ["/admin/configuracoes", "/admin/compras"]);
+}
+
 /* ========================= PEDIDOS DE COMPRA (Fase 14) ==================== */
 
 export async function generatePurchaseOrder(_p: ActionResult, fd: FormData): Promise<ActionResult> {

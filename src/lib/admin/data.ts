@@ -14,6 +14,8 @@ import {
   type AccessRequest,
   type AdminProfile,
   type AdminSupplier,
+  type CcmConfig,
+  type CcmConfigHistory,
   type InventorySummary,
   type LinkedProfile,
   type OrderEvent,
@@ -484,6 +486,28 @@ export function newProductId(): string {
 /** Campanha agendada cujo horário já passou e ainda não foi ativada. */
 export function campanhaAtrasada(c: AdminCampaign): boolean {
   return c.status === "agendada" && new Date(c.starts_at).getTime() <= Date.now();
+}
+
+/* ------------------------------- configs CCM (Fase 10+) ---------------------- */
+
+export async function adminConfigs(key?: string): Promise<CcmConfig[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let q = sb.from("ccm_configs").select("id, key, scope, scope_ref, value, updated_by, updated_at");
+  if (key) q = q.eq("key", key);
+  const { data } = await q.order("key").order("scope");
+  return (data as CcmConfig[] | null) ?? [];
+}
+
+export async function adminConfigHistory(configId: string): Promise<CcmConfigHistory[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb.from("ccm_config_history")
+    .select("id, config_id, key, scope, scope_ref, old_value, new_value, changed_by, changed_at")
+    .eq("config_id", configId)
+    .order("changed_at", { ascending: false })
+    .limit(50);
+  return (data as CcmConfigHistory[] | null) ?? [];
 }
 
 /* ------------------------------- estoque CCM (Fase 13) ----------------------- */

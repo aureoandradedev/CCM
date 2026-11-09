@@ -86,6 +86,28 @@ export interface AdminSupplier {
 export type SaleMode = "por_unidade" | "embalagem_fechada" | "unidade_e_caixa" | "nao_vender";
 export type UnidadeCompra = "unidade" | "caixa" | "fardo" | "rolo";
 
+export interface CcmConfig {
+  id: string;
+  key: string;
+  scope: "global" | "section" | "product";
+  scope_ref: string | null;
+  value: unknown;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export interface CcmConfigHistory {
+  id: string;
+  config_id: string;
+  key: string;
+  scope: string;
+  scope_ref: string | null;
+  old_value: unknown;
+  new_value: unknown;
+  changed_by: string;
+  changed_at: string;
+}
+
 export interface InventorySummary {
   master_product_id: string;
   product_name: string;
