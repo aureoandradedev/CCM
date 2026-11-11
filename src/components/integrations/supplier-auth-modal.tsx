@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { LogIn, UserPlus } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
 
 import {
   Dialog,
@@ -31,12 +31,20 @@ export function SupplierAuthModal({ open, onOpenChange, onAuthenticated }: Suppl
   const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
   const [doc, setDoc] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginState, loginAction, loginPending] = useActionState(signInForImport, initial);
   const [signupState, signupAction, signupPending] = useActionState(signUpForImport, initial);
   const [resetState, resetAction, resetPending] = useActionState(requestPasswordReset, initial);
 
   const state = mode === "login" ? loginState : mode === "signup" ? signupState : resetState;
   const authFired = useRef(false);
+
+  const passwordTooShort = password.length > 0 && password.length < 8;
+  const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+  const signupPasswordInvalid = password.length < 8 || confirmPassword.length === 0 || password !== confirmPassword;
 
   useEffect(() => {
     if (authFired.current) return;
@@ -153,11 +161,63 @@ export function SupplierAuthModal({ open, onOpenChange, onAuthenticated }: Suppl
               E-mail
               <input name="email" className={cn(input, "mt-1")} type="email" autoComplete="email" required />
             </label>
-            <label className="block text-xs font-semibold text-brand-ink">
-              Senha (mínimo 8 caracteres)
-              <input name="password" className={cn(input, "mt-1")} type="password" autoComplete="new-password" minLength={8} required />
-            </label>
-            <Button type="submit" variant="brand" size="xl" className="w-full" disabled={signupPending}>
+            <div>
+              <label className="block text-xs font-semibold text-brand-ink">
+                Senha (mínimo 8 caracteres)
+                <span className="relative mt-1 block">
+                  <input
+                    name="password"
+                    className={cn(input, "pr-10", passwordTooShort && "border-brand-red focus-visible:border-brand-red focus-visible:ring-brand-red/30")}
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-brand-ink-soft hover:text-brand-ink"
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </span>
+              </label>
+              {passwordTooShort && (
+                <p className="mt-1 text-xs text-brand-red">A senha deve ter no mínimo 8 caracteres.</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-brand-ink">
+                Confirmar senha
+                <span className="relative mt-1 block">
+                  <input
+                    className={cn(input, "pr-10", passwordMismatch && "border-brand-red focus-visible:border-brand-red focus-visible:ring-brand-red/30")}
+                    type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-brand-ink-soft hover:text-brand-ink"
+                    aria-label={showConfirmPassword ? "Ocultar confirmação" : "Mostrar confirmação"}
+                  >
+                    {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </span>
+              </label>
+              {passwordMismatch && (
+                <p className="mt-1 text-xs text-brand-red">As senhas não coincidem.</p>
+              )}
+            </div>
+            <Button type="submit" variant="brand" size="xl" className="w-full" disabled={signupPending || signupPasswordInvalid}>
               <UserPlus />
               {signupPending ? "Criando..." : "Criar minha conta"}
             </Button>

@@ -111,7 +111,7 @@ export async function adminBrands(): Promise<AdminBrand[]> {
   return (data as AdminBrand[] | null) ?? [];
 }
 
-const SUPPLIER_COLUMNS = "id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at, trade_name, state, pedido_minimo_tipo, pedido_minimo_centavos, dias_pedido, frete_tipo, frete_gratis_acima_centavos, frete_valor_centavos";
+const SUPPLIER_COLUMNS = "id, name, lead_time_days, city, cnpj, contact_name, contact_email, contact_phone, active, created_at, trade_name, state";
 
 export async function adminSuppliers(): Promise<AdminSupplier[]> {
   if (!configured()) return [];
@@ -136,6 +136,55 @@ export async function adminLinkedProfiles(supplierId: string): Promise<LinkedPro
     .eq("supplier_id", supplierId)
     .order("full_name");
   return (data as LinkedProfile[] | null) ?? [];
+}
+
+/* ----------------------------- condições comerciais ----------------------- */
+
+export async function adminSupplierCommercialTerms(supplierId: string): Promise<import("./types").SupplierCommercialTerms | null> {
+  if (!configured()) return null;
+  const sb = await createClient();
+  const { data } = await sb
+    .from("supplier_commercial_terms")
+    .select("id, supplier_id, pedido_minimo_tipo, pedido_minimo, frete_tipo, frete_gratis_acima, frete_valor, dias_pedido, prazo_entrega_cd_dias, active, valid_from, valid_to")
+    .eq("supplier_id", supplierId)
+    .eq("active", true)
+    .is("valid_to", null)
+    .single();
+  return (data as import("./types").SupplierCommercialTerms | null) ?? null;
+}
+
+export interface SupplierCatalogSummary {
+  id: string;
+  source: string;
+  source_name: string | null;
+  status: string;
+  total_items: number;
+  processed: number;
+  errors: number;
+  created_at: string;
+}
+
+export async function adminSupplierCatalogs(supplierId: string): Promise<SupplierCatalogSummary[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb
+    .from("supplier_catalogs")
+    .select("id, source, source_name, status, total_items, processed, errors, created_at")
+    .eq("supplier_id", supplierId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  return (data ?? []) as SupplierCatalogSummary[];
+}
+
+export async function adminSuppliersWithActiveTerms(): Promise<Set<string>> {
+  if (!configured()) return new Set();
+  const sb = await createClient();
+  const { data } = await sb
+    .from("supplier_commercial_terms")
+    .select("supplier_id")
+    .eq("active", true)
+    .is("valid_to", null);
+  return new Set((data ?? []).map((r) => r.supplier_id as string));
 }
 
 /* ----------------------------- solicitações de acesso ----------------------- */

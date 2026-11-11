@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HardHat, LogIn, UserPlus } from "lucide-react";
+import { Eye, EyeOff, HardHat, LogIn, UserPlus } from "lucide-react";
 import { useActionState, useState } from "react";
 
 import { requestPasswordReset, signIn, signUp, type ActionState } from "@/app/conta/actions";
@@ -19,6 +19,7 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
   const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
   const [doc, setDoc] = useState("");
   const [phone, setPhone] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loginState, loginAction, loginPending] = useActionState(signIn, initial);
   const [signupState, signupAction, signupPending] = useActionState(signUp, initial);
   const [resetState, resetAction, resetPending] = useActionState(requestPasswordReset, initial);
@@ -83,7 +84,17 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
             </label>
             <label className="block text-xs font-semibold text-brand-ink">
               Senha
-              <input name="password" className={cn(input, "mt-1")} type="password" autoComplete="current-password" minLength={6} required />
+              <span className="relative mt-1 block">
+                <input name="password" className={cn(input, "pr-10")} type={showPassword ? "text" : "password"} autoComplete="current-password" minLength={6} required />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-brand-ink-soft hover:text-brand-ink"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </span>
             </label>
             <Button type="submit" variant="brand" size="xl" className="w-full" disabled={loginPending}>
               <LogIn />
@@ -116,7 +127,17 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
             </label>
             <label className="block text-xs font-semibold text-brand-ink">
               Senha (mínimo 8 caracteres)
-              <input name="password" className={cn(input, "mt-1")} type="password" autoComplete="new-password" minLength={8} required />
+              <span className="relative mt-1 block">
+                <input name="password" className={cn(input, "pr-10")} type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} required />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-brand-ink-soft hover:text-brand-ink"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </span>
             </label>
             <Button type="submit" variant="brand" size="xl" className="w-full" disabled={signupPending}>
               <UserPlus />

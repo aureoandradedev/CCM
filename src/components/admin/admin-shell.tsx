@@ -30,44 +30,52 @@ import { signOut } from "@/app/conta/actions";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/admin", label: "Painel", icon: LayoutDashboard, exact: true },
-  { href: "/admin/pedidos", label: "Pedidos", icon: PackageSearch },
-  { href: "/admin/caixa", label: "Fechamento de caixa", icon: Calculator },
-  { href: "/admin/bi", label: "BI · Faturamento", icon: BarChart3 },
+  { href: "/admin", label: "Visão geral", icon: LayoutDashboard, exact: true },
+  { href: "/admin/pedidos", label: "Pedidos", icon: PackageSearch, badge: "pedidos" as const },
+  { href: "/admin/fornecedores", label: "Fornecedores", icon: Truck },
+  { href: "/admin/compras", label: "Compras", icon: Boxes },
+  { href: "/admin/compras/pendencias", label: "Pendências", icon: Layers, indent: true, badge: "pendencias" as const },
   { href: "/admin/produtos", label: "Produtos", icon: ShoppingBag },
+  { href: "/admin/categorias", label: "Categorias", icon: Layers },
   { href: "/admin/ofertas", label: "Ofertas (colar lista)", icon: Tag },
   { href: "/admin/campanhas", label: "Campanhas", icon: Megaphone },
   { href: "/admin/conteudo", label: "Conteúdo do site", icon: Wallpaper },
   { href: "/admin/descontos", label: "Descontos", icon: Percent },
   { href: "/admin/clientes", label: "Clientes e leads", icon: Users },
-  { href: "/admin/categorias", label: "Categorias", icon: Layers },
-  { href: "/admin/fornecedores", label: "Fornecedores", icon: Truck },
-  { href: "/admin/compras", label: "Compras", icon: Boxes },
+  { href: "/admin/bi", label: "BI · Faturamento", icon: BarChart3 },
+  { href: "/admin/caixa", label: "Fechamento de caixa", icon: Calculator },
   { href: "/admin/integracoes", label: "Integrações", icon: Plug },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-export function AdminShell({ children, adminName, pendentes }: { children: React.ReactNode; adminName: string; pendentes: number }) {
+export function AdminShell({ children, adminName, pendentes, pendenciaCount = 0 }: { children: React.ReactNode; adminName: string; pendentes: number; pendenciaCount?: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  const badges: Record<string, number> = {
+    pedidos: pendentes,
+    pendencias: pendenciaCount,
+  };
+
   const nav = (
     <nav className="flex flex-col gap-0.5 p-3" aria-label="Admin">
-      {NAV.map(({ href, label, icon: I, exact }) => {
+      {NAV.map(({ href, label, icon: I, exact, indent, badge }) => {
         const active = exact ? pathname === href : pathname.startsWith(href);
+        const badgeCount = badge ? badges[badge] ?? 0 : 0;
         return (
           <Link
             key={href}
             href={href}
             onClick={() => setOpen(false)}
             className={cn(
-              "flex h-10 items-center gap-2.5 rounded-lg px-3 text-sm font-semibold transition-colors",
+              "flex h-10 items-center gap-2.5 rounded-lg text-sm font-semibold transition-colors",
+              indent ? "ml-6 px-3" : "px-3",
               active ? "bg-brand-yellow text-brand-navy" : "text-white/80 hover:bg-white/10 hover:text-white",
             )}
           >
             <I className="size-4 shrink-0" />
             <span className="flex-1 truncate">{label}</span>
-            {href === "/admin/pedidos" && pendentes > 0 ? <span className="rounded-full bg-brand-red px-1.5 text-[0.65rem] font-bold text-white">{pendentes}</span> : null}
+            {badgeCount > 0 && <span className="rounded-full bg-brand-red px-1.5 text-[0.65rem] font-bold text-white">{badgeCount}</span>}
           </Link>
         );
       })}

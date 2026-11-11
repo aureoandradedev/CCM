@@ -501,19 +501,16 @@ export async function cancelCampaign(id: string): Promise<ActionResult> {
 export async function saveSupplier(_p: ActionResult, fd: FormData): Promise<ActionResult> {
   return run(async (sb) => {
     const name = str(fd, "name");
-    if (name.length < 2) return { error: "Nome do fornecedor." };
+    if (name.length < 2) return { error: "Nome fantasia obrigatório." };
+    const tradeName = str(fd, "trade_name");
+    if (tradeName.length < 3) return { error: "Razão social obrigatória (mín. 3 caracteres)." };
     const id = str(fd, "id") || slugify(name);
-
-    const diasPedidoRaw = str(fd, "dias_pedido");
-    let diasPedido: number[] | null = null;
-    if (diasPedidoRaw) {
-      diasPedido = diasPedidoRaw.split(",").map(Number).filter((n) => n >= 0 && n <= 6);
-      if (diasPedido.length === 0) diasPedido = null;
-    }
 
     const row = {
       id,
       name,
+      trade_name: tradeName,
+      state: str(fd, "state") || null,
       lead_time_days: intOrNull(fd, "lead_time_days") ?? 3,
       city: str(fd, "city") || null,
       cnpj: onlyDigits(fd.get("cnpj")) || null,
@@ -521,17 +518,44 @@ export async function saveSupplier(_p: ActionResult, fd: FormData): Promise<Acti
       contact_email: str(fd, "contact_email") || null,
       contact_phone: str(fd, "contact_phone") || null,
       active: bool(fd, "active"),
-      pedido_minimo_tipo: str(fd, "pedido_minimo_tipo") || null,
-      pedido_minimo_centavos: intOrNull(fd, "pedido_minimo_centavos"),
-      dias_pedido: diasPedido,
-      frete_tipo: str(fd, "frete_tipo") || null,
-      frete_gratis_acima_centavos: intOrNull(fd, "frete_gratis_acima_centavos"),
-      frete_valor_centavos: intOrNull(fd, "frete_valor_centavos"),
     };
     const { error } = await sb.from("suppliers").upsert(row, { onConflict: "id" });
     if (error) return { error: error.message };
     return { ok: "Fornecedor salvo.", id };
   }, ["/admin/fornecedores", "/admin/produtos"]);
+}
+
+export async function saveCommercialTerms(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb) => {
+    const supplierId = str(fd, "supplier_id");
+    if (!supplierId) return { error: "Fornecedor não informado." };
+
+    const toNum = (v: string) => parseFloat(v.replace(",", ".") || "0");
+    const pedidoMinimoTipo = str(fd, "pedido_minimo_tipo");
+    const pedidoMinimo = toNum(str(fd, "pedido_minimo"));
+    const freteTipo = str(fd, "frete_tipo");
+    const freteValor = toNum(str(fd, "frete_valor"));
+    const freteGratisAcima = toNum(str(fd, "frete_gratis_acima"));
+    const prazo = intOrNull(fd, "prazo_entrega_cd_dias") ?? 3;
+    const diasStr = str(fd, "dias_pedido");
+    const dias = diasStr ? diasStr.split(",").map(Number).filter((n) => n >= 0 && n <= 6) : [];
+
+    const { data, error } = await sb.rpc("save_supplier_commercial_terms_admin", {
+      p_supplier_id: supplierId,
+      p_pedido_minimo_tipo: pedidoMinimoTipo || "valor",
+      p_pedido_minimo: pedidoMinimo,
+      p_frete_tipo: freteTipo || "fixo",
+      p_frete_gratis_acima: freteTipo === "gratis_acima" ? freteGratisAcima : null,
+      p_frete_valor: freteValor,
+      p_dias_pedido: dias.length > 0 ? dias : [1, 2, 3, 4, 5],
+      p_prazo_entrega_cd_dias: prazo,
+    });
+
+    if (error) return { error: error.message };
+    const result = data as { ok: boolean; error?: string };
+    if (!result?.ok) return { error: result?.error ?? "Erro desconhecido." };
+    return { ok: "Condições comerciais salvas." };
+  }, ["/admin/fornecedores"]);
 }
 
 export async function linkUserToSupplier(_p: ActionResult, fd: FormData): Promise<ActionResult> {

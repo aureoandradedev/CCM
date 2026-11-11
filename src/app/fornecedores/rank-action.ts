@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { rankAllProducts } from "@/lib/ranking/engine";
 import type { RankableOffer, ProductRanking } from "@/lib/ranking/types";
+import { getOperationalSupplierIds, filterOperationalOffers } from "@/lib/admin/supplier-guards";
 
 export interface RankProductsResult {
   ok: boolean;
@@ -60,8 +61,10 @@ export async function rankProducts(
     return { ok: true, rankings: [] };
   }
 
-  // ── 3. Mapear e executar ranking em memória ────────────────────────────
-  const offers: RankableOffer[] = rawOffers.map((o) => ({
+  // ── 3. Filtrar por fornecedores operacionais e executar ranking ─────────
+  const operationalIds = await getOperationalSupplierIds(supabase);
+
+  const allOffers: RankableOffer[] = rawOffers.map((o) => ({
     id: o.id as string,
     master_product_id: o.master_product_id as string,
     supplier_id: o.supplier_id as string,
@@ -71,6 +74,7 @@ export async function rankProducts(
     status: o.status as string,
   }));
 
+  const offers = filterOperationalOffers(allOffers, operationalIds);
   const rankings = rankAllProducts(offers);
 
   return { ok: true, rankings };

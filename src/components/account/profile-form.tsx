@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { updatePassword, updateProfile, type ActionState } from "@/app/conta/actions";
 import { Button } from "@/components/ui/button";
@@ -50,18 +51,67 @@ export function ProfileForm({ fullName, document, phone, email }: { fullName: st
 
 export function PasswordForm() {
   const [state, action, pending] = useActionState(updatePassword, {});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+
+  const tooShort = password.length > 0 && password.length < 8;
+  const mismatch = confirm.length > 0 && password !== confirm;
+  const hasError = tooShort || mismatch;
+
   return (
     <form action={action} className="space-y-4 rounded-2xl border border-brand-line bg-card p-6">
       <Feedback state={state} />
       <label className="block text-xs font-semibold text-brand-ink">
         Nova senha (mínimo 8 caracteres)
-        <input name="password" type="password" className={cn(input, "mt-1")} autoComplete="new-password" minLength={8} required />
+        <span className="relative mt-1 block">
+          <input
+            name="password"
+            type={showPassword ? "text" : "password"}
+            className={cn(input, "pr-10")}
+            autoComplete="new-password"
+            minLength={8}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-brand-ink-soft hover:text-brand-ink"
+          >
+            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        </span>
+        {tooShort && <span className="mt-1 block text-xs text-brand-red">Mínimo 8 caracteres.</span>}
       </label>
       <label className="block text-xs font-semibold text-brand-ink">
         Confirmar nova senha
-        <input name="confirm" type="password" className={cn(input, "mt-1")} autoComplete="new-password" minLength={8} required />
+        <span className="relative mt-1 block">
+          <input
+            name="confirm"
+            type={showConfirm ? "text" : "password"}
+            className={cn(input, "pr-10")}
+            autoComplete="new-password"
+            minLength={8}
+            required
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirm((v) => !v)}
+            aria-label={showConfirm ? "Ocultar senha" : "Mostrar senha"}
+            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-brand-ink-soft hover:text-brand-ink"
+          >
+            {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        </span>
+        {mismatch && <span className="mt-1 block text-xs text-brand-red">As senhas não coincidem.</span>}
       </label>
-      <Button type="submit" variant="brand" size="lg" disabled={pending}>
+      <Button type="submit" variant="brand" size="lg" disabled={pending || hasError}>
         {pending ? "Salvando..." : "Salvar nova senha"}
       </Button>
     </form>

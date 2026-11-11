@@ -6,7 +6,7 @@
  *
  * Regras invioláveis:
  *   - NUNCA publica automaticamente
- *   - NUNCA escolhe sourcing automaticamente
+ *   - Auto-sourcing: só se auto_switch_enabled=true E guards passam (ver auto-sourcing.ts)
  *   - NUNCA altera margem automaticamente
  *   - Ambiguidade → procurement_exceptions (revisão humana)
  *
@@ -21,6 +21,8 @@ import { buildMasterIndex, matchItems } from "@/lib/matching/engine";
 import type { MatchableItem } from "@/lib/matching/types";
 import { rankAllProducts } from "@/lib/ranking/engine";
 import { resolveMargin, calculatePrice, type MarginRule } from "./pricing";
+import { getOperationalSupplierIds } from "./supplier-guards";
+import { autoSourceProduct, type AutoSourceResult } from "./auto-sourcing";
 
 import type {
   ProcurementException,
@@ -490,6 +492,7 @@ async function phaseDetectExceptions(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mpMap = new Map<string, any>();
   let sharedDataLoaded = false;
+  let operationalIds = new Set<string>();
 
   try {
     const { data: rawOffers } = await sb
@@ -497,7 +500,10 @@ async function phaseDetectExceptions(
       .select("id, master_product_id, supplier_id, cost_centavos, stock, lead_time_days, status")
       .eq("status", "ativa")
       .is("replaced_at", null);
-    currentOffers = rawOffers ?? [];
+    operationalIds = await getOperationalSupplierIds(sb);
+    currentOffers = (rawOffers ?? []).filter(
+      (o: { supplier_id: string }) => operationalIds.has(o.supplier_id),
+    );
 
     rankings = rankAllProducts(currentOffers);
 
@@ -607,7 +613,7 @@ async function phaseDetectExceptions(
     }
   }
 
-  // ── 5d: Stale sourcing + source_changed (expanded checks) ──────────────
+  // ── 5d: Stale sourcing + source_changed (holistic eligibility) ─────────
   if (sharedDataLoaded && selectionsList.length > 0) {
     try {
       for (const sel of selectionsList) {
@@ -630,61 +636,24 @@ async function phaseDetectExceptions(
           continue;
         }
 
-        if (offer.replaced_at != null) {
-          exceptions.push({
-            type: "source_changed",
-            severity: "high",
-            entity_type: "sourcing_selection",
-            entity_id: sel.id,
-            master_product_id: sel.master_product_id,
-            supplier_id: offer.supplier_id,
-            title: `Dados do fornecedor mudaram: ${mpName}`,
-            detail: { selection_id: sel.id, offer_id: sel.supplier_offer_id, reason: "offer_versioned" },
-            fingerprint: `source_changed:${sel.master_product_id}`,
-          });
-          continue;
-        }
+        const ineligible: string[] = [];
+        if (offer.replaced_at != null) ineligible.push("offer_replaced");
+        if (offer.status !== "ativa") ineligible.push("offer_not_active");
+        if (offer.stock != null && offer.stock <= 0) ineligible.push("zero_stock");
+        if (offer.cost_centavos <= 0) ineligible.push("invalid_cost");
+        if (!operationalIds.has(offer.supplier_id)) ineligible.push("supplier_not_operational");
 
-        if (offer.status !== "ativa") {
+        if (ineligible.length > 0) {
+          const hasCritical = ineligible.some((r) => r !== "zero_stock" && r !== "offer_replaced");
           exceptions.push({
             type: "stale_sourcing",
-            severity: "critical",
+            severity: hasCritical ? "critical" : "high",
             entity_type: "sourcing_selection",
             entity_id: sel.id,
             master_product_id: sel.master_product_id,
             supplier_id: offer.supplier_id,
-            title: `Seleção desatualizada: ${mpName}`,
-            detail: { selection_id: sel.id, offer_id: sel.supplier_offer_id, reason: "offer_not_active", current_status: offer.status },
-            fingerprint: `stale_sourcing:${sel.master_product_id}`,
-          });
-          continue;
-        }
-
-        if (offer.stock === 0) {
-          exceptions.push({
-            type: "stale_sourcing",
-            severity: "high",
-            entity_type: "sourcing_selection",
-            entity_id: sel.id,
-            master_product_id: sel.master_product_id,
-            supplier_id: offer.supplier_id,
-            title: `Seleção com estoque zerado: ${mpName}`,
-            detail: { selection_id: sel.id, offer_id: sel.supplier_offer_id, reason: "zero_stock" },
-            fingerprint: `stale_sourcing:${sel.master_product_id}`,
-          });
-          continue;
-        }
-
-        if (offer.cost_centavos <= 0) {
-          exceptions.push({
-            type: "stale_sourcing",
-            severity: "critical",
-            entity_type: "sourcing_selection",
-            entity_id: sel.id,
-            master_product_id: sel.master_product_id,
-            supplier_id: offer.supplier_id,
-            title: `Seleção com custo inválido: ${mpName}`,
-            detail: { selection_id: sel.id, offer_id: sel.supplier_offer_id, reason: "invalid_cost", cost: offer.cost_centavos },
+            title: `Seleção inelegível: ${mpName}`,
+            detail: { selection_id: sel.id, offer_id: sel.supplier_offer_id, reasons: ineligible },
             fingerprint: `stale_sourcing:${sel.master_product_id}`,
           });
           continue;
@@ -1091,10 +1060,51 @@ export async function runOrchestrator(
       await phaseDetectExceptions(sb, runId);
     phases.push(detectPhase);
 
-    // ── Renew lease before Phase 6 ───────────────────────────────────────
+    // ── Renew lease before auto-resolution ─────────────────────────────
     if (!(await renewLease(sb, runId))) {
       try { await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "detect_exceptions" } }); } catch {}
       return { status: "failed", run_id: runId, phases, exceptions_created: 0, exceptions_auto_resolved: 0, duration_ms: Date.now() - start, error: "Lease perdido após detect_exceptions." };
+    }
+
+    // ── Phase 5b: Auto-resolve stale_sourcing via auto-sourcing ──────────
+    const autoResolutionResults: AutoSourceResult[] = [];
+    if (detectedTypes.has("stale_sourcing")) {
+      const staleExcs = exceptions.filter((e) => e.type === "stale_sourcing" && e.master_product_id);
+      for (const exc of staleExcs) {
+        try {
+          const asr = await autoSourceProduct(sb, exc.master_product_id!, "ineligible");
+          autoResolutionResults.push(asr);
+          if (asr.action === "selected" || asr.action === "switched") {
+            const idx = exceptions.indexOf(exc);
+            if (idx !== -1) exceptions.splice(idx, 1);
+          }
+        } catch {
+          // auto-sourcing failure → keep exception for human review
+        }
+      }
+
+      if (autoResolutionResults.length > 0) {
+        const resolved = autoResolutionResults.filter((r) => r.action === "selected" || r.action === "switched").length;
+        try { await logAudit(sb, {
+          run_id: runId,
+          action: "auto_sourcing_resolution",
+          phase: "auto_resolve",
+          detail: {
+            attempted: autoResolutionResults.length,
+            resolved,
+            by_action: autoResolutionResults.reduce((acc, r) => {
+              acc[r.action] = (acc[r.action] ?? 0) + 1;
+              return acc;
+            }, {} as Record<string, number>),
+          },
+        }); } catch {}
+      }
+    }
+
+    // ── Renew lease before Phase 6 ───────────────────────────────────────
+    if (!(await renewLease(sb, runId))) {
+      try { await logAudit(sb, { run_id: runId, action: "lease_lost", detail: { after_phase: "auto_resolve" } }); } catch {}
+      return { status: "failed", run_id: runId, phases, exceptions_created: 0, exceptions_auto_resolved: 0, duration_ms: Date.now() - start, error: "Lease perdido após auto_resolve." };
     }
 
     // ── Phase 6: Persist exceptions ───────────────────────────────────────

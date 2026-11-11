@@ -75,12 +75,21 @@ export interface AdminSupplier {
   created_at: string;
   trade_name: string | null;
   state: string | null;
-  pedido_minimo_tipo: "valor" | "volume" | null;
-  pedido_minimo_centavos: number | null;
-  dias_pedido: number[] | null;
-  frete_tipo: "gratis_acima" | "fixo" | null;
-  frete_gratis_acima_centavos: number | null;
-  frete_valor_centavos: number | null;
+}
+
+export interface SupplierCommercialTerms {
+  id: string;
+  supplier_id: string;
+  pedido_minimo_tipo: "valor" | "volume";
+  pedido_minimo: number;
+  frete_tipo: "gratis_acima" | "fixo";
+  frete_gratis_acima: number | null;
+  frete_valor: number | null;
+  dias_pedido: number[];
+  prazo_entrega_cd_dias: number;
+  active: boolean;
+  valid_from: string;
+  valid_to: string | null;
 }
 
 export type SaleMode = "por_unidade" | "embalagem_fechada" | "unidade_e_caixa" | "nao_vender";

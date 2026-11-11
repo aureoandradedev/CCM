@@ -6,14 +6,51 @@ import { assertAdmin } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
 import { rankProductOffers } from "@/lib/ranking/engine";
 import type { RankableOffer } from "@/lib/ranking/types";
+import { getOperationalSupplierIds, filterOperationalOffers } from "@/lib/admin/supplier-guards";
 import { slugify } from "@/lib/utils/format";
 import { runOrchestrator } from "@/lib/admin/orchestrator";
 import type { OrchestratorResult } from "@/lib/admin/orchestrator-types";
+import { processCatalogScoped, type ScopedCatalogResult } from "@/lib/admin/catalog-processor";
+import { autoSourceProduct, autoSourceProducts, summarizeAutoSourceResults, type AutoSourceResult } from "@/lib/admin/auto-sourcing";
 
 export interface ActionResult {
   ok?: string;
   error?: string;
   orchestratorResult?: OrchestratorResult;
+  offerCreated?: boolean;
+  autoSourceResult?: AutoSourceResult;
+}
+
+// ─── Offer creation after approval ───────────────────────────────────────
+
+async function ensureOfferForApprovedItem(
+  sb: Awaited<ReturnType<typeof createClient>>,
+  itemId: string,
+): Promise<{ ok: boolean; action?: string; error?: string }> {
+  const { data: item, error: fetchErr } = await sb
+    .from("supplier_catalog_items")
+    .select("id, supplier_id, master_product_id, cost_centavos, stock, lead_time_days, match_status")
+    .eq("id", itemId)
+    .single();
+
+  if (fetchErr || !item) return { ok: false, error: "Item não encontrado." };
+  if (item.match_status !== "aprovado") return { ok: false, error: "Item não está aprovado." };
+  if (!item.master_product_id) return { ok: false, error: "Item sem master_product_id." };
+  if (!item.cost_centavos || item.cost_centavos <= 0) return { ok: true, action: "skipped_invalid_cost" };
+
+  const { data, error } = await sb.rpc("version_supplier_offer", {
+    p_master_product_id: item.master_product_id,
+    p_supplier_id: item.supplier_id,
+    p_catalog_item_id: item.id,
+    p_cost_centavos: item.cost_centavos,
+    p_stock: item.stock,
+    p_lead_time_days: item.lead_time_days ?? 3,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  const res = data as { ok?: boolean; action?: string; error?: string };
+  if (res.error) return { ok: false, error: res.error };
+  return { ok: true, action: res.action ?? "created" };
 }
 
 function friendlyError(raw: string): string {
@@ -53,10 +90,18 @@ export async function approveMatch(_prev: ActionResult, fd: FormData): Promise<A
       .update({ match_status: "aprovado" })
       .eq("id", itemId)
       .eq("master_product_id", masterProductId)
-      .in("match_status", ["match_sugerido", "revisao_manual"]);
+      .in("match_status", ["match_sugerido", "revisao_manual", "normalizado"]);
 
     if (error) return { error: error.message };
-    return { ok: "Match aprovado." };
+
+    const offerResult = await ensureOfferForApprovedItem(sb, itemId);
+    if (!offerResult.ok) {
+      return { ok: `Match aprovado. Oferta não criada: ${offerResult.error}`, offerCreated: false };
+    }
+    const asr = await autoSourceProduct(sb, masterProductId, "new_offer");
+    const offerLabel = offerResult.action === "versioned" ? "atualizada" : "criada";
+    const autoLabel = asr.action === "selected" ? " Sourcing automático." : asr.action === "disabled" ? "" : ` Auto-sourcing: ${asr.reason}.`;
+    return { ok: `Match aprovado. Oferta ${offerLabel}.${autoLabel}`, offerCreated: true, autoSourceResult: asr };
   });
 }
 
@@ -95,15 +140,19 @@ export async function selectOffer(_prev: ActionResult, fd: FormData): Promise<Ac
       .eq("status", "ativa")
       .is("replaced_at", null);
 
-    const offers: RankableOffer[] = (rawOffers ?? []).map((o) => ({
-      id: o.id as string,
-      master_product_id: o.master_product_id as string,
-      supplier_id: o.supplier_id as string,
-      cost_centavos: o.cost_centavos as number,
-      stock: o.stock as number | null,
-      lead_time_days: o.lead_time_days as number,
-      status: o.status as string,
-    }));
+    const operationalIds = await getOperationalSupplierIds(sb);
+    const offers: RankableOffer[] = filterOperationalOffers(
+      (rawOffers ?? []).map((o) => ({
+        id: o.id as string,
+        master_product_id: o.master_product_id as string,
+        supplier_id: o.supplier_id as string,
+        cost_centavos: o.cost_centavos as number,
+        stock: o.stock as number | null,
+        lead_time_days: o.lead_time_days as number,
+        status: o.status as string,
+      })),
+      operationalIds,
+    );
 
     const ranking = rankProductOffers(offers);
     const ranked = ranking?.offers.find((ro) => ro.supplier_offer_id === offerId);
@@ -243,7 +292,15 @@ export async function createMasterFromItem(_prev: ActionResult, fd: FormData): P
       .eq("id", itemId);
 
     if (linkErr) return { error: linkErr.message };
-    return { ok: `Produto mestre "${name}" criado e item vinculado.` };
+
+    const offerResult = await ensureOfferForApprovedItem(sb, itemId);
+    if (!offerResult.ok) {
+      return { ok: `Produto mestre "${name}" criado e item vinculado. Oferta não criada: ${offerResult.error}`, offerCreated: false };
+    }
+    const asr = await autoSourceProduct(sb, master.id, "first_selection");
+    const offerLabel = offerResult.action === "versioned" ? "atualizada" : "criada";
+    const autoLabel = asr.action === "selected" ? " Sourcing automático." : asr.action === "disabled" ? "" : ` Auto-sourcing: ${asr.reason}.`;
+    return { ok: `Produto mestre "${name}" criado, oferta ${offerLabel}.${autoLabel}`, offerCreated: true, autoSourceResult: asr };
   });
 }
 
@@ -273,7 +330,15 @@ export async function associateToMaster(_prev: ActionResult, fd: FormData): Prom
       .eq("id", itemId);
 
     if (error) return { error: error.message };
-    return { ok: `Item vinculado a "${master.name}".` };
+
+    const offerResult = await ensureOfferForApprovedItem(sb, itemId);
+    if (!offerResult.ok) {
+      return { ok: `Item vinculado a "${master.name}". Oferta não criada: ${offerResult.error}`, offerCreated: false };
+    }
+    const asr = await autoSourceProduct(sb, masterProductId, "new_offer");
+    const offerLabel = offerResult.action === "versioned" ? "atualizada" : "criada";
+    const autoLabel = asr.action === "selected" ? " Sourcing automático." : asr.action === "disabled" ? "" : ` Auto-sourcing: ${asr.reason}.`;
+    return { ok: `Item vinculado a "${master.name}", oferta ${offerLabel}.${autoLabel}`, offerCreated: true, autoSourceResult: asr };
   });
 }
 
@@ -342,6 +407,111 @@ export async function processarPendencias(_prev: ActionResult): Promise<ActionRe
       ok: `Orquestrador ${statusLabel} (${result.duration_ms}ms). ${summary || "Nenhum item pendente."}. Exceções: +${result.exceptions_created} novas, ${result.exceptions_auto_resolved} auto-resolvidas.`,
       orchestratorResult: result,
     };
+  });
+}
+
+// ─── Processamento scoped de catálogo ─────────────────────────────────
+
+export interface CatalogProcessActionResult {
+  ok?: string;
+  error?: string;
+  scopedResult?: ScopedCatalogResult;
+}
+
+export async function processarCatalogo(catalogId: string): Promise<CatalogProcessActionResult> {
+  if (!catalogId) return { error: "Catálogo inválido." };
+
+  try {
+    await assertAdmin();
+    const sb = await createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await processCatalogScoped(sb as any, catalogId);
+
+    if (result.status === "failed") {
+      return { error: friendlyError(result.error ?? "Erro ao processar catálogo.") };
+    }
+
+    const summary = result.phases
+      .filter((p) => p.processed > 0)
+      .map((p) => `${p.phase}: ${p.processed} processados`)
+      .join(", ");
+
+    revalidatePath("/admin/compras", "layout");
+
+    return {
+      ok: `Catálogo processado (${result.duration_ms}ms). ${summary || "Nenhum item pendente."}`,
+      scopedResult: result,
+    };
+  } catch (e) {
+    const raw = (e as Error).message || "Erro inesperado.";
+    return { error: friendlyError(raw) };
+  }
+}
+
+// ─── Backfill offers for approved items missing them ─────────────────────
+
+export async function backfillApprovedOffers(): Promise<ActionResult> {
+  return run(async (sb) => {
+    const { data: approvedItems } = await sb
+      .from("supplier_catalog_items")
+      .select("id, supplier_id, master_product_id, cost_centavos, stock, lead_time_days")
+      .eq("match_status", "aprovado")
+      .not("master_product_id", "is", null);
+
+    if (!approvedItems || approvedItems.length === 0) return { ok: "Nenhum item aprovado." };
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const item of approvedItems) {
+      if (!item.cost_centavos || item.cost_centavos <= 0) {
+        skipped++;
+        continue;
+      }
+
+      const { data: existing } = await sb
+        .from("supplier_offers")
+        .select("id")
+        .eq("master_product_id", item.master_product_id)
+        .eq("supplier_id", item.supplier_id)
+        .eq("status", "ativa")
+        .is("replaced_at", null)
+        .maybeSingle();
+
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      const { data, error } = await sb.rpc("version_supplier_offer", {
+        p_master_product_id: item.master_product_id,
+        p_supplier_id: item.supplier_id,
+        p_catalog_item_id: item.id,
+        p_cost_centavos: item.cost_centavos,
+        p_stock: item.stock,
+        p_lead_time_days: item.lead_time_days ?? 3,
+      });
+
+      if (error) {
+        errors++;
+        continue;
+      }
+
+      const res = data as { action?: string; error?: string };
+      if (res.error) {
+        errors++;
+      } else if (res.action === "created") {
+        created++;
+      } else if (res.action === "versioned") {
+        updated++;
+      } else {
+        skipped++;
+      }
+    }
+
+    return { ok: `Backfill: ${created} criadas, ${updated} atualizadas, ${skipped} já existentes, ${errors} erros. Total aprovados: ${approvedItems.length}` };
   });
 }
 

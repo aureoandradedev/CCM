@@ -16,6 +16,14 @@
  */
 import type { IntegrationMethod, SyncCapability } from "./types";
 
+export interface PipelineState {
+  normalized: number;
+  matched: number;
+  review: number;
+  offers: number;
+  errors: number;
+}
+
 export interface ConnectedIntegration {
   id: string;
   method: IntegrationMethod;
@@ -30,6 +38,7 @@ export interface ConnectedIntegration {
   credentialLast4?: string; // só exibição, nunca o segredo
   createdAt: string; // ISO
   lastSyncAt: string | null; // ISO
+  pipelineState?: PipelineState;
 }
 
 const KEY = "ccm_integrations_v1";
