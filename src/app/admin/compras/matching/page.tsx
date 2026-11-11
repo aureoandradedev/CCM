@@ -1,13 +1,13 @@
 import { Chip, Empty, NotConfigured, PageTitle, Pagination, Table, Td, Th } from "@/components/admin/ui";
 import { configured } from "@/lib/admin/data";
 import { matchingQueueByStatus, matchingStatusCounts } from "@/lib/admin/compras-data";
-import { MatchActions, NoMasterActions } from "../_components";
+import { NoMasterActions } from "../_components";
 
 type SP = Record<string, string | undefined>;
 
 const TABS = [
   { key: "revisao", label: "Revisao" },
-  { key: "sem_master", label: "Sem master" },
+  { key: "sem_master", label: "Baixa confianca" },
   { key: "aprovado", label: "Aprovados" },
   { key: "rejeitado", label: "Rejeitados" },
 ] as const;
@@ -65,7 +65,7 @@ export default async function MatchingPage({ searchParams }: { searchParams: Pro
                 <Th>EAN</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Confianca</Th>
-                {!isSemMaster && <Th>Sugestao</Th>}
+                <Th>Sugestao</Th>
                 {(isReview || isSemMaster) && <Th>Acoes</Th>}
               </tr>
             </thead>
@@ -86,19 +86,26 @@ export default async function MatchingPage({ searchParams }: { searchParams: Pro
                       </span>
                     </Td>
                     <Td className="text-right">{i.match_confidence != null ? `${i.match_confidence}%` : "—"}</Td>
-                    {!isSemMaster && (
-                      <Td className="max-w-[200px] truncate text-xs">
-                        {i.master_product_name ?? "—"}
-                        {i.master_product_ean && <span className="text-brand-ink-soft"> ({i.master_product_ean})</span>}
-                      </Td>
-                    )}
+                    <Td className="max-w-[200px] truncate text-xs">
+                      {i.master_product_name ?? "—"}
+                      {i.master_product_ean && <span className="text-brand-ink-soft"> ({i.master_product_ean})</span>}
+                    </Td>
                     {isReview && (
                       <Td>
-                        {i.master_product_id ? (
-                          <MatchActions itemId={i.id} masterProductId={i.master_product_id} />
-                        ) : (
-                          <span className="text-xs text-brand-ink-soft">Sem sugestao</span>
-                        )}
+                        <NoMasterActions
+                          reviewMode
+                          item={{
+                            id: i.id,
+                            name: i.name,
+                            brand: i.brand,
+                            model: i.model,
+                            ean: i.ean,
+                            category_original: i.category_original,
+                            normalized_data: i.normalized_data,
+                            master_product_id: i.master_product_id,
+                            master_product_name: i.master_product_name,
+                          }}
+                        />
                       </Td>
                     )}
                     {isSemMaster && (
@@ -112,6 +119,8 @@ export default async function MatchingPage({ searchParams }: { searchParams: Pro
                             ean: i.ean,
                             category_original: i.category_original,
                             normalized_data: i.normalized_data,
+                            master_product_id: i.master_product_id,
+                            master_product_name: i.master_product_name,
                           }}
                         />
                       </Td>

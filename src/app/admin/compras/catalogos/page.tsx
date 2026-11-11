@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Empty, NotConfigured, PageTitle, Pagination, Table, Td, Th } from "@/components/admin/ui";
 import { configured } from "@/lib/admin/data";
 import { catalogList } from "@/lib/admin/compras-data";
+import { ProcessarCatalogoButton } from "../_components";
 
 type SP = Record<string, string | undefined>;
 
@@ -44,6 +45,7 @@ export default async function CatalogosPage({ searchParams }: { searchParams: Pr
                 <Th className="text-right">Processados</Th>
                 <Th className="text-right">Erros</Th>
                 <Th>Data</Th>
+                <Th>Ações</Th>
               </tr>
             </thead>
             <tbody>
@@ -64,6 +66,9 @@ export default async function CatalogosPage({ searchParams }: { searchParams: Pr
                   <Td className="text-right">{c.processed}</Td>
                   <Td className="text-right">{c.errors || "—"}</Td>
                   <Td className="text-sm text-brand-ink-soft">{new Date(c.created_at).toLocaleDateString("pt-BR")}</Td>
+                  <Td>
+                    <ProcessarCatalogoButton catalogId={c.id} />
+                  </Td>
                 </tr>
               ))}
             </tbody>

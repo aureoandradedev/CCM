@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, PartyPopper, Store } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, Loader2, PartyPopper, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MethodCards } from "./method-cards";
@@ -302,11 +302,21 @@ export function IntegrationWizard() {
             <ReviewStat label="Importados" value={summary.valid} tone="green" />
             <ReviewStat label="Com problema" value={summary.invalid + summary.warnings} tone="orange" />
           </div>
+          <div className="mx-auto max-w-lg rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-3 text-left text-sm">
+            <p className="font-semibold text-brand-navy dark:text-foreground">Próximo passo: condições comerciais</p>
+            <p className="mt-1 text-xs text-brand-ink-soft">
+              Para que seus produtos entrem no ranking de compras, preencha suas condições de fornecimento (pedido mínimo, frete, prazo).
+            </p>
+          </div>
+
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button variant="brand" size="lg" onClick={() => router.push("/fornecedores/integracoes")} className="gap-1">
+            <Button variant="brand" size="lg" onClick={() => router.push("/fornecedores/condicoes")} className="gap-1">
+              <ClipboardList className="size-4" /> Preencher condições comerciais
+            </Button>
+            <Button variant="outline-navy" size="lg" onClick={() => router.push("/fornecedores/integracoes")} className="gap-1">
               Ir para meus produtos <ArrowRight className="size-4" />
             </Button>
-            <Button variant="outline-navy" size="lg" render={<Link href="/" />} className="gap-1">
+            <Button variant="ghost" size="lg" render={<Link href="/" />} className="gap-1">
               <Store className="size-4" /> Ver a vitrine
             </Button>
           </div>

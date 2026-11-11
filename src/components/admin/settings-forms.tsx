@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { saveDescontos, saveFreight, saveSupplier, saveCategory, setAdminRole, type ActionResult } from "@/app/admin/actions";
 import { Feedback, Field, inputCls, selectCls, textareaCls } from "@/components/admin/ui";
@@ -76,7 +76,11 @@ const WEEKDAYS = [
 
 export function SupplierForm({ supplier, onDone }: { supplier: AdminSupplier | null; onDone?: () => void }) {
   const [state, action, pending] = useActionState<ActionResult, FormData>(saveSupplier, {});
-  const diasSet = new Set(supplier?.dias_pedido ?? []);
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+  useEffect(() => {
+    if (state.ok && doneRef.current) doneRef.current();
+  }, [state.ok]);
   return (
     <form action={action} className="grid gap-3 rounded-2xl border border-brand-line bg-card p-4 sm:grid-cols-2">
       <input type="hidden" name="id" value={supplier?.id ?? ""} />
@@ -85,14 +89,25 @@ export function SupplierForm({ supplier, onDone }: { supplier: AdminSupplier | n
       </div>
 
       {/* --- Dados básicos --- */}
-      <Field label="Nome">
-        <input name="name" defaultValue={supplier?.name ?? ""} className={inputCls} required />
-      </Field>
       <Field label="CNPJ">
         <input name="cnpj" defaultValue={supplier?.cnpj ?? ""} className={inputCls} inputMode="numeric" />
       </Field>
+      <Field label="Razão social">
+        <input name="trade_name" defaultValue={supplier?.trade_name ?? ""} className={inputCls} required />
+      </Field>
+      <Field label="Nome fantasia">
+        <input name="name" defaultValue={supplier?.name ?? ""} className={inputCls} required />
+      </Field>
       <Field label="Cidade">
         <input name="city" defaultValue={supplier?.city ?? ""} className={inputCls} />
+      </Field>
+      <Field label="UF">
+        <select name="state" defaultValue={supplier?.state ?? ""} className={selectCls}>
+          <option value="">Selecione</option>
+          {["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"].map((uf) => (
+            <option key={uf} value={uf}>{uf}</option>
+          ))}
+        </select>
       </Field>
       <Field label="Prazo de entrega no CD (dias úteis)">
         <input name="lead_time_days" defaultValue={supplier?.lead_time_days ?? 3} className={inputCls} inputMode="numeric" />
@@ -109,40 +124,6 @@ export function SupplierForm({ supplier, onDone }: { supplier: AdminSupplier | n
       <label className="flex items-center gap-2 self-end pb-2 text-sm">
         <input type="checkbox" name="active" defaultChecked={supplier?.active ?? true} className="size-4 accent-brand-navy" /> Ativo
       </label>
-
-      {/* --- Condições comerciais --- */}
-      <div className="sm:col-span-2 mt-2 border-t border-brand-line pt-3">
-        <p className="text-xs font-bold uppercase tracking-wider text-brand-ink-soft">Condições comerciais</p>
-      </div>
-
-      <Field label="Pedido mínimo (tipo)">
-        <select name="pedido_minimo_tipo" defaultValue={supplier?.pedido_minimo_tipo ?? ""} className={selectCls}>
-          <option value="">Sem mínimo</option>
-          <option value="valor">Valor (R$)</option>
-          <option value="volume">Volume (unidades)</option>
-        </select>
-      </Field>
-      <Field label="Pedido mínimo (centavos)" hint="Ex.: 50000 = R$ 500,00">
-        <input name="pedido_minimo_centavos" defaultValue={supplier?.pedido_minimo_centavos ?? ""} className={inputCls} inputMode="numeric" />
-      </Field>
-
-      <Field label="Dias de pedido" hint="Marque os dias em que aceita pedido." className="sm:col-span-2">
-        <DayCheckboxes diasSet={diasSet} />
-      </Field>
-
-      <Field label="Frete (tipo)">
-        <select name="frete_tipo" defaultValue={supplier?.frete_tipo ?? ""} className={selectCls}>
-          <option value="">Não definido</option>
-          <option value="fixo">Fixo</option>
-          <option value="gratis_acima">Grátis acima de valor</option>
-        </select>
-      </Field>
-      <Field label="Frete valor (centavos)" hint="Valor cobrado / fixo">
-        <input name="frete_valor_centavos" defaultValue={supplier?.frete_valor_centavos ?? ""} className={inputCls} inputMode="numeric" />
-      </Field>
-      <Field label="Grátis acima de (centavos)" hint="Só para tipo 'gratis_acima'">
-        <input name="frete_gratis_acima_centavos" defaultValue={supplier?.frete_gratis_acima_centavos ?? ""} className={inputCls} inputMode="numeric" />
-      </Field>
 
       <div className="flex gap-2 sm:col-span-2">
         <Button type="submit" variant="brand" disabled={pending}>

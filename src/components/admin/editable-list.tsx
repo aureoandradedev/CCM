@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 /** Lista com "Editar" inline + "Novo" (fornecedores, categorias). */
-export function EditableList<T extends { key: string }>({ items, renderRow, renderForm, newLabel }: { items: T[]; renderRow: (item: T) => React.ReactNode; renderForm: (item: T | null, onDone: () => void) => React.ReactNode; newLabel: string }) {
+export function EditableList<T extends { key: string }>({ items, renderRow, renderForm, newLabel }: { items: T[]; renderRow: (item: T) => React.ReactNode; renderForm: (item: T | null, onDone: () => void) => React.ReactNode; newLabel?: string }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [novo, setNovo] = useState(false);
   return (
@@ -22,12 +22,14 @@ export function EditableList<T extends { key: string }>({ items, renderRow, rend
           {editing === it.key ? <div className="mt-3">{renderForm(it, () => setEditing(null))}</div> : null}
         </div>
       ))}
-      {novo ? (
-        renderForm(null, () => setNovo(false))
-      ) : (
-        <Button variant="navy" size="sm" onClick={() => setNovo(true)}>
-          <Plus /> {newLabel}
-        </Button>
+      {newLabel && (
+        novo ? (
+          renderForm(null, () => setNovo(false))
+        ) : (
+          <Button variant="navy" size="sm" onClick={() => setNovo(true)}>
+            <Plus /> {newLabel}
+          </Button>
+        )
       )}
     </div>
   );

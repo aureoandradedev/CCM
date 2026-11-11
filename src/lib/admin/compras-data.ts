@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { rankAllProducts, rankProductOffers } from "@/lib/ranking/engine";
 import type { RankableOffer } from "@/lib/ranking/types";
 import { resolveMargin, calculatePrice, type MarginRule } from "./pricing";
+import { getOperationalSupplierIds, filterOperationalOffers } from "./supplier-guards";
 
 const PER_PAGE = 25;
 
@@ -47,7 +48,10 @@ export async function comprasDashboard() {
     sb.from("sourcing_selections").select("*", { count: "exact", head: true }).is("replaced_at", null),
   ]);
 
-  const rankings = rankAllProducts((rawOffers ?? []).map(toRankable));
+  const operationalIds = await getOperationalSupplierIds(sb);
+  const rankings = rankAllProducts(
+    filterOperationalOffers((rawOffers ?? []).map(toRankable), operationalIds),
+  );
 
   return {
     catalogs: { total: totalCatalogs ?? 0, pending: pendingCatalogs ?? 0 },
@@ -216,7 +220,7 @@ export async function matchingQueueByStatus(status: string, page = 1) {
     );
 
   if (status === "sem_master") {
-    q = q.eq("match_status", "normalizado").is("master_product_id", null);
+    q = q.eq("match_status", "normalizado");
   } else if (status === "revisao") {
     q = q.in("match_status", ["match_sugerido", "revisao_manual"]);
   } else {
@@ -264,7 +268,7 @@ export async function matchingStatusCounts() {
     { count: rejeitado },
   ] = await Promise.all([
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).in("match_status", ["match_sugerido", "revisao_manual"]),
-    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "normalizado").is("master_product_id", null),
+    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "normalizado"),
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "aprovado"),
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "rejeitado"),
   ]);
@@ -274,6 +278,251 @@ export async function matchingStatusCounts() {
     sem_master: semMaster ?? 0,
     aprovado: aprovado ?? 0,
     rejeitado: rejeitado ?? 0,
+  };
+}
+
+export async function pendenciasData(page = 1) {
+  const sb = await createClient();
+  const from = (page - 1) * PER_PAGE;
+
+  const [matchCountRes, exceptionCountRes] = await Promise.all([
+    sb.from("supplier_catalog_items")
+      .select("*", { count: "exact", head: true })
+      .in("match_status", ["match_sugerido", "revisao_manual", "normalizado"]),
+    sb.from("procurement_exceptions")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "open"),
+  ]);
+
+  const matchCount = matchCountRes.count ?? 0;
+  const exceptionCount = exceptionCountRes.count ?? 0;
+  const totalPendencias = matchCount + exceptionCount;
+
+  const matchItems = from < matchCount
+    ? await sb
+        .from("supplier_catalog_items")
+        .select(
+          "id, catalog_id, name, supplier_sku, ean, brand, model, category_original, match_status, match_confidence, match_signals, master_product_id, supplier_id, normalized_data, suppliers(name), master_products(id, name, ean)",
+          { count: "exact" },
+        )
+        .in("match_status", ["match_sugerido", "revisao_manual", "normalizado"])
+        .order("match_status")
+        .order("match_confidence", { ascending: false, nullsFirst: false })
+        .range(from, Math.min(from + PER_PAGE - 1, matchCount - 1))
+    : { data: [], count: matchCount };
+
+  const matchRows = (matchItems.data ?? []).map((r) => {
+    const i = r as Record<string, unknown>;
+    const ms = i.match_status as string;
+    return {
+      kind: "matching" as const,
+      id: i.id as string,
+      title: i.name as string,
+      supplier_name: (i.suppliers as { name: string } | null)?.name ?? "—",
+      reason: ms === "normalizado"
+        ? "Sem produto mestre"
+        : ms === "revisao_manual"
+          ? "Revisão manual"
+          : "Match sugerido",
+      match_status: ms,
+      match_confidence: i.match_confidence as number | null,
+      master_product_name: (i.master_products as { name: string } | null)?.name ?? null,
+      master_product_ean: (i.master_products as { ean: string } | null)?.ean ?? null,
+      item: {
+        id: i.id as string,
+        name: i.name as string,
+        brand: i.brand as string | null,
+        model: i.model as string | null,
+        ean: i.ean as string | null,
+        category_original: i.category_original as string | null,
+        normalized_data: i.normalized_data as Record<string, unknown> | null,
+        master_product_id: i.master_product_id as string | null,
+        master_product_name: (i.master_products as { name: string } | null)?.name ?? null,
+      },
+    };
+  });
+
+  const remainingSlots = PER_PAGE - matchRows.length;
+  const exceptionOffset = from >= matchCount ? from - matchCount : 0;
+
+  let exceptionRows: {
+    kind: "exception";
+    id: string;
+    title: string;
+    supplier_name: string;
+    reason: string;
+    severity: string;
+    type: string;
+  }[] = [];
+
+  if (remainingSlots > 0 && exceptionCount > 0) {
+    const { data: exceptions } = await sb
+      .from("procurement_exceptions")
+      .select("id, type, severity, title, master_product_id, supplier_id, created_at, suppliers(name)")
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .range(exceptionOffset, exceptionOffset + remainingSlots - 1);
+
+    exceptionRows = (exceptions ?? []).map((r) => {
+      const e = r as Record<string, unknown>;
+      return {
+        kind: "exception" as const,
+        id: e.id as string,
+        title: e.title as string,
+        supplier_name: (e.suppliers as { name: string } | null)?.name ?? "—",
+        reason: e.type as string,
+        severity: e.severity as string,
+        type: e.type as string,
+      };
+    });
+  }
+
+  return {
+    items: [...matchRows, ...exceptionRows],
+    total: totalPendencias,
+    matchCount,
+    exceptionCount,
+  };
+}
+
+// ─── Pendências: all items (for client-side filtering) ───────────
+
+export type PendenciaMatchRow = {
+  kind: "matching";
+  id: string;
+  title: string;
+  supplier_name: string;
+  supplier_id: string;
+  supplier_sku: string | null;
+  ean: string | null;
+  catalog_id: string;
+  reason: string;
+  match_status: string;
+  match_confidence: number | null;
+  master_product_name: string | null;
+  master_product_ean: string | null;
+  item: {
+    id: string;
+    name: string;
+    brand: string | null;
+    model: string | null;
+    ean: string | null;
+    category_original: string | null;
+    normalized_data: Record<string, unknown> | null;
+    master_product_id: string | null;
+    master_product_name: string | null;
+  };
+};
+
+export type PendenciaExceptionRow = {
+  kind: "exception";
+  id: string;
+  title: string;
+  supplier_name: string;
+  supplier_id: string | null;
+  reason: string;
+  severity: string;
+  type: string;
+};
+
+export type PendenciaRow = PendenciaMatchRow | PendenciaExceptionRow;
+
+export async function pendenciasDataAll() {
+  const sb = await createClient();
+
+  const [matchRes, exceptionsRes, catalogsRes] = await Promise.all([
+    sb
+      .from("supplier_catalog_items")
+      .select(
+        "id, catalog_id, name, supplier_sku, ean, brand, model, category_original, match_status, match_confidence, match_signals, master_product_id, supplier_id, normalized_data, suppliers(name), master_products(id, name, ean)",
+      )
+      .in("match_status", ["match_sugerido", "revisao_manual", "normalizado"])
+      .order("match_status")
+      .order("match_confidence", { ascending: false, nullsFirst: false })
+      .limit(1000),
+    sb
+      .from("procurement_exceptions")
+      .select("id, type, severity, title, master_product_id, supplier_id, created_at, suppliers(name)")
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .limit(500),
+    sb
+      .from("supplier_catalogs")
+      .select("id, supplier_id, source_name, created_at, suppliers(name)")
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
+
+  const matchRows: PendenciaMatchRow[] = (matchRes.data ?? []).map((r) => {
+    const i = r as Record<string, unknown>;
+    const ms = i.match_status as string;
+    return {
+      kind: "matching" as const,
+      id: i.id as string,
+      title: i.name as string,
+      supplier_name: (i.suppliers as { name: string } | null)?.name ?? "—",
+      supplier_id: i.supplier_id as string,
+      supplier_sku: i.supplier_sku as string | null,
+      ean: i.ean as string | null,
+      catalog_id: i.catalog_id as string,
+      reason: ms === "normalizado"
+        ? "Sem produto mestre"
+        : ms === "revisao_manual"
+          ? "Revisão manual"
+          : "Match sugerido",
+      match_status: ms,
+      match_confidence: i.match_confidence as number | null,
+      master_product_name: (i.master_products as { name: string } | null)?.name ?? null,
+      master_product_ean: (i.master_products as { ean: string } | null)?.ean ?? null,
+      item: {
+        id: i.id as string,
+        name: i.name as string,
+        brand: i.brand as string | null,
+        model: i.model as string | null,
+        ean: i.ean as string | null,
+        category_original: i.category_original as string | null,
+        normalized_data: i.normalized_data as Record<string, unknown> | null,
+        master_product_id: i.master_product_id as string | null,
+        master_product_name: (i.master_products as { name: string } | null)?.name ?? null,
+      },
+    };
+  });
+
+  const exceptionRows: PendenciaExceptionRow[] = (exceptionsRes.data ?? []).map((r) => {
+    const e = r as Record<string, unknown>;
+    return {
+      kind: "exception" as const,
+      id: e.id as string,
+      title: e.title as string,
+      supplier_name: (e.suppliers as { name: string } | null)?.name ?? "—",
+      supplier_id: e.supplier_id as string | null,
+      reason: e.type as string,
+      severity: e.severity as string,
+      type: e.type as string,
+    };
+  });
+
+  const suppliers = new Map<string, string>();
+  for (const r of matchRows) suppliers.set(r.supplier_id, r.supplier_name);
+  for (const r of exceptionRows) if (r.supplier_id) suppliers.set(r.supplier_id, r.supplier_name);
+
+  const catalogs = (catalogsRes.data ?? []).map((c) => {
+    const r = c as Record<string, unknown>;
+    return {
+      id: r.id as string,
+      supplier_id: r.supplier_id as string,
+      source_name: r.source_name as string | null,
+      supplier_name: (r.suppliers as { name: string } | null)?.name ?? "—",
+      created_at: r.created_at as string,
+    };
+  });
+
+  return {
+    items: [...matchRows, ...exceptionRows] as PendenciaRow[],
+    matchCount: matchRows.length,
+    exceptionCount: exceptionRows.length,
+    suppliers: Array.from(suppliers.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
+    catalogs,
   };
 }
 
@@ -292,7 +541,10 @@ export async function offerProducts(page = 1) {
 
   if (!rawOffers || rawOffers.length === 0) return { products: [], total: 0 };
 
-  const offers = rawOffers.map(toRankable);
+  const operationalIds = await getOperationalSupplierIds(sb);
+  const offers = filterOperationalOffers(rawOffers.map(toRankable), operationalIds);
+  if (offers.length === 0) return { products: [], total: 0 };
+
   const selMap = new Map(
     (selections ?? []).map((s) => [s.master_product_id as string, s.supplier_offer_id as string]),
   );
@@ -363,7 +615,10 @@ export async function offerDetail(masterProductId: string) {
 
   const product = productRes.data;
   const rawOffers = offersRes.data ?? [];
-  const ranking = rankProductOffers(rawOffers.map(toRankable));
+  const operationalIds = await getOperationalSupplierIds(sb);
+  const ranking = rankProductOffers(
+    filterOperationalOffers(rawOffers.map(toRankable), operationalIds),
+  );
 
   return {
     product,
@@ -405,6 +660,123 @@ export async function offerDetail(masterProductId: string) {
       score: r.score as number | null,
       ambiguous: r.ambiguous as boolean,
     })),
+  };
+}
+
+export async function offerProductsWithComparison(page = 1) {
+  const sb = await createClient();
+
+  const [{ data: rawOffers }, { data: selections }] = await Promise.all([
+    sb.from("supplier_offers")
+      .select("id, master_product_id, supplier_id, cost_centavos, stock, lead_time_days, status")
+      .eq("status", "ativa")
+      .is("replaced_at", null),
+    sb.from("sourcing_selections")
+      .select("master_product_id, supplier_offer_id, note")
+      .is("replaced_at", null),
+  ]);
+
+  if (!rawOffers || rawOffers.length === 0) return { products: [], total: 0 };
+
+  const operationalIds = await getOperationalSupplierIds(sb);
+  const offers = filterOperationalOffers(rawOffers.map(toRankable), operationalIds);
+  if (offers.length === 0) return { products: [], total: 0 };
+
+  const selMap = new Map(
+    (selections ?? []).map((s) => [s.master_product_id as string, s.supplier_offer_id as string]),
+  );
+  const selNoteMap = new Map(
+    (selections ?? []).map((s) => [s.master_product_id as string, (s as { note?: string | null }).note ?? null]),
+  );
+
+  const grouped = new Map<string, RankableOffer[]>();
+  for (const o of offers) {
+    const g = grouped.get(o.master_product_id);
+    if (g) g.push(o);
+    else grouped.set(o.master_product_id, [o]);
+  }
+
+  const rankings = rankAllProducts(offers);
+  const allIds = [...grouped.keys()];
+  const totalProducts = allIds.length;
+  const from = (page - 1) * PER_PAGE;
+  const pageIds = allIds.slice(from, from + PER_PAGE);
+
+  if (pageIds.length === 0) return { products: [], total: totalProducts };
+
+  const supplierIds = [...new Set(offers.filter((o) => pageIds.includes(o.master_product_id)).map((o) => o.supplier_id))];
+
+  const [mpRes, suppRes, termsRes] = await Promise.all([
+    sb.from("master_products").select("id, name, ean, brand_slug").in("id", pageIds),
+    sb.from("suppliers").select("id, name").in("id", supplierIds),
+    sb.from("supplier_commercial_terms")
+      .select("supplier_id, pedido_minimo, frete_tipo, frete_gratis_acima, frete_valor")
+      .in("supplier_id", supplierIds),
+  ]);
+
+  const masterProducts = mpRes.data ?? [];
+  const supplierMap = new Map((suppRes.data ?? []).map((s) => [s.id as string, s.name as string]));
+  const termsMap = new Map(
+    (termsRes.data ?? []).map((t) => [
+      t.supplier_id as string,
+      {
+        pedido_minimo: t.pedido_minimo as number | null,
+        frete_tipo: t.frete_tipo as string | null,
+        frete_gratis_acima: t.frete_gratis_acima as number | null,
+        frete_valor: t.frete_valor as number | null,
+      },
+    ]),
+  );
+
+  return {
+    products: pageIds.map((mpId) => {
+      const mp = masterProducts.find((p) => p.id === mpId);
+      const ranking = rankings.find((r) => r.master_product_id === mpId);
+      const productOffers = grouped.get(mpId) ?? [];
+
+      const offersWithDetails = productOffers
+        .map((o) => {
+          const rankedOffer = ranking?.offers.find((ro) => ro.supplier_offer_id === o.id);
+          const terms = termsMap.get(o.supplier_id);
+          return {
+            id: o.id,
+            supplier_id: o.supplier_id,
+            supplier_name: supplierMap.get(o.supplier_id) ?? "—",
+            cost_centavos: o.cost_centavos,
+            stock: o.stock,
+            lead_time_days: o.lead_time_days,
+            position: rankedOffer?.position ?? 999,
+            score_total: rankedOffer?.score_total ?? 0,
+            reasons: rankedOffer?.reasons ?? [],
+            flags: rankedOffer?.flags ?? [],
+            is_recommended: ranking?.recommended_offer_id === o.id,
+            pedido_minimo: terms?.pedido_minimo ?? null,
+            frete_tipo: terms?.frete_tipo ?? null,
+            frete_gratis_acima: terms?.frete_gratis_acima ?? null,
+            frete_valor: terms?.frete_valor ?? null,
+          };
+        })
+        .sort((a, b) => a.position - b.position);
+
+      const selNote = selNoteMap.get(mpId);
+      const sourcingMode: "auto" | "manual" | null = selNote
+        ? (selNote.startsWith("[auto-sourcing]") || selNote.startsWith("[auto-switch]")) ? "auto" : "manual"
+        : null;
+
+      return {
+        master_product_id: mpId,
+        name: mp?.name ?? "—",
+        ean: mp?.ean ?? null,
+        brand_slug: mp?.brand_slug ?? null,
+        active_offers: productOffers.length,
+        selected_offer_id: selMap.get(mpId) ?? null,
+        ambiguous: ranking?.ambiguous ?? false,
+        recommended_offer_id: ranking?.recommended_offer_id ?? null,
+        sourcing_mode: sourcingMode,
+        offers: offersWithDetails,
+      };
+    }),
+    total: totalProducts,
   };
 }
 

@@ -4,7 +4,8 @@ import { useActionState } from "react";
 
 import { useState, useTransition } from "react";
 
-import { approveMatch, rejectMatch, selectOffer, publishProduct, processarPendencias, resolveException, createMasterFromItem, associateToMaster, rejectNormalizedItem, searchMasters } from "./actions";
+import { approveMatch, rejectMatch, selectOffer, publishProduct, processarPendencias, processarCatalogo, resolveException, createMasterFromItem, associateToMaster, rejectNormalizedItem, searchMasters, backfillApprovedOffers } from "./actions";
+import type { ScopedItemReport } from "@/lib/admin/catalog-processor";
 
 export function MatchActions({ itemId, masterProductId }: { itemId: string; masterProductId: string }) {
   const [, approve, approvePending] = useActionState(approveMatch, {});
@@ -112,6 +113,135 @@ export function ProcessarPendenciasButton() {
   );
 }
 
+export function BackfillOffersButton() {
+  const [result, setResult] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function handleClick() {
+    startTransition(async () => {
+      const res = await backfillApprovedOffers();
+      setResult(res.ok ?? res.error ?? "Sem resultado");
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        onClick={handleClick}
+        disabled={pending}
+        className="rounded bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+      >
+        {pending ? "Criando ofertas…" : "Backfill ofertas (aprovados sem oferta)"}
+      </button>
+      {result && <p className="text-sm text-brand-fg/70">{result}</p>}
+    </div>
+  );
+}
+
+// ─── Processamento scoped de catálogo ─────────────────────────────────
+
+const REPORT_STATUS_LABEL: Record<string, string> = {
+  pendente: "Pendente",
+  normalizado: "Normalizado",
+  match_sugerido: "Match sugerido",
+  revisao_manual: "Revisão manual",
+  aprovado: "Aprovado",
+  rejeitado: "Rejeitado",
+};
+
+const REPORT_STATUS_CLS: Record<string, string> = {
+  aprovado: "text-green-700",
+  rejeitado: "text-red-600",
+  match_sugerido: "text-blue-700",
+  revisao_manual: "text-amber-700",
+  normalizado: "text-gray-600",
+  pendente: "text-gray-400",
+};
+
+export function ProcessarCatalogoButton({ catalogId }: { catalogId: string }) {
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState<{ ok?: string; error?: string; report?: ScopedItemReport[] } | null>(null);
+  const [showReport, setShowReport] = useState(false);
+
+  async function handleClick() {
+    setProcessing(true);
+    setResult(null);
+    try {
+      const r = await processarCatalogo(catalogId);
+      setResult({
+        ok: r.ok,
+        error: r.error,
+        report: r.scopedResult?.item_report,
+      });
+      if (r.ok) setShowReport(true);
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={processing}
+        className="whitespace-nowrap rounded bg-brand-navy px-2.5 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+      >
+        {processing ? "Processando…" : "Processar"}
+      </button>
+      {result?.error && <p className="mt-1 text-xs text-red-600">{result.error}</p>}
+      {result?.ok && (
+        <div className="mt-1">
+          <p className="text-xs text-green-600">{result.ok}</p>
+          {result.report && result.report.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowReport(!showReport)}
+              className="mt-1 text-[10px] font-medium text-brand-navy underline"
+            >
+              {showReport ? "Ocultar relatório" : `Ver relatório (${result.report.length} itens)`}
+            </button>
+          )}
+        </div>
+      )}
+      {showReport && result?.report && (
+        <div className="mt-2 max-h-64 overflow-auto rounded border border-brand-line bg-white text-[11px]">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-brand-line bg-gray-50 text-left text-[10px] font-bold uppercase text-gray-500">
+                <th className="px-2 py-1">Nome</th>
+                <th className="px-2 py-1">SKU</th>
+                <th className="px-2 py-1">Antes</th>
+                <th className="px-2 py-1">Depois</th>
+                <th className="px-2 py-1">Conf.</th>
+                <th className="px-2 py-1">Master</th>
+                <th className="px-2 py-1">Oferta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.report.map((r) => (
+                <tr key={r.id} className="border-b border-brand-line last:border-0">
+                  <td className="max-w-[120px] truncate px-2 py-1 font-medium">{r.name}</td>
+                  <td className="px-2 py-1 text-gray-500">{r.supplier_sku ?? "—"}</td>
+                  <td className={`px-2 py-1 ${REPORT_STATUS_CLS[r.before_status] ?? ""}`}>
+                    {REPORT_STATUS_LABEL[r.before_status] ?? r.before_status}
+                  </td>
+                  <td className={`px-2 py-1 font-medium ${REPORT_STATUS_CLS[r.after_status] ?? ""}`}>
+                    {REPORT_STATUS_LABEL[r.after_status] ?? r.after_status}
+                  </td>
+                  <td className="px-2 py-1 text-right">{r.match_confidence != null ? `${r.match_confidence}%` : "—"}</td>
+                  <td className="max-w-[100px] truncate px-2 py-1 text-gray-500">{r.master_product_name ?? "—"}</td>
+                  <td className="px-2 py-1 text-gray-500">{r.offer_action ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Exceções ──────────────────────────────────────────────────────────────
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -184,6 +314,8 @@ interface ItemData {
   ean: string | null;
   category_original: string | null;
   normalized_data: Record<string, unknown> | null;
+  master_product_id?: string | null;
+  master_product_name?: string | null;
 }
 
 export function CreateMasterForm({ item }: { item: ItemData }) {
@@ -304,29 +436,48 @@ export function AssociateMasterForm({ itemId }: { itemId: string }) {
 
 // ─── Ações para item sem master ───────────────────────────────────────────
 
-export function NoMasterActions({ item }: { item: ItemData }) {
+export function NoMasterActions({ item, reviewMode }: { item: ItemData; reviewMode?: boolean }) {
   const [mode, setMode] = useState<"idle" | "create" | "associate">("idle");
-  const [rejectState, rejectAction, rejectPending] = useActionState(rejectNormalizedItem, {});
+  const [rejectNormState, rejectNormAction, rejectNormPending] = useActionState(rejectNormalizedItem, {});
+  const [rejectMatchState, rejectMatchAction, rejectMatchPending] = useActionState(rejectMatch, {});
+  const [approveState, approveAction, approvePending] = useActionState(approveMatch, {});
+  const activeRejectAction = reviewMode ? rejectMatchAction : rejectNormAction;
+  const activeRejectState = reviewMode ? rejectMatchState : rejectNormState;
+  const activeRejectPending = reviewMode ? rejectMatchPending : rejectNormPending;
+  const pending = activeRejectPending || approvePending;
 
   if (mode === "create") return <CreateMasterForm item={item} />;
   if (mode === "associate") return <AssociateMasterForm itemId={item.id} />;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <button onClick={() => setMode("create")} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700">
-        Criar master
-      </button>
-      <button onClick={() => setMode("associate")} className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700">
+      {item.master_product_id && (
+        <form action={approveAction}>
+          <input type="hidden" name="itemId" value={item.id} />
+          <input type="hidden" name="masterProductId" value={item.master_product_id} />
+          <button disabled={pending} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
+            {approvePending ? "…" : "Aprovar candidato"}
+          </button>
+        </form>
+      )}
+      {!item.master_product_id && (
+        <button onClick={() => setMode("create")} disabled={pending} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
+          Criar master
+        </button>
+      )}
+      <button onClick={() => setMode("associate")} disabled={pending} className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
         Associar
       </button>
-      <form action={rejectAction}>
+      <form action={activeRejectAction}>
         <input type="hidden" name="itemId" value={item.id} />
-        <button disabled={rejectPending} className="rounded bg-gray-400 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-500 disabled:opacity-50">
-          {rejectPending ? "…" : "Ignorar"}
+        <button disabled={pending} className="rounded bg-gray-400 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-500 disabled:opacity-50">
+          {activeRejectPending ? "…" : "Ignorar"}
         </button>
       </form>
-      {rejectState?.error && <span className="text-xs text-red-600">{rejectState.error}</span>}
-      {rejectState?.ok && <span className="text-xs text-green-600">{rejectState.ok}</span>}
+      {approveState?.error && <span className="text-xs text-red-600">{approveState.error}</span>}
+      {approveState?.ok && <span className="text-xs text-green-600">{approveState.ok}</span>}
+      {activeRejectState?.error && <span className="text-xs text-red-600">{activeRejectState.error}</span>}
+      {activeRejectState?.ok && <span className="text-xs text-green-600">{activeRejectState.ok}</span>}
     </div>
   );
 }
