@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil, Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, Copy, LinkIcon, Pencil, Plus, Search } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+
+import { createSupplierInvite } from "@/app/admin/fornecedores/invite-actions";
 
 import { EditableList } from "@/components/admin/editable-list";
 import { CategoryForm, SupplierForm } from "@/components/admin/settings-forms";
@@ -47,6 +49,63 @@ function NewSupplierDialog() {
   );
 }
 
+function InviteSupplierDialog() {
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleGenerate = () => {
+    startTransition(async () => {
+      setError(null);
+      setInviteUrl(null);
+      const result = await createSupplierInvite();
+      if (result.error) setError(result.error);
+      if (result.inviteUrl) setInviteUrl(result.inviteUrl);
+    });
+  };
+
+  const handleCopy = async () => {
+    if (!inviteUrl) return;
+    await navigator.clipboard.writeText(inviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setInviteUrl(null); setError(null); setCopied(false); } }}>
+      <DialogTrigger render={<Button variant="outline" size="sm" />}>
+        <LinkIcon className="size-4" /> Convidar fornecedor
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Convidar fornecedor</DialogTitle>
+          <DialogDescription>Gere um link de cadastro para enviar ao fornecedor. O link expira em 7 dias e pode ser usado uma única vez.</DialogDescription>
+        </DialogHeader>
+        {!inviteUrl ? (
+          <div className="space-y-3">
+            {error ? <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-400">{error}</p> : null}
+            <Button variant="navy" onClick={handleGenerate} disabled={pending}>
+              {pending ? "Gerando..." : "Gerar link de convite"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-green-700 dark:text-green-400">Link gerado! Copie e envie ao fornecedor.</p>
+            <div className="flex gap-2">
+              <input readOnly value={inviteUrl} className="h-9 flex-1 rounded-lg border border-brand-line bg-muted px-3 text-xs outline-none" />
+              <Button variant="navy" size="sm" onClick={handleCopy}>
+                {copied ? <><Check className="size-3.5" /> Copiado</> : <><Copy className="size-3.5" /> Copiar</>}
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const digits = (s: string) => s.replace(/\D/g, "");
 
 function matchesSearch(s: AdminSupplier, q: string): boolean {
@@ -69,6 +128,7 @@ export function SuppliersAdmin({ suppliers, supplierIdsWithTerms }: { suppliers:
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <NewSupplierDialog />
+        <InviteSupplierDialog />
         <div className="relative flex-1 min-w-[200px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-ink-soft" />
           <input

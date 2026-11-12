@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Bell,
   Boxes,
   Calculator,
   ExternalLink,
@@ -48,7 +49,7 @@ const NAV = [
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-export function AdminShell({ children, adminName, pendentes, pendenciaCount = 0 }: { children: React.ReactNode; adminName: string; pendentes: number; pendenciaCount?: number }) {
+export function AdminShell({ children, adminName, pendentes, pendenciaCount = 0, registrationCount = 0 }: { children: React.ReactNode; adminName: string; pendentes: number; pendenciaCount?: number; registrationCount?: number }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -87,10 +88,14 @@ export function AdminShell({ children, adminName, pendentes, pendenciaCount = 0 
       <aside className="hidden w-64 shrink-0 flex-col bg-brand-navy text-white lg:flex">
         <div className="flex h-16 items-center gap-3 border-b border-white/10 px-4">
           <Image src="/brand/mascote-head.png" alt="" width={36} height={36} className="size-9 rounded-full bg-white" />
-          <div className="leading-tight">
+          <div className="flex-1 leading-tight">
             <p className="font-heading text-base font-extrabold">CCM Admin</p>
             <p className="text-[0.68rem] text-white/60">Central de Compras</p>
           </div>
+          <Link href="/admin/fornecedores/solicitacoes" className="relative inline-flex size-9 items-center justify-center rounded-lg hover:bg-white/10" aria-label="Solicitações de fornecedores">
+            <Bell className="size-4" />
+            {registrationCount > 0 && <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-brand-red text-[0.55rem] font-bold text-white">{registrationCount}</span>}
+          </Link>
         </div>
         <div className="flex-1 overflow-y-auto">{nav}</div>
         <div className="border-t border-white/10 p-3 text-xs text-white/70">
@@ -114,9 +119,15 @@ export function AdminShell({ children, adminName, pendentes, pendenciaCount = 0 
             <Menu className="size-6" />
           </button>
           <p className="font-heading text-lg font-extrabold text-brand-navy">CCM Admin</p>
-          <Link href="/" className="ml-auto text-xs font-semibold text-brand-navy underline">
-            Ver loja
-          </Link>
+          <div className="ml-auto flex items-center gap-2">
+            <Link href="/admin/fornecedores/solicitacoes" className="relative inline-flex size-9 items-center justify-center rounded-lg text-brand-navy" aria-label="Solicitações de fornecedores">
+              <Bell className="size-5" />
+              {registrationCount > 0 && <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-brand-red text-[0.55rem] font-bold text-white">{registrationCount}</span>}
+            </Link>
+            <Link href="/" className="text-xs font-semibold text-brand-navy underline">
+              Ver loja
+            </Link>
+          </div>
         </header>
 
         {open ? (

@@ -28,15 +28,31 @@ async function getPendenciaCount(): Promise<number> {
   }
 }
 
+async function getRegistrationCount(): Promise<number> {
+  if (!configured()) return 0;
+  try {
+    const sb = await createClient();
+    const { count, error } = await sb
+      .from("supplier_registration_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending");
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdmin();
-  const [counts, pendenciaCount] = await Promise.all([
+  const [counts, pendenciaCount, registrationCount] = await Promise.all([
     adminOrderCounts(),
     getPendenciaCount(),
+    getRegistrationCount(),
   ]);
   const pendentes = (counts["em-separacao"] ?? 0) + (counts["pagamento-pendente"] ?? 0);
   return (
-    <AdminShell adminName={admin.fullName || admin.email} pendentes={pendentes} pendenciaCount={pendenciaCount}>
+    <AdminShell adminName={admin.fullName || admin.email} pendentes={pendentes} pendenciaCount={pendenciaCount} registrationCount={registrationCount}>
       {children}
     </AdminShell>
   );
