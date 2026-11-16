@@ -9,8 +9,10 @@
  *   Categoria / subcategoria   =  5  (suporte)
  *
  * EAN OVERRIDE:
- *   EAN válido + único em master_products → match_sugerido direto (score 95),
- *   EXCETO se houver hard conflict em atributo crítico → revisao_manual.
+ *   EAN válido + único em master_products → score 95 (determinístico).
+ *   EAN check digit inválido + único → score 95 SOMENTE SE:
+ *     (a) sem hard conflict, E (b) marca bate OU >= 2 tokens de nome em comum.
+ *     Senão → scoring normal (revisão humana).
  *
  * HARD CONFLICTS:
  *   Atributos cuja incompatibilidade IMPEDE match_sugerido,

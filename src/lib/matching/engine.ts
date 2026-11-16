@@ -115,7 +115,7 @@ function gatherCandidates(
 ): Set<string> {
   const ids = new Set<string>();
 
-  if (nd.ean_valid && nd.ean_clean) {
+  if (nd.ean_clean) {
     const eanMatches = idx.byEan.get(nd.ean_clean);
     if (eanMatches) {
       for (const m of eanMatches) ids.add(m.id);
@@ -237,34 +237,45 @@ function scoreCandidate(
 
   // ── EAN ──────────────────────────────────────────────────────────────
   const eanMatch =
-    nd.ean_valid &&
     nd.ean_clean != null &&
     master.ean != null &&
     nd.ean_clean === master.ean.replace(/[\s\-./]/g, "");
 
   const eanMasters = nd.ean_clean ? (idx.byEan.get(nd.ean_clean)?.length ?? 0) : 0;
   const eanDuplicate = eanMasters > 1;
-  const eanUniqueValid = eanMatch && !eanDuplicate;
+  const eanUnique = eanMatch && !eanDuplicate;
 
-  if (eanUniqueValid) {
+  // EAN válido + único → override determinístico (score 95)
+  if (eanUnique && nd.ean_valid) {
     score = EAN_OVERRIDE_SCORE;
-    signals.push({ signal: "ean_exact", weight: EAN_OVERRIDE_SCORE, matched: true, detail: "override determinístico" });
+    signals.push({ signal: "ean_exact", weight: EAN_OVERRIDE_SCORE, matched: true, detail: "EAN exato válido" });
+    appendAttributeSignals(nd.attributes, masterAttrs, signals);
+    return { master_product_id: master.id, score: Math.min(100, score), signals, has_hard_conflict: hasHardConflict };
+  }
+
+  // EAN check digit inválido + único → override COM guards extras
+  if (eanUnique && !nd.ean_valid) {
+    const brandOk = nd.brand_slug != null && nd.brand_slug === master.brand_slug;
+    const iToks = new Set(nd.name_tokens.filter(t => t.length > 1 && !STOP_TOKENS.has(t)));
+    const mToks = new Set(idx.tokensByMaster.get(master.id) ?? []);
+    let isect = 0;
+    for (const t of iToks) if (mToks.has(t)) isect++;
+    const nameCompatible = brandOk || isect >= 2;
+
+    if (!hasHardConflict && nameCompatible) {
+      score = EAN_OVERRIDE_SCORE;
+      signals.push({ signal: "ean_exact", weight: EAN_OVERRIDE_SCORE, matched: true, detail: "EAN exato com check digit inválido" });
+      appendAttributeSignals(nd.attributes, masterAttrs, signals);
+      return { master_product_id: master.id, score: Math.min(100, score), signals, has_hard_conflict: hasHardConflict };
+    }
+    signals.push({
+      signal: "ean_exact", weight: 0, matched: false,
+      detail: `EAN exato (check digit inválido) — ${hasHardConflict ? "hard conflict" : "nome/marca incompatível"}`,
+    });
   } else if (eanMatch && eanDuplicate) {
     signals.push({ signal: "ean_duplicate", weight: 0, matched: false, detail: `${eanMasters} masters com mesmo EAN` });
   } else {
     signals.push({ signal: "ean_exact", weight: 0, matched: false });
-  }
-
-  // Se EAN override, registrar soft penalties informativas e retornar.
-  // Score permanece 95 — soft penalties não reduzem no path de EAN override.
-  if (eanUniqueValid) {
-    appendAttributeSignals(nd.attributes, masterAttrs, signals);
-    return {
-      master_product_id: master.id,
-      score: Math.min(100, score),
-      signals,
-      has_hard_conflict: hasHardConflict,
-    };
   }
 
   // ── Brand + Model ────────────────────────────────────────────────────
