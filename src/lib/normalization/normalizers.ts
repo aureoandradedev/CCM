@@ -311,6 +311,7 @@ export function extractPackaging(
 const VOLTAGE_RE = /\b(\d{2,3})\s*v(?:olts?)?\b/i;
 const BIVOLT_RE = /\b(?:bi[\s-]?volt|bivolt)\b/i;
 const WEIGHT_RE = /\b(\d+(?:[.,]\d+)?)\s*kg\b/i;
+const POWER_RE = /\b(\d+)\s*w(?:atts?)?\b/i;
 const VOLUME_RE = /\b(\d+(?:[.,]\d+)?)\s*(?:l(?:t|itros?)?)\b/i;
 const DIAMETER_RE = /\b(\d+)\s*cm\b/i;
 const DIMENSIONS_RE =
@@ -359,6 +360,10 @@ export function extractAttributes(
   for (const tok of tokens) {
     if (COLORS[tok]) { attrs.color = COLORS[tok]; break; }
   }
+
+  // Potência
+  const pm = text.match(POWER_RE);
+  if (pm) attrs.power_w = parseInt(pm[1], 10);
 
   // Peso
   const wm = text.match(WEIGHT_RE);

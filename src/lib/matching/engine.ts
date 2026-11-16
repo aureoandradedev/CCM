@@ -27,12 +27,37 @@ function toKey(str: string): string {
   return removeAccents(str).trim().toLowerCase().replace(/[\s\-_./]+/g, "").replace(/[^a-z0-9]/g, "");
 }
 
+const UNIT_EQUIV: Record<string, string> = {
+  kg: "kg", kilo: "kg", quilo: "kg", kilograma: "kg", quilograma: "kg",
+  g: "g", gr: "g", grama: "g", gramas: "g",
+  v: "v", volt: "v", volts: "v",
+  w: "w", watt: "w", watts: "w",
+  l: "l", lt: "l", litro: "l", litros: "l",
+  ml: "ml", mililitro: "ml", mililitros: "ml",
+  m: "m", mt: "m", metro: "m", metros: "m",
+  cm: "cm", centimetro: "cm", centimetros: "cm",
+  mm: "mm", milimetro: "mm", milimetros: "mm",
+  pol: "pol", polegada: "pol", polegadas: "pol",
+};
+
+function canonicalTokens(str: string): string[] {
+  let s = removeAccents(str).toLowerCase();
+  s = s.replace(/[-_.]+/g, " ");
+  s = s.replace(/([a-z])(\d)/g, "$1 $2");
+  s = s.replace(/(\d)([a-z])/g, "$1 $2");
+  const raw = s.split(/[\s/,;:()[\]{}]+/).filter(Boolean);
+  const result: string[] = [];
+  for (const t of raw) {
+    const normalized = UNIT_EQUIV[t] ?? t;
+    if (normalized.length > 0 && !STOP_TOKENS.has(normalized) && !STOP_TOKENS.has(t)) {
+      result.push(normalized);
+    }
+  }
+  return result;
+}
+
 function tokenize(str: string): string[] {
-  return removeAccents(str)
-    .trim()
-    .toLowerCase()
-    .split(/[\s/,;]+/)
-    .filter((t) => t.length > 1 && !STOP_TOKENS.has(t));
+  return canonicalTokens(str);
 }
 
 // ── Candidate index ────────────────────────────────────────────────────────
@@ -47,6 +72,7 @@ export interface MasterIndex {
   byToken: Map<string, Set<number>>;
   tokensByMaster: Map<string, string[]>;
   modelKeyByMaster: Map<string, string>;
+  nameKeyByMaster: Map<string, string>;
 }
 
 export function buildMasterIndex(masters: MasterProductRow[]): MasterIndex {
@@ -58,6 +84,7 @@ export function buildMasterIndex(masters: MasterProductRow[]): MasterIndex {
   const byToken = new Map<string, Set<number>>();
   const tokensByMaster = new Map<string, string[]>();
   const modelKeyByMaster = new Map<string, string>();
+  const nameKeyByMaster = new Map<string, string>();
 
   for (let idx = 0; idx < masters.length; idx++) {
     const m = masters[idx];
@@ -97,6 +124,7 @@ export function buildMasterIndex(masters: MasterProductRow[]): MasterIndex {
 
     const toks = tokenize(m.name);
     tokensByMaster.set(m.id, toks);
+    nameKeyByMaster.set(m.id, toKey(m.name));
     for (const t of toks) {
       let s = byToken.get(t);
       if (!s) { s = new Set(); byToken.set(t, s); }
@@ -104,7 +132,7 @@ export function buildMasterIndex(masters: MasterProductRow[]): MasterIndex {
     }
   }
 
-  return { all: masters, byId, byEan, byBrandModel, byBrand, byCategory, byToken, tokensByMaster, modelKeyByMaster };
+  return { all: masters, byId, byEan, byBrandModel, byBrand, byCategory, byToken, tokensByMaster, modelKeyByMaster, nameKeyByMaster };
 }
 
 // ── Candidate generation ───────────────────────────────────────────────────
@@ -137,7 +165,7 @@ function gatherCandidates(
     }
   }
 
-  const itemTokens = nd.name_tokens.filter((t) => t.length > 1 && !STOP_TOKENS.has(t));
+  const itemTokens = canonicalTokens(nd.name_normalized ?? "");
   if (itemTokens.length > 0) {
     const hitCount = new Map<number, number>();
     for (const t of itemTokens) {
@@ -219,6 +247,28 @@ function appendAttributeSignals(
   }
 }
 
+// ── Token comparison ──────────────────────────────────────────────────────
+
+function computeTokenSimilarity(
+  itemTokens: string[],
+  masterTokens: string[],
+): { jaccard: number; containment: number; intersection: number } {
+  const setI = new Set(itemTokens);
+  const setM = new Set(masterTokens);
+
+  let intersection = 0;
+  for (const t of setI) {
+    if (setM.has(t)) intersection++;
+  }
+
+  const union = new Set([...setI, ...setM]).size;
+  const jaccard = union > 0 ? intersection / union : 0;
+  const minSize = Math.min(setI.size, setM.size);
+  const containment = minSize > 0 ? intersection / minSize : 0;
+
+  return { jaccard, containment, intersection };
+}
+
 // ── Scoring ────────────────────────────────────────────────────────────────
 
 function scoreCandidate(
@@ -256,7 +306,7 @@ function scoreCandidate(
   // EAN check digit inválido + único → override COM guards extras
   if (eanUnique && !nd.ean_valid) {
     const brandOk = nd.brand_slug != null && nd.brand_slug === master.brand_slug;
-    const iToks = new Set(nd.name_tokens.filter(t => t.length > 1 && !STOP_TOKENS.has(t)));
+    const iToks = new Set(canonicalTokens(nd.name_normalized ?? ""));
     const mToks = new Set(idx.tokensByMaster.get(master.id) ?? []);
     let isect = 0;
     for (const t of iToks) if (mToks.has(t)) isect++;
@@ -281,7 +331,17 @@ function scoreCandidate(
   // ── Brand + Model ────────────────────────────────────────────────────
   const masterModelKey = idx.modelKeyByMaster.get(master.id);
   const brandMatch = nd.brand_slug != null && nd.brand_slug === master.brand_slug;
-  const modelMatch = nd.model_key != null && masterModelKey != null && nd.model_key === masterModelKey;
+  let modelMatch = nd.model_key != null && masterModelKey != null && nd.model_key === masterModelKey;
+
+  // Enhanced: detect model embedded in product name
+  if (!modelMatch && masterModelKey && masterModelKey.length >= 3) {
+    const itemNameKey = toKey(nd.name_normalized ?? "");
+    if (itemNameKey.includes(masterModelKey)) modelMatch = true;
+  }
+  if (!modelMatch && nd.model_key && nd.model_key.length >= 3) {
+    const masterNameKey = idx.nameKeyByMaster.get(master.id) ?? "";
+    if (masterNameKey.includes(nd.model_key)) modelMatch = true;
+  }
 
   if (brandMatch && modelMatch) {
     score += MATCH_WEIGHTS.BRAND_MODEL;
@@ -293,19 +353,30 @@ function scoreCandidate(
     signals.push({ signal: "brand_model", weight: 0, matched: false });
   }
 
-  // ── Name tokens (Jaccard) ────────────────────────────────────────────
-  const itemTokens = new Set(nd.name_tokens.filter((t) => t.length > 1 && !STOP_TOKENS.has(t)));
-  const masterTokens = new Set(idx.tokensByMaster.get(master.id) ?? []);
+  // ── Name tokens (Jaccard + Containment) ──────────────────────────────
+  const itemTokens = canonicalTokens(nd.name_normalized ?? "");
+  const masterTokens = idx.tokensByMaster.get(master.id) ?? [];
 
-  let intersection = 0;
-  for (const t of itemTokens) {
-    if (masterTokens.has(t)) intersection++;
-  }
-  const union = new Set([...itemTokens, ...masterTokens]).size;
-  const jaccard = union > 0 ? intersection / union : 0;
-  const nameScore = Math.round(jaccard * MATCH_WEIGHTS.NAME_TOKENS);
+  const sim = computeTokenSimilarity(itemTokens, masterTokens);
+  const tokenMetric = Math.max(sim.jaccard, sim.containment);
+  const nameScore = Math.round(tokenMetric * MATCH_WEIGHTS.NAME_TOKENS);
   score += nameScore;
-  signals.push({ signal: "name_tokens", weight: nameScore, matched: jaccard >= 0.3, detail: `jaccard=${jaccard.toFixed(2)}` });
+  signals.push({
+    signal: "name_tokens",
+    weight: nameScore,
+    matched: tokenMetric >= 0.4,
+    detail: `jaccard=${sim.jaccard.toFixed(2)} containment=${sim.containment.toFixed(2)} metric=${tokenMetric.toFixed(2)}`,
+  });
+
+  // ── Alphanum key (formatting-invariant content match) ────────────────
+  const itemKey = toKey(nd.name_normalized ?? "");
+  const masterKey = idx.nameKeyByMaster.get(master.id) ?? "";
+  if (itemKey && masterKey && itemKey === masterKey) {
+    score += MATCH_WEIGHTS.ALPHANUM_KEY;
+    signals.push({ signal: "alphanum_key", weight: MATCH_WEIGHTS.ALPHANUM_KEY, matched: true, detail: "conteúdo alfanumérico idêntico" });
+  } else {
+    signals.push({ signal: "alphanum_key", weight: 0, matched: false });
+  }
 
   // ── Category ─────────────────────────────────────────────────────────
   const catMatch = nd.category_slug != null && nd.category_slug === master.category_slug;
@@ -321,16 +392,56 @@ function scoreCandidate(
   // ── Attributes (confirmation / penalty) ──────────────────────────────
   let attrBonus = 0;
   let penalty = 0;
+  const ATTR_MAX = MATCH_WEIGHTS.ATTRIBUTES;
 
   // Voltage
   const itemVoltage = nd.attributes.voltage;
   const masterVoltage = masterAttrs.voltage;
   if (itemVoltage && masterVoltage) {
     if (String(itemVoltage) === String(masterVoltage)) {
-      attrBonus += MATCH_WEIGHTS.ATTRIBUTES;
+      attrBonus += 5;
+      signals.push({ signal: "voltage_match", weight: 5, matched: true, detail: String(itemVoltage) });
     } else {
       penalty += ATTRIBUTE_PENALTIES.VOLTAGE_MISMATCH;
       signals.push({ signal: "voltage_mismatch", weight: -ATTRIBUTE_PENALTIES.VOLTAGE_MISMATCH, matched: false, detail: `${itemVoltage} vs ${masterVoltage}` });
+    }
+  }
+
+  // Power (W)
+  const itemPower = nd.attributes.power_w;
+  const masterPower = masterAttrs.power_w;
+  if (itemPower && masterPower) {
+    if (Number(itemPower) === Number(masterPower)) {
+      attrBonus += 5;
+      signals.push({ signal: "power_match", weight: 5, matched: true, detail: `${itemPower}W` });
+    } else {
+      penalty += ATTRIBUTE_PENALTIES.POWER_MISMATCH;
+      signals.push({ signal: "power_mismatch", weight: -ATTRIBUTE_PENALTIES.POWER_MISMATCH, matched: false, detail: `${itemPower}W vs ${masterPower}W` });
+    }
+  }
+
+  // Weight (kg)
+  const itemWeight = nd.attributes.weight_kg;
+  const masterWeight = masterAttrs.weight_kg;
+  if (itemWeight && masterWeight) {
+    if (Number(itemWeight) === Number(masterWeight)) {
+      attrBonus += 5;
+      signals.push({ signal: "weight_match", weight: 5, matched: true, detail: `${itemWeight}kg` });
+    } else {
+      penalty += ATTRIBUTE_PENALTIES.WEIGHT_MISMATCH;
+      signals.push({ signal: "weight_mismatch", weight: -ATTRIBUTE_PENALTIES.WEIGHT_MISMATCH, matched: false, detail: `${itemWeight}kg vs ${masterWeight}kg` });
+    }
+  }
+
+  // Volume (L)
+  const itemVolume = nd.attributes.volume_l;
+  const masterVolume = masterAttrs.volume_l;
+  if (itemVolume && masterVolume) {
+    if (Number(itemVolume) === Number(masterVolume)) {
+      attrBonus += 4;
+    } else {
+      penalty += 10;
+      signals.push({ signal: "volume_mismatch", weight: -10, matched: false, detail: `${itemVolume}L vs ${masterVolume}L` });
     }
   }
 
@@ -339,7 +450,7 @@ function scoreCandidate(
   const masterColor = masterAttrs.color;
   if (itemColor && masterColor) {
     if (String(itemColor) === String(masterColor)) {
-      attrBonus += Math.round(MATCH_WEIGHTS.ATTRIBUTES * 0.5);
+      attrBonus += 3;
     } else {
       penalty += ATTRIBUTE_PENALTIES.COLOR_MISMATCH;
       signals.push({ signal: "color_mismatch", weight: -ATTRIBUTE_PENALTIES.COLOR_MISMATCH, matched: false, detail: `${itemColor} vs ${masterColor}` });
@@ -351,7 +462,7 @@ function scoreCandidate(
   const masterMeasure = masterAttrs.measure_cm;
   if (itemMeasure && masterMeasure) {
     if (Number(itemMeasure) === Number(masterMeasure)) {
-      attrBonus += Math.round(MATCH_WEIGHTS.ATTRIBUTES * 0.5);
+      attrBonus += 4;
     } else {
       penalty += ATTRIBUTE_PENALTIES.MEASURE_MISMATCH;
       signals.push({ signal: "measure_mismatch", weight: -ATTRIBUTE_PENALTIES.MEASURE_MISMATCH, matched: false, detail: `${itemMeasure}cm vs ${masterMeasure}cm` });
@@ -359,7 +470,7 @@ function scoreCandidate(
   }
 
   if (attrBonus > 0) {
-    const capped = Math.min(attrBonus, MATCH_WEIGHTS.ATTRIBUTES);
+    const capped = Math.min(attrBonus, ATTR_MAX);
     score += capped;
     signals.push({ signal: "attributes_match", weight: capped, matched: true });
   }

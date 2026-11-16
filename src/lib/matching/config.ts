@@ -1,11 +1,12 @@
 /**
  * Pesos e thresholds do matching — configuração centralizada.
  *
- * PESOS (somam até 100):
- *   EAN exato válido           = 50  (sinal dominante)
- *   Marca + Modelo             = 25  (muito forte)
- *   Nome / tokens              = 12  (médio)
- *   Atributos compatíveis      =  8  (confirmação/penalidade)
+ * PESOS (somam até 95 sem EAN):
+ *   EAN exato válido           = 50  (sinal dominante — só override)
+ *   Marca + Modelo             = 30  (muito forte, detecta modelo no nome)
+ *   Nome / tokens canônicos    = 25  (Jaccard + containment)
+ *   Chave alfanumérica         = 15  (conteúdo idêntico ignora formatação)
+ *   Atributos compatíveis      = 20  (voltagem/peso/potência/volume/cor/medida)
  *   Categoria / subcategoria   =  5  (suporte)
  *
  * EAN OVERRIDE:
@@ -18,7 +19,9 @@
  *   Atributos cuja incompatibilidade IMPEDE match_sugerido,
  *   independentemente do score bruto. Forçam revisao_manual.
  *     - voltage: 127V vs 220V (variante elétrica diferente)
+ *     - weight_kg: 10kg vs 20kg (produto diferente)
  *     - measure_cm: 30cm vs 40cm (produto fisicamente diferente)
+ *     - power_w: 500W vs 750W (modelo diferente)
  *
  * SOFT PENALTIES:
  *   Atributos que penalizam o score mas NÃO bloqueiam match_sugerido.
@@ -36,9 +39,10 @@
 
 export const MATCH_WEIGHTS = {
   EAN_EXACT: 50,
-  BRAND_MODEL: 25,
-  NAME_TOKENS: 12,
-  ATTRIBUTES: 8,
+  BRAND_MODEL: 30,
+  NAME_TOKENS: 25,
+  ALPHANUM_KEY: 15,
+  ATTRIBUTES: 20,
   CATEGORY: 5,
 } as const;
 
@@ -53,6 +57,9 @@ export const AMBIGUITY_MIN_SCORE = 15;
 
 export const HARD_CONFLICT_ATTRIBUTES = new Set([
   "voltage",
+  "weight_kg",
+  "measure_cm",
+  "power_w",
 ]);
 
 export const SOFT_PENALTY_ATTRIBUTES: Record<string, number> = {
@@ -62,7 +69,9 @@ export const SOFT_PENALTY_ATTRIBUTES: Record<string, number> = {
 export const ATTRIBUTE_PENALTIES = {
   VOLTAGE_MISMATCH: 20,
   COLOR_MISMATCH: 8,
-  MEASURE_MISMATCH: 10,
+  MEASURE_MISMATCH: 15,
+  WEIGHT_MISMATCH: 15,
+  POWER_MISMATCH: 15,
 } as const;
 
 export const MIN_SCORE_GAP = 5;
