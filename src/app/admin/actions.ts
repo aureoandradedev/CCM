@@ -513,8 +513,30 @@ export async function saveSupplier(_p: ActionResult, fd: FormData): Promise<Acti
       contact_phone: str(fd, "contact_phone") || null,
       active: bool(fd, "active"),
     };
+
+    if (row.cnpj) {
+      const { data: existing } = await sb
+        .from("suppliers")
+        .select("id, name")
+        .eq("cnpj", row.cnpj)
+        .neq("id", id)
+        .maybeSingle();
+      if (existing) {
+        return {
+          error: `Já existe um fornecedor cadastrado com este CNPJ (${existing.name}).`,
+        };
+      }
+    }
+
     const { error } = await sb.from("suppliers").upsert(row, { onConflict: "id" });
-    if (error) return { error: error.message };
+    if (error) {
+      if (error.message.includes("suppliers_cnpj_unique")) {
+        return {
+          error: "Já existe um fornecedor cadastrado com este CNPJ.",
+        };
+      }
+      return { error: error.message };
+    }
     return { ok: "Fornecedor salvo.", id };
   }, ["/admin/fornecedores", "/admin/produtos"]);
 }
