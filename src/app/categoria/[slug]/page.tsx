@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const category = await getCategory(slug);
   if (!category) return { title: "Departamento não encontrado" };
   return {
-    title: `${category.name} com preço de atacado`,
+    title: `${category.name} — Central de Compras Multigiro`,
     description: category.description,
   };
 }

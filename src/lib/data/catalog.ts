@@ -13,6 +13,7 @@ import type {
 import { createPublicClient } from "@/lib/supabase/public";
 import { scoreItem, normalize } from "@/lib/utils/search";
 import { hasWholesale, offerDiscountPct } from "@/lib/pricing";
+import { FREE_SHIPPING_FROM_CENTAVOS, STANDARD_SHIPPING_CENTAVOS } from "@/lib/shipping";
 import { mockCatalog } from "./mock";
 
 /**
@@ -304,7 +305,7 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
   avisoTopo: "",
   bestSellerIds: [],
   bloqueio: { ativo: false, data: null, mensagem: "" },
-  frete: { freeShippingFromCentavos: 79900, flatCentavos: 4990, pickupEnabled: true },
+  frete: { freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS, flatCentavos: STANDARD_SHIPPING_CENTAVOS, pickupEnabled: true },
   pixPct: 5,
 };
 
@@ -322,8 +323,8 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     bestSellerIds: ((map.get("best_sellers") ?? {}).ids as string[]) ?? [],
     bloqueio: { ativo: bloqueio.ativo === true, data: (bloqueio.data as string) ?? null, mensagem: String(bloqueio.mensagem ?? "") },
     frete: {
-      freeShippingFromCentavos: Number(frete.freeShippingFromCentavos ?? 79900),
-      flatCentavos: Number(frete.flatCentavos ?? 4990),
+      freeShippingFromCentavos: Number(frete.freeShippingFromCentavos ?? FREE_SHIPPING_FROM_CENTAVOS),
+      flatCentavos: Number(frete.flatCentavos ?? STANDARD_SHIPPING_CENTAVOS),
       pickupEnabled: frete.pickupEnabled !== false,
     },
     pixPct: Number(descontos.pixPct ?? 5),

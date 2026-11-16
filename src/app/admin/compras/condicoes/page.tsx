@@ -96,9 +96,11 @@ export default async function CondicoesPage() {
                     <td className="px-3 py-2">
                       {t.frete_tipo === "gratis_acima"
                         ? `Grátis acima de ${formatReais(t.frete_gratis_acima)}, senão ${formatReais(t.frete_valor)}`
-                        : t.frete_tipo === "fixo"
-                          ? `Fixo: ${formatReais(t.frete_valor)}`
-                          : "—"}
+                        : t.frete_tipo === "fixo" && (t.frete_valor == null || t.frete_valor === 0)
+                          ? "Frete grátis"
+                          : t.frete_tipo === "fixo"
+                            ? `Fixo: ${formatReais(t.frete_valor)}`
+                            : "—"}
                     </td>
                   </tr>
                 );

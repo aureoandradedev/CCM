@@ -50,7 +50,7 @@ export async function approvePriceChange(
 
     const { error: updateErr } = await sb
       .from("products")
-      .update({ retail_price: log.new_price_centavos })
+      .update({ retail_price: log.new_price_centavos / 100 })
       .eq("id", log.product_id);
     if (updateErr) return { error: updateErr.message };
 

@@ -255,28 +255,46 @@ export function rankProductOffers(
     o.position = i + 1;
   });
 
-  // ── Ambiguidade (entre as 2 melhores RECOMENDÁVEIS) ────────────────────
+  // ── Ambiguidade de score (apenas informação BI) ────────────────────────
 
   const recommendable = scored.filter(isRecommendable);
 
-  const ambiguous =
+  const scoreAmbiguous =
     recommendable.length >= 2 &&
     Math.abs(
       recommendable[0].score_total - recommendable[1].score_total,
     ) < MIN_RANK_GAP;
 
-  if (ambiguous) {
+  if (scoreAmbiguous) {
     if (!recommendable[0].flags.includes("ambiguous_rank"))
       recommendable[0].flags.push("ambiguous_rank");
     if (!recommendable[1].flags.includes("ambiguous_rank"))
       recommendable[1].flags.push("ambiguous_rank");
   }
 
-  // ── Recomendação ───────────────────────────────────────────────────────
+  // ── Recomendação R6.1: menor custo unitário com estoque > 0 ───────────
+  // Score ponderado acima é apenas BI. A decisão segue a regra oficial:
+  // menor unit_cost_centavos entre elegíveis com estoque.
+
+  const withStock = eligible
+    .filter(o => (o.stock ?? 0) > 0 && o.cost_centavos > 0)
+    .sort((a, b) => {
+      const unitA = a.unit_cost_centavos ?? a.cost_centavos;
+      const unitB = b.unit_cost_centavos ?? b.cost_centavos;
+      return unitA - unitB;
+    });
 
   let recommended: string | null = null;
-  if (!ambiguous && recommendable.length > 0) {
-    recommended = recommendable[0].supplier_offer_id;
+  let ambiguous = false;
+
+  if (withStock.length >= 2) {
+    const unitFirst = withStock[0].unit_cost_centavos ?? withStock[0].cost_centavos;
+    const unitSecond = withStock[1].unit_cost_centavos ?? withStock[1].cost_centavos;
+    ambiguous = unitFirst === unitSecond;
+  }
+
+  if (!ambiguous && withStock.length > 0) {
+    recommended = withStock[0].id;
   }
 
   return {

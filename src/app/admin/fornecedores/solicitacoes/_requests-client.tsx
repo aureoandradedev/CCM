@@ -69,7 +69,7 @@ function RequestCard({ request, showActions }: { request: RegistrationRequest; s
         <div><span className="font-semibold text-brand-ink-soft">Pedido mínimo:</span> {request.pedido_minimo_tipo === "valor" ? `R$ ${Number(request.pedido_minimo).toFixed(2)}` : `${request.pedido_minimo} un.`}</div>
         <div><span className="font-semibold text-brand-ink-soft">Dias de pedido:</span> {request.dias_pedido.sort((a, b) => a - b).map((d) => WEEKDAY_LABELS[d]).join(", ")}</div>
         <div><span className="font-semibold text-brand-ink-soft">Prazo entrega:</span> {request.prazo_entrega_cd_dias} dia(s)</div>
-        <div><span className="font-semibold text-brand-ink-soft">Frete:</span> {request.frete_tipo === "fixo" ? `Fixo R$ ${Number(request.frete_valor ?? 0).toFixed(2)}` : `Grátis acima R$ ${Number(request.frete_gratis_acima ?? 0).toFixed(2)}, abaixo R$ ${Number(request.frete_valor ?? 0).toFixed(2)}`}</div>
+        <div><span className="font-semibold text-brand-ink-soft">Frete:</span> {request.frete_tipo === "gratis_acima" ? `Grátis acima R$ ${Number(request.frete_gratis_acima ?? 0).toFixed(2)}, abaixo R$ ${Number(request.frete_valor ?? 0).toFixed(2)}` : (request.frete_valor == null || Number(request.frete_valor) === 0) ? "Frete grátis" : `Fixo R$ ${Number(request.frete_valor ?? 0).toFixed(2)}`}</div>
         {request.supplier_id ? <div><span className="font-semibold text-brand-ink-soft">Fornecedor criado:</span> {request.supplier_id}</div> : null}
       </div>
 

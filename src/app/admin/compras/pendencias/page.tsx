@@ -12,7 +12,7 @@ export default async function PendenciasPage() {
 
   return (
     <>
-      <PageTitle title="Pendências" subtitle={`${data.items.length} item(ns) aguardando decisão`} />
+      <PageTitle title="Pendências" subtitle={`${data.items.length} ${data.items.length === 1 ? "item aguardando" : "itens aguardando"} sua decisão`} />
 
       <PendenciasClient
         items={data.items}

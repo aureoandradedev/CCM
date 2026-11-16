@@ -4,6 +4,7 @@ import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { FacebookIcon, InstagramIcon, YoutubeIcon } from "@/components/ui/social-icons";
 import { getCategories } from "@/lib/data/catalog";
+import { shippingFromSettings } from "@/lib/shipping";
 import { site, whatsappLink } from "@/lib/site";
 
 const HELP = [
@@ -26,7 +27,8 @@ const INSTITUTIONAL = [
 
 const PAYMENTS = ["Pix", "Visa", "Mastercard", "Elo", "Boleto", "Faturado PJ"];
 
-export async function Footer() {
+export async function Footer({ frete }: { frete: { freeShippingFromCentavos: number; flatCentavos: number } }) {
+  const { freeShippingLabel } = shippingFromSettings(frete);
   const categories = await getCategories();
   const year = new Date().getFullYear();
 
@@ -35,7 +37,7 @@ export async function Footer() {
       <div className="container-ccm grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="space-y-4">
           <Logo />
-          <p className="max-w-sm text-sm leading-relaxed text-brand-ink-soft">{site.tagline} Produtos selecionados pela nossa equipe de compras, com preço de atacado a partir de poucas unidades.</p>
+          <p className="max-w-sm text-sm leading-relaxed text-brand-ink-soft">{site.tagline} Produtos selecionados pela nossa equipe de compras, com frete grátis acima de {freeShippingLabel}.</p>
           <ul className="space-y-2 text-sm text-brand-ink">
             <li className="flex items-center gap-2">
               <Phone className="size-4 text-brand-navy dark:text-brand-yellow" />
@@ -92,7 +94,7 @@ export async function Footer() {
             ))}
           </div>
           <p>
-            © {year} {site.fullName}. Preços e disponibilidade podem variar por fornecedor e região. Imagens ilustrativas.
+            © {year} {site.fullName}. Preços e disponibilidade podem variar. Imagens ilustrativas.
           </p>
         </div>
       </div>

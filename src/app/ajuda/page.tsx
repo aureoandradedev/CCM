@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Faq, InfoPage, InfoSection } from "@/components/layout/info-page";
+import { getSiteSettings } from "@/lib/data/catalog";
+import { shippingFromSettings } from "@/lib/shipping";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -19,7 +21,9 @@ const HELP_LINKS = [
   { href: "/termos-de-uso", label: "Termos de uso" },
 ];
 
-export default function HelpPage() {
+export default async function HelpPage() {
+  const settings = await getSiteSettings();
+  const { freeShippingLabel } = shippingFromSettings(settings.frete);
   return (
     <InfoPage
       crumb="Central de ajuda"
@@ -42,9 +46,9 @@ export default function HelpPage() {
         <Faq
           items={[
             { q: "Preciso ter CNPJ para comprar?", a: "Não. Qualquer pessoa pode comprar na Multigiro Central de Compras. O CNPJ só é necessário para a modalidade faturado (PJ com cadastro aprovado)." },
-            { q: "Como funciona o preço de atacado?", a: "Cada produto tem uma quantidade mínima para o preço de atacado. Ao atingir essa quantidade no carrinho, o preço é aplicado automaticamente." },
-            { q: "Quem entrega meu pedido?", a: "O fornecedor parceiro responsável pelo produto. Se o pedido tiver itens de fornecedores diferentes, cada um faz sua entrega separadamente." },
-            { q: "Posso retirar na loja?", a: "Sim, quando o fornecedor oferece essa opção. No checkout, selecione 'Retirar na loja' para não pagar frete." },
+            { q: "Tem frete grátis?", a: `Sim! Compras acima de ${freeShippingLabel} têm frete grátis na entrega. Você acompanha o progresso direto no carrinho.` },
+            { q: "Quem entrega meu pedido?", a: "A entrega é feita pela Multigiro Central de Compras. Você acompanha o status pelo site ou pelo WhatsApp." },
+            { q: "Posso retirar no CD?", a: "Sim! No checkout, selecione 'Retirar no CD da CCM' para não pagar frete." },
             { q: "Como acompanho meu pedido?", a: "Acesse 'Minha conta' > 'Meus pedidos' ou clique em 'Acompanhar pedido' no topo do site. Você também recebe atualizações pelo WhatsApp." },
             { q: "O pagamento é seguro?", a: "Sim. Os pagamentos são processados pela Cielo, líder em pagamentos no Brasil. Dados do cartão são tokenizados no navegador e nunca passam pelos nossos servidores." },
           ]}

@@ -36,18 +36,18 @@ export default async function AdminIntegrationsPage() {
   return (
     <>
       <PageTitle
-        title="Integracoes"
-        subtitle="Conexoes de fornecedores com o CCM. Integracao nunca publica diretamente na vitrine."
+        title="Integrações"
+        subtitle="Conexões de fornecedores com o CCM. A integração nunca publica diretamente na vitrine."
       />
 
       <h3 className="mb-2 text-sm font-semibold text-brand-ink-soft">
-        Integracoes por fornecedor
+        Integrações de fornecedores
       </h3>
 
       {integrations.length === 0 ? (
         <Card className="mb-8">
           <p className="py-6 text-center text-sm text-brand-ink-soft">
-            Nenhuma integracao configurada.
+            Nenhuma integração configurada.
           </p>
         </Card>
       ) : (
@@ -62,7 +62,7 @@ export default async function AdminIntegrationsPage() {
                 <Th className="text-right">Itens</Th>
                 <Th className="text-right">Validos</Th>
                 <Th className="text-right">Erros</Th>
-                <Th>Ultima sync</Th>
+                <Th>Última sincronização</Th>
               </tr>
             </thead>
             <tbody>
@@ -122,13 +122,13 @@ export default async function AdminIntegrationsPage() {
       )}
 
       <h3 className="mb-2 text-sm font-semibold text-brand-ink-soft">
-        Ultimos batches de importacao
+        Últimas importações
       </h3>
 
       {batches.length === 0 ? (
         <Card>
           <p className="py-6 text-center text-sm text-brand-ink-soft">
-            Nenhum batch registrado.
+            Nenhuma importação registrada.
           </p>
         </Card>
       ) : (
@@ -136,7 +136,7 @@ export default async function AdminIntegrationsPage() {
           <Table>
             <thead>
               <tr>
-                <Th>Inicio</Th>
+                <Th>Início</Th>
                 <Th>Tipo</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Total</Th>
@@ -144,7 +144,7 @@ export default async function AdminIntegrationsPage() {
                 <Th className="text-right">Atualizados</Th>
                 <Th className="text-right">Ignorados</Th>
                 <Th className="text-right">Erros</Th>
-                <Th>Duracao</Th>
+                <Th>Duração</Th>
               </tr>
             </thead>
             <tbody>

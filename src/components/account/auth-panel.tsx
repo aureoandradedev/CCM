@@ -6,6 +6,7 @@ import { useActionState, useState } from "react";
 
 import { requestPasswordReset, signIn, signUp, type ActionState } from "@/app/conta/actions";
 import { Button } from "@/components/ui/button";
+import { useShippingConfig } from "@/lib/shipping-context";
 import { maskDocument, maskPhone } from "@/lib/utils/masks";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ const initial: ActionState = {};
 
 /** Entrar / criar conta / recuperar senha, com Supabase Auth via server actions. */
 export function AuthPanel({ next = "/conta" }: { next?: string }) {
+  const { freeShippingLabel } = useShippingConfig();
   const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
   const [doc, setDoc] = useState("");
   const [phone, setPhone] = useState("");
@@ -32,7 +34,7 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
         <HardHat className="size-8 text-brand-yellow" />
         <h2 className="mt-4 font-heading text-[1.9rem] leading-tight font-extrabold tracking-tight">Uma conta para a obra inteira.</h2>
         <ul className="mt-5 space-y-3 text-sm text-white/80">
-          {["Histórico de pedidos", "Endereços de obra salvos", "Preço de atacado e faturamento para CNPJ", "Listas de materiais para repetir compras"].map((t) => (
+          {["Histórico de pedidos", "Endereços de obra salvos", `Frete grátis acima de ${freeShippingLabel}`, "Listas de materiais para repetir compras"].map((t) => (
             <li key={t} className="flex gap-2">
               <span className="mt-1 size-1.5 shrink-0 rounded-full bg-brand-yellow" />
               {t}

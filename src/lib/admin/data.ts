@@ -54,7 +54,6 @@ export interface ProductFilters {
   foto?: "sem" | "pendente";
   status?: "ativos" | "inativos" | "todos";
   oferta?: boolean;
-  atacado?: boolean;
   page?: number;
   perPage?: number;
 }
@@ -70,7 +69,6 @@ export async function adminListProducts(f: ProductFilters = {}): Promise<{ items
   if (f.category) q = q.eq("category_slug", f.category);
   if (f.supplier) q = q.eq("supplier_id", f.supplier);
   if (f.oferta) q = q.not("list_price", "is", null);
-  if (f.atacado) q = q.not("wholesale_price", "is", null);
   if (f.foto === "pendente") q = q.eq("image_pending", true);
   if (f.foto === "sem") q = q.or('images.eq.{},images.cs.{"https://images.unsplash.com"}');
   if (f.q) {
@@ -578,11 +576,18 @@ export async function adminInventoryTotal(): Promise<{ total_value_centavos: num
 
 /* ------------------------------- pedidos de compra (Fase 14) ----------------- */
 
+export async function consolidateTodayPurchaseOrders(): Promise<void> {
+  if (!configured()) return;
+  const sb = await createClient();
+  const spDate = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  await sb.rpc("consolidate_cycle_purchase_orders", { p_cycle_date: spDate });
+}
+
 export async function adminPurchaseOrders(opts: { supplier_id?: string; status?: string; limit?: number } = {}): Promise<PurchaseOrder[]> {
   if (!configured()) return [];
   const sb = await createClient();
   let q = sb.from("supplier_purchase_orders")
-    .select("id, supplier_id, cycle_date, status, total_centavos, item_count, minimum_centavos, minimum_met, freight_centavos, decision, expected_delivery, created_at");
+    .select("id, supplier_id, cycle_date, status, total_centavos, item_count, minimum_type, minimum_value, minimum_met, freight_centavos, decision, expected_delivery, created_at");
   if (opts.supplier_id) q = q.eq("supplier_id", opts.supplier_id);
   if (opts.status) q = q.eq("status", opts.status);
   const { data } = await q.order("cycle_date", { ascending: false }).limit(opts.limit ?? 50);
@@ -597,4 +602,39 @@ export async function adminPurchaseOrderItems(poId: string): Promise<PurchaseOrd
     .eq("purchase_order_id", poId)
     .order("product_name");
   return (data as PurchaseOrderItem[] | null) ?? [];
+}
+
+/* ------ R4.1: cutoff config + R4.2: holidays config (Etapa 1) ------------- */
+
+export async function readCutoffConfig(): Promise<{ cutoffTime: string; holidays: string[] }> {
+  if (!configured()) return { cutoffTime: "17:30", holidays: [] };
+  const sb = await createClient();
+
+  const [cutoffRes, holidaysRes] = await Promise.all([
+    sb.from("ccm_configs").select("value")
+      .eq("key", "horario_corte_ciclo").eq("scope", "global").limit(1).single(),
+    sb.from("ccm_configs").select("value")
+      .eq("key", "feriados").eq("scope", "global").limit(1).single(),
+  ]);
+
+  const cutoffTime = typeof cutoffRes.data?.value === "string"
+    ? cutoffRes.data.value
+    : "17:30";
+
+  const holidays: string[] = Array.isArray(holidaysRes.data?.value)
+    ? (holidaysRes.data.value as string[])
+    : [];
+
+  return { cutoffTime, holidays };
+}
+
+export function isAfterCutoff(cutoffTime: string): boolean {
+  const now = new Date();
+  const brTime = now.toLocaleTimeString("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return brTime >= cutoffTime;
 }

@@ -4,11 +4,9 @@ import { MapPin, Truck } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useShippingConfig } from "@/lib/shipping-context";
 import { formatBRL } from "@/lib/utils/format";
 import { maskCEP, onlyDigits } from "@/lib/utils/masks";
-
-export const FREE_SHIPPING_FROM = 799;
-export const STANDARD_SHIPPING = 49.9;
 
 interface Option {
   label: string;
@@ -21,6 +19,7 @@ interface Option {
  * transporte); a cotação real vem quando a integração com os fornecedores entrar.
  */
 export function ShippingEstimate({ leadTimeDays = 3, subtotal }: { leadTimeDays?: number; subtotal: number }) {
+  const { freeShippingFrom, freeShippingLabel, standardShipping } = useShippingConfig();
   const [cep, setCep] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<Option[] | null>(null);
@@ -36,10 +35,10 @@ export function ShippingEstimate({ leadTimeDays = 3, subtotal }: { leadTimeDays?
     setError(null);
     setLoading(true);
     await new Promise((r) => setTimeout(r, 450));
-    const free = subtotal >= FREE_SHIPPING_FROM;
+    const free = subtotal >= freeShippingFrom;
     setOptions([
-      { label: "Entrega na obra", eta: `${leadTimeDays + 1} a ${leadTimeDays + 3} dias úteis`, price: free ? 0 : STANDARD_SHIPPING },
-      { label: "Retirar na loja", eta: `${leadTimeDays} ${leadTimeDays === 1 ? "dia útil" : "dias úteis"}`, price: 0 },
+      { label: "Entrega pela CCM", eta: `${leadTimeDays + 1} a ${leadTimeDays + 3} dias úteis`, price: free ? 0 : standardShipping },
+      { label: "Retirar no CD da CCM", eta: `${leadTimeDays} ${leadTimeDays === 1 ? "dia útil" : "dias úteis"}`, price: 0 },
     ]);
     setLoading(false);
   };
@@ -86,9 +85,9 @@ export function ShippingEstimate({ leadTimeDays = 3, subtotal }: { leadTimeDays?
               <span className={o.price === 0 ? "font-bold text-brand-green" : "font-semibold text-brand-ink"}>{o.price === 0 ? "Grátis" : formatBRL(o.price)}</span>
             </li>
           ))}
-          {subtotal < FREE_SHIPPING_FROM ? (
+          {subtotal < freeShippingFrom ? (
             <li className="pt-2 text-xs text-brand-ink-soft">
-              Frete grátis para pedidos a partir de {formatBRL(FREE_SHIPPING_FROM)}.
+              Frete grátis para pedidos a partir de {freeShippingLabel}.
             </li>
           ) : null}
         </ul>

@@ -129,9 +129,9 @@ export function BackfillOffersButton() {
       <button
         onClick={handleClick}
         disabled={pending}
-        className="rounded bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        className="rounded border border-brand-line bg-white px-4 py-2 text-sm font-medium text-brand-ink hover:bg-muted disabled:opacity-50"
       >
-        {pending ? "Criando ofertas…" : "Backfill ofertas (aprovados sem oferta)"}
+        {pending ? "Criando ofertas…" : "Gerar ofertas pendentes"}
       </button>
       {result && <p className="text-sm text-brand-fg/70">{result}</p>}
     </div>
@@ -252,15 +252,15 @@ const SEVERITY_COLORS: Record<string, string> = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  review_match: "Match pendente",
-  review_ranking: "Ranking ambíguo",
-  no_offer: "Sem oferta",
-  no_master_candidate: "Sem produto mestre",
-  source_changed: "Dados alterados",
-  economy_opportunity: "Economia",
-  stale_sourcing: "Seleção desatualizada",
-  stale_publication: "Publicação desatualizada",
-  inactive_item: "Item inativo",
+  review_match: "Identificação pendente",
+  review_ranking: "Mais de um fornecedor possível",
+  no_offer: "Sem oferta cadastrada",
+  no_master_candidate: "Produto não identificado",
+  source_changed: "Dados do fornecedor alterados",
+  economy_opportunity: "Oportunidade de economia",
+  stale_sourcing: "Fornecedor atual indisponível",
+  stale_publication: "Produto publicado desatualizado",
+  inactive_item: "Item desativado",
 };
 
 export function ExceptionBadge({ type, severity }: { type: string; severity: string }) {
@@ -324,7 +324,7 @@ export function CreateMasterForm({ item }: { item: ItemData }) {
 
   return (
     <form action={action} className="space-y-3 rounded-lg border border-brand-line bg-white p-4">
-      <h3 className="text-sm font-semibold text-brand-fg">Criar produto mestre</h3>
+      <h3 className="text-sm font-semibold text-brand-fg">Criar novo produto</h3>
       <input type="hidden" name="itemId" value={item.id} />
       <div className="grid grid-cols-2 gap-3 text-xs">
         <label className="col-span-2 block">
@@ -361,7 +361,7 @@ export function CreateMasterForm({ item }: { item: ItemData }) {
         </label>
       </div>
       <button disabled={pending} className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
-        {pending ? "Criando…" : "Criar master e aprovar"}
+        {pending ? "Criando…" : "Criar e confirmar"}
       </button>
       {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
       {state?.ok && <p className="text-xs text-green-600">{state.ok}</p>}
@@ -389,7 +389,7 @@ export function AssociateMasterForm({ itemId }: { itemId: string }) {
 
   return (
     <div className="space-y-2 rounded-lg border border-brand-line bg-white p-4">
-      <h3 className="text-sm font-semibold text-brand-fg">Associar a master existente</h3>
+      <h3 className="text-sm font-semibold text-brand-fg">Escolher produto existente</h3>
       <input
         type="text"
         placeholder="Buscar por nome, marca, modelo ou EAN…"
@@ -421,7 +421,7 @@ export function AssociateMasterForm({ itemId }: { itemId: string }) {
           <input type="hidden" name="itemId" value={itemId} />
           <input type="hidden" name="masterProductId" value={selected} />
           <button disabled={pending} className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-            {pending ? "Vinculando…" : "Vincular"}
+            {pending ? "Vinculando…" : "Confirmar escolha"}
           </button>
           <button type="button" onClick={() => { setSelected(null); setResults([]); setQuery(""); }} className="text-xs text-brand-fg/50 hover:underline">
             Cancelar
@@ -456,22 +456,22 @@ export function NoMasterActions({ item, reviewMode }: { item: ItemData; reviewMo
           <input type="hidden" name="itemId" value={item.id} />
           <input type="hidden" name="masterProductId" value={item.master_product_id} />
           <button disabled={pending} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
-            {approvePending ? "…" : "Aprovar candidato"}
+            {approvePending ? "…" : "Confirmar produto"}
           </button>
         </form>
       )}
       {!item.master_product_id && (
         <button onClick={() => setMode("create")} disabled={pending} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
-          Criar master
+          Criar novo produto
         </button>
       )}
       <button onClick={() => setMode("associate")} disabled={pending} className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-        Associar
+        Escolher outro produto
       </button>
       <form action={activeRejectAction}>
         <input type="hidden" name="itemId" value={item.id} />
         <button disabled={pending} className="rounded bg-gray-400 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-500 disabled:opacity-50">
-          {activeRejectPending ? "…" : "Ignorar"}
+          {activeRejectPending ? "…" : "Ignorar por enquanto"}
         </button>
       </form>
       {approveState?.error && <span className="text-xs text-red-600">{approveState.error}</span>}

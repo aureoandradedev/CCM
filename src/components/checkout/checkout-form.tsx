@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { PaymentStep, type PedidoCriado } from "@/components/checkout/payment-step";
-import { FREE_SHIPPING_FROM, STANDARD_SHIPPING } from "@/components/product/shipping-estimate";
+import { useShippingConfig } from "@/lib/shipping-context";
 import { Button } from "@/components/ui/button";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { ApiError, apiFetch } from "@/lib/api";
@@ -78,6 +78,7 @@ export interface BloqueioEntrega {
  * de pagamento (Pix / cartão) aparece no lugar do formulário.
  */
 export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; bloqueio?: BloqueioEntrega | null }) {
+  const { freeShippingFrom, standardShipping } = useShippingConfig();
   const router = useRouter();
   const hydrated = useHydrated();
   const lines = useCartStore(useShallow(selectLines));
@@ -111,7 +112,7 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
   const pagamento = watch("pagamento");
   const entrega = watch("entrega");
 
-  const shipping = entrega === "pickup" ? 0 : totals.subtotal >= FREE_SHIPPING_FROM ? 0 : STANDARD_SHIPPING;
+  const shipping = entrega === "pickup" ? 0 : totals.subtotal >= freeShippingFrom ? 0 : standardShipping;
   const desconto = pagamento === "pix" ? round2(totals.subtotal - pixPrice(totals.subtotal)) : 0;
   const total = round2(totals.subtotal - desconto + shipping);
 
@@ -245,13 +246,13 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
               </div>
             </Section>
 
-            <Section n={2} title="Entrega" hint="Entrega na obra ou retirada na loja.">
+            <Section n={2} title="Entrega" hint="Entrega pela CCM ou retirada no CD da CCM.">
               {bloqueio?.ativo ? (
                 <p role="status" className="mb-3 flex items-start gap-2 rounded-xl border border-brand-orange/40 bg-brand-orange-soft px-3 py-2 text-sm text-brand-orange">
                   <Info className="mt-0.5 size-4 shrink-0" />
                   <span>
                     {bloqueio.mensagem || "Entregas temporariamente suspensas."}
-                    {bloqueio.data ? ` Voltam em ${new Date(`${bloqueio.data}T12:00:00-03:00`).toLocaleDateString("pt-BR")}.` : ""} Retirada na loja segue normal.
+                    {bloqueio.data ? ` Voltam em ${new Date(`${bloqueio.data}T12:00:00-03:00`).toLocaleDateString("pt-BR")}.` : ""} Retirada no CD segue normal.
                   </span>
                 </p>
               ) : null}
@@ -259,8 +260,8 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
                 <legend className="sr-only">Forma de recebimento</legend>
                 {(
                   [
-                    ["delivery", "Entrega na obra", Truck, totals.subtotal >= FREE_SHIPPING_FROM ? "Frete grátis" : `Frete ${formatBRL(STANDARD_SHIPPING)}`],
-                    ["pickup", "Retirar na loja", Store, "Sem frete"],
+                    ["delivery", "Entrega pela CCM", Truck, totals.subtotal >= freeShippingFrom ? "Frete grátis" : `Frete ${formatBRL(standardShipping)}`],
+                    ["pickup", "Retirada no CD da CCM", Store, "Sem frete"],
                   ] as const
                 ).map(([k, label, I, hint]) => (
                   <label key={k} className={cn("flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition-colors", entrega === k ? "border-brand-navy bg-brand-yellow-soft/60" : "border-brand-line bg-card hover:border-brand-navy/30")}>
@@ -345,7 +346,7 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
           <ResumoLateral lines={lines} totals={totals} shipping={shipping} desconto={desconto} total={total} hydrated={hydrated}>
             <Button type="submit" variant="brand" size="xl" className="mt-5 w-full" disabled={isSubmitting || !hydrated}>
               <Lock />
-              {isSubmitting ? "Registrando..." : pagamento === "pix" ? "Gerar Pix" : "Ir para o pagamento"}
+              {isSubmitting ? "Registrando..." : "Enviar pedido para confirmação"}
               <ArrowRight />
             </Button>
             <p className="mt-3 text-center text-[0.72rem] text-brand-ink-soft">
@@ -362,7 +363,7 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
   );
 }
 
-function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, children }: { lines: { productId: string; qty: number; name: string }[]; totals: { subtotal: number; wholesaleSavings: number }; shipping: number; desconto: number; total: number; hydrated: boolean; children?: React.ReactNode }) {
+function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, children }: { lines: { productId: string; qty: number; name: string }[]; totals: { subtotal: number }; shipping: number; desconto: number; total: number; hydrated: boolean; children?: React.ReactNode }) {
   return (
     <aside className="lg:sticky lg:top-24 lg:self-start">
       <div className="rounded-3xl border border-brand-line bg-card p-6 shadow-[var(--shadow-card)]">
@@ -381,12 +382,6 @@ function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, chi
                 <dt>Produtos</dt>
                 <dd className="tabular-nums">{formatBRL(totals.subtotal)}</dd>
               </div>
-              {totals.wholesaleSavings > 0 ? (
-                <div className="flex justify-between font-medium text-brand-green">
-                  <dt>Economia no atacado</dt>
-                  <dd className="tabular-nums">- {formatBRL(totals.wholesaleSavings)}</dd>
-                </div>
-              ) : null}
               <div className="flex justify-between text-brand-ink-soft">
                 <dt>Frete</dt>
                 <dd>{shipping === 0 ? <span className="font-semibold text-brand-green">Grátis</span> : formatBRL(shipping)}</dd>

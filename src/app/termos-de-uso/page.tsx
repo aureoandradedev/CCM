@@ -18,7 +18,7 @@ export default function TermsPage() {
 
       <InfoSection title="1. Sobre a plataforma">
         <p>
-          A <strong>{site.name}</strong> é uma plataforma digital que conecta compradores de material de construção a fornecedores parceiros. Não somos fabricantes nem distribuidores: intermediamos o pedido e o pagamento, e o fornecedor parceiro é responsável pelo atendimento e pela entrega.
+          A <strong>{site.name}</strong> é uma plataforma de e-commerce de material de construção. A CCM compra dos fornecedores e revende ao cliente: a CCM é responsável pela venda, emissão da nota fiscal e entrega.
         </p>
         <p>Ao utilizar a plataforma, você concorda com estes Termos de Uso.</p>
       </InfoSection>
@@ -34,21 +34,21 @@ export default function TermsPage() {
 
       <InfoSection title="3. Fornecedores e vendedores">
         <p>
-          Os fornecedores parceiros cadastram seus produtos, definem preços e são responsáveis pela qualidade, disponibilidade, emissão de nota fiscal e entrega dos itens vendidos. A {site.name} não assume responsabilidade sobre defeitos de fabricação, mas intermedia a resolução junto ao fornecedor.
+          A {site.name} seleciona os produtos, define os preços de venda e é responsável pela qualidade, disponibilidade e entrega dos itens vendidos. A nota fiscal é emitida pela CCM.
         </p>
       </InfoSection>
 
       <InfoSection title="4. Pedidos">
         <ul className="list-inside list-disc space-y-1">
           <li>Ao confirmar um pedido, você declara que revisou os itens, quantidades, valores e endereço de entrega.</li>
-          <li>O pedido é registrado e encaminhado ao fornecedor responsável.</li>
+          <li>O pedido é registrado e processado pela {site.name}.</li>
           <li>A confirmação do pedido não garante disponibilidade: em caso de indisponibilidade de estoque, o pedido pode ser cancelado com reembolso integral.</li>
         </ul>
       </InfoSection>
 
       <InfoSection title="5. Preços e disponibilidade">
         <ul className="list-inside list-disc space-y-1">
-          <li>Os preços exibidos incluem varejo e atacado (quando aplicável, a partir da quantidade mínima indicada).</li>
+          <li>Os preços exibidos são negociados com os fornecedores parceiros e podem variar conforme condições comerciais.</li>
           <li>Preços podem variar sem aviso prévio. O valor válido é o exibido no momento da confirmação do pedido.</li>
           <li>Desconto no Pix, quando disponível, é aplicado automaticamente.</li>
           <li>Disponibilidade de estoque é informada em tempo real, mas pode sofrer variação entre a consulta e a confirmação do pedido.</li>
@@ -65,9 +65,8 @@ export default function TermsPage() {
 
       <InfoSection title="7. Entregas">
         <ul className="list-inside list-disc space-y-1">
-          <li>A entrega é realizada pelo fornecedor parceiro diretamente no endereço informado.</li>
-          <li>Pedidos com itens de fornecedores diferentes podem resultar em entregas separadas.</li>
-          <li>Prazos de entrega são estimativas informadas pelo fornecedor e podem variar.</li>
+          <li>A entrega é realizada pela {site.name} no endereço informado.</li>
+          <li>Prazos de entrega são estimativas e podem variar.</li>
           <li>A modalidade de retirada está disponível quando indicado.</li>
         </ul>
       </InfoSection>
@@ -76,7 +75,7 @@ export default function TermsPage() {
         <ul className="list-inside list-disc space-y-1">
           <li>Pedidos podem ser cancelados antes do envio, sem custo.</li>
           <li>Após o recebimento, aplica-se o direito de arrependimento de 7 dias corridos conforme o Código de Defesa do Consumidor (art. 49), para compras realizadas pela internet.</li>
-          <li>Produtos com defeito podem ser trocados ou devolvidos conforme a legislação vigente. A {site.name} intermedia a resolução com o fornecedor.</li>
+          <li>Produtos com defeito podem ser trocados ou devolvidos conforme a legislação vigente. A {site.name} resolve diretamente com o cliente.</li>
           <li>Estornos de pagamentos confirmados são processados pela mesma forma de pagamento utilizada na compra.</li>
         </ul>
       </InfoSection>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, ChevronDown, ClipboardList, Flame, Headset, Menu, PackageSearch, ShieldCheck, UserRound } from "lucide-react";
+import { ChevronDown, ClipboardList, Flame, Headset, Menu, PackageSearch, ShieldCheck, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import type { Category } from "@/types/catalog";
@@ -41,15 +41,10 @@ export function MobileMenu({ categories, userName, isAdmin }: { categories: Cate
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto">
-          <ul className="grid grid-cols-2 gap-2 p-3">
+          <ul className="grid gap-2 p-3">
             <li>
               <Link href="/ofertas" className="flex items-center gap-2 rounded-xl bg-brand-red/10 px-3 py-2.5 text-sm font-bold text-brand-red">
                 <Flame className="size-4" /> Ofertas do dia
-              </Link>
-            </li>
-            <li>
-              <Link href="/atacado" className="flex items-center gap-2 rounded-xl bg-brand-orange-soft px-3 py-2.5 text-sm font-bold text-brand-orange">
-                <Boxes className="size-4" /> Atacado
               </Link>
             </li>
           </ul>

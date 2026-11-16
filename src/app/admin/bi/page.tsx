@@ -35,7 +35,7 @@ export default async function AdminBI({ searchParams }: { searchParams: Promise<
 
   return (
     <>
-      <PageTitle title="BI · Faturamento" subtitle="Faturamento = pedidos pagos e não desconsiderados. Vendido = tudo que foi pedido (exceto cancelados)." />
+      <PageTitle title="Faturamento" subtitle="Pedidos pagos, excluindo os que estão fora do fechamento. Vendido = todos os pedidos (exceto cancelados)." />
 
       <div className="hide-scrollbar mb-4 flex gap-2 overflow-x-auto pb-1">
         {[ano - 2, ano - 1, ano, ano + (ano < Number(hoje.slice(0, 4)) ? 1 : 0)]
@@ -109,7 +109,7 @@ export default async function AdminBI({ searchParams }: { searchParams: Promise<
           )}
         </Card>
 
-        <Card title="Auditoria · fora do faturamento">
+        <Card title="Fora do fechamento">
           {excluidos.length ? (
             <ul className="space-y-2 text-sm">
               {excluidos.map((o) => (
@@ -125,7 +125,7 @@ export default async function AdminBI({ searchParams }: { searchParams: Promise<
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-brand-ink-soft">Nenhum pedido desconsiderado.</p>
+            <p className="text-sm text-brand-ink-soft">Nenhum pedido fora do fechamento.</p>
           )}
         </Card>
       </div>

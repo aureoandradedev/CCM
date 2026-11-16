@@ -45,16 +45,17 @@ export function nextOrderDay(diasPedido: number[], from: Date, afterCutoff = fal
 }
 
 /**
- * Adiciona N dias úteis a uma data (pula sábado e domingo).
- * Feriados não são considerados (requisito do documento não os menciona).
+ * Adiciona N dias úteis a uma data (pula sábado, domingo e feriados).
+ * R4.2: "feriado não conta como dia útil".
  */
-export function addBusinessDays(from: Date, n: number): Date {
+export function addBusinessDays(from: Date, n: number, holidays: string[] = []): Date {
   let d = new Date(from);
   let remaining = n;
+  const holidaySet = new Set(holidays);
   while (remaining > 0) {
     d = addDays(d, 1);
     const dow = dayOfWeek(d);
-    if (dow !== 0 && dow !== 6) remaining--;
+    if (dow !== 0 && dow !== 6 && !holidaySet.has(formatDate(d))) remaining--;
   }
   return d;
 }
@@ -73,11 +74,12 @@ export function calculateExpectedAvailabilityDate(
   prazoEntregaCdDias: number,
   saleDate?: Date,
   afterCutoff = false,
+  holidays: string[] = [],
 ): { orderDay: string; availabilityDate: string } | null {
   const from = saleDate ?? todayBR();
   const orderDay = nextOrderDay(diasPedido, from, afterCutoff);
   if (!orderDay) return null;
-  const availability = addBusinessDays(orderDay, prazoEntregaCdDias);
+  const availability = addBusinessDays(orderDay, prazoEntregaCdDias, holidays);
   return {
     orderDay: formatDate(orderDay),
     availabilityDate: formatDate(availability),
@@ -139,12 +141,12 @@ export function checkPriceChangeLimit(
  * "Caixa com 10 — R$ 89,10 (10% off)" = unit_price × qty × (1 - discount/100)
  */
 export function calculateBoxPrice(
-  unitPriceCentavos: number,
+  unitPrice: number,
   qty: number,
   discountPct: number,
 ): number {
-  const fullPrice = unitPriceCentavos * qty;
-  return Math.round(fullPrice * (1 - discountPct / 100));
+  const fullPrice = unitPrice * qty;
+  return Math.round(fullPrice * (1 - discountPct / 100) * 100) / 100;
 }
 
 export const WEEKDAY_LABELS_PT: Record<number, string> = {

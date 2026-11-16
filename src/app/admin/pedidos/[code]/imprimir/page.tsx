@@ -55,7 +55,7 @@ export default async function PrintOrder({ params, searchParams }: { params: Pro
               {order.address.reference ? <><br />Ref.: {order.address.reference}</> : null}
             </p>
           ) : (
-            <p>Retirada na loja</p>
+            <p>Retirada no CD da CCM</p>
           )}
         </div>
       </section>

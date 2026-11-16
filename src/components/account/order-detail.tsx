@@ -93,7 +93,7 @@ export function OrderDetail({ order, items, showCustomer = false }: { order: Ord
 
         <div className="rounded-2xl border border-brand-line bg-card p-4 text-sm">
           <p className="flex items-center gap-2 font-semibold text-brand-ink">
-            <MapPin className="size-4 text-brand-navy" /> {order.delivery_method === "pickup" ? "Retirada na loja" : "Entrega na obra"}
+            <MapPin className="size-4 text-brand-navy" /> {order.delivery_method === "pickup" ? "Retirada no CD da CCM" : "Entrega pela CCM"}
           </p>
           {order.address ? (
             <p className="mt-1 text-brand-ink-soft">

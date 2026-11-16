@@ -3,9 +3,9 @@ export const site = {
   name: "Multigiro Central de Compras",
   shortName: "Central de Compras",
   fullName: "Multigiro Central de Compras",
-  tagline: "Material de construção com preço de atacado para a sua obra.",
+  tagline: "Material de construção direto dos fornecedores para a sua obra.",
   description:
-    "Central de Compras Multigiro: cimento, pisos, tintas, elétrica, hidráulica, louças e ferramentas com preço de varejo e atacado, entregues na sua obra.",
+    "Central de Compras Multigiro: cimento, pisos, tintas, elétrica, hidráulica, louças e ferramentas com os melhores preços, entregues na sua obra.",
   url: "https://ccm.multigiroatacadao.com.br",
   phone: "(28) 99979-1021",
   whatsapp: "5528999791021",

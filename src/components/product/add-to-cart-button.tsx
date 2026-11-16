@@ -7,10 +7,10 @@ import { toast } from "sonner";
 import type { Product } from "@/types/catalog";
 import { Button } from "@/components/ui/button";
 import { QtyStepper } from "@/components/product/qty-stepper";
+import { useShippingConfig } from "@/lib/shipping-context";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { selectLineQty, useCartStore } from "@/lib/cart/store";
-import { unitsToWholesale } from "@/lib/pricing";
-import { formatUnit } from "@/lib/utils/format";
+import { selectLineQty, selectTotals, useCartStore } from "@/lib/cart/store";
+import { formatBRL } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 
 interface AddToCartButtonProps {
@@ -25,6 +25,7 @@ interface AddToCartButtonProps {
 }
 
 export function AddToCartButton({ product, qty = 1, size = "default", inlineStepper = false, className, onAdded }: AddToCartButtonProps) {
+  const { freeShippingFrom } = useShippingConfig();
   const hydrated = useHydrated();
   const inCart = useCartStore(selectLineQty(product.id));
   const add = useCartStore((s) => s.add);
@@ -38,14 +39,14 @@ export function AddToCartButton({ product, qty = 1, size = "default", inlineStep
     setJustAdded(true);
     window.setTimeout(() => setJustAdded(false), 1400);
 
-    const nextQty = inCart + qty;
-    const missing = unitsToWholesale(product, nextQty);
+    const totals = selectTotals(useCartStore.getState());
+    const missing = Math.max(0, freeShippingFrom - totals.subtotal);
     toast.success(`${product.name} no carrinho`, {
       id: `cart-${product.id}`,
       description:
         missing > 0
-          ? `Faltam ${missing} ${formatUnit(product.unit)} para o preço de atacado.`
-          : undefined,
+          ? `Faltam ${formatBRL(missing)} para ganhar frete grátis.`
+          : "Você ganhou frete grátis!",
       action: { label: "Ver carrinho", onClick: () => open() },
     });
     onAdded?.();

@@ -9,7 +9,7 @@ import { Trash2 } from "lucide-react";
 import { QtyStepper } from "@/components/product/qty-stepper";
 import { Button } from "@/components/ui/button";
 import { useCartStore, type CartLine } from "@/lib/cart/store";
-import { isWholesaleActive, lineTotal, unitPriceFor, unitsToWholesale } from "@/lib/pricing";
+import { lineTotal, unitPriceFor } from "@/lib/pricing";
 import { formatBRL, formatUnit } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +23,6 @@ interface CartLineItemProps {
 export function CartLineItem({ line, variant = "drawer", highlight = false }: CartLineItemProps) {
   const setQty = useCartStore((s) => s.setQty);
   const remove = useCartStore((s) => s.remove);
-  const wholesale = isWholesaleActive(line, line.qty);
-  const missing = unitsToWholesale(line, line.qty);
   const unit = unitPriceFor(line, line.qty);
   const total = lineTotal(line, line.qty);
   const page = variant === "page";
@@ -55,14 +53,6 @@ export function CartLineItem({ line, variant = "drawer", highlight = false }: Ca
         </div>
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <span
-            className={cn(
-              "rounded-md px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide",
-              wholesale ? "bg-brand-orange text-white" : "bg-muted text-brand-ink-soft",
-            )}
-          >
-            {wholesale ? "Atacado" : "Varejo"}
-          </span>
           <span className="text-brand-ink-soft">
             {formatBRL(unit)}/{formatUnit(line.unit)}
           </span>
@@ -73,16 +63,6 @@ export function CartLineItem({ line, variant = "drawer", highlight = false }: Ca
           <span className={cn("font-heading font-extrabold text-brand-navy tabular-nums dark:text-foreground", page ? "text-xl" : "text-base")}>{formatBRL(total)}</span>
         </div>
 
-        {missing > 0 ? (
-          <button
-            type="button"
-            onClick={() => setQty(line.productId, line.wholesaleMinQty as number)}
-            className="press mt-0.5 inline-flex w-fit items-center gap-1.5 rounded-md bg-brand-orange-soft px-2 py-1 text-left text-[0.72rem] font-medium text-brand-navy hover:bg-brand-orange/20 dark:text-foreground"
-          >
-            <span aria-hidden="true">+{missing}</span>
-            Faltam {missing} {formatUnit(line.unit)} para pagar {formatBRL(line.wholesalePrice as number)}/{formatUnit(line.unit)} no atacado. Completar
-          </button>
-        ) : null}
       </div>
     </li>
   );

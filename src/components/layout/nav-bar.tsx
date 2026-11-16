@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, ClipboardList, Flame, HardHat, MessageCircle, Tags } from "lucide-react";
+import { ClipboardList, Flame, HardHat, MessageCircle, Tags } from "lucide-react";
 
 import type { Category } from "@/types/catalog";
 import { MegaMenu } from "@/components/layout/mega-menu";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/ofertas", label: "Ofertas do dia", icon: Flame, tone: "text-brand-red" },
-  { href: "/atacado", label: "Atacado", icon: Boxes, tone: "text-brand-orange" },
   { href: "/marcas", label: "Marcas", icon: Tags },
   { href: "/profissionais", label: "Profissionais", icon: HardHat },
   { href: "/orcamento", label: "Orçamento de obra", icon: ClipboardList },

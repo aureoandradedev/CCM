@@ -39,7 +39,6 @@ export function CatalogListing({ eyebrow, title, description, basePath, params, 
     const b = result.brands.find((x) => x.slug === params.marca);
     chips.push({ label: `Marca: ${b?.name ?? params.marca}`, href: catalogHref(basePath, params, { marca: undefined }) });
   }
-  if (params.atacado) chips.push({ label: "Com preço de atacado", href: catalogHref(basePath, params, { atacado: false }) });
   if (params.ofertas) chips.push({ label: "Em promoção", href: catalogHref(basePath, params, { ofertas: false }) });
   if (params.min !== undefined || params.max !== undefined) {
     const r = PRICE_RANGES.find((x) => x.min === params.min && x.max === params.max);

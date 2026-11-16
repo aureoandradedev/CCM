@@ -103,6 +103,14 @@ export async function confirmarPedidoPago(orderId, extras = {}, actor = { kind: 
     promovido = true;
   }
   await registrarEvento(orderId, "pagamento-confirmado", { ...extras, promovido }, actor);
+
+  // R4.1b: materializar purchase_requirements a partir dos itens vendidos
+  try {
+    await db().rpc("materialize_order_requirements", { p_order_id: orderId });
+  } catch (e) {
+    console.error("[materialize_requirements]", orderId, e?.message ?? e);
+  }
+
   return { promovido, jaEstavaPago: false };
 }
 

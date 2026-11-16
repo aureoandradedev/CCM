@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Pedido recebido", robots: { index: f
 const STEPS = [
   { icon: ClipboardCheck, title: "Pagamento confirmado", text: "Seu pedido foi registrado e esta sendo preparado." },
   { icon: Package, title: "Pedido em separacao", text: "A equipe separa os itens para despacho." },
-  { icon: Truck, title: "Entrega na obra", text: "Voce acompanha em Meus pedidos e pelo WhatsApp." },
+  { icon: Truck, title: "Entrega pela CCM", text: "Voce acompanha em Meus pedidos e pelo WhatsApp." },
 ];
 
 export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {

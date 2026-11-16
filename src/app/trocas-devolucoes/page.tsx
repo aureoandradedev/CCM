@@ -13,7 +13,7 @@ export default function ReturnsPage() {
     <InfoPage
       crumb="Trocas e devoluções"
       title="Trocas e devoluções"
-      intro="Se algo não saiu como esperado, a Multigiro Central de Compras intermedeia a solução com o fornecedor parceiro responsável pelo produto."
+      intro="Se algo não saiu como esperado, a Multigiro Central de Compras resolve diretamente a situação."
     >
       <InfoSection title="Prazo para solicitação">
         <p>
@@ -33,10 +33,10 @@ export default function ReturnsPage() {
       <InfoSection title="Como funciona">
         <ol className="list-inside list-decimal space-y-1">
           <li>Entre em contato pelo WhatsApp <a href={`https://wa.me/${site.whatsapp}`} className="text-brand-navy underline dark:text-brand-yellow">{site.phone}</a> ou pelo e-mail <a href={`mailto:${site.email}`} className="text-brand-navy underline dark:text-brand-yellow">{site.email}</a> informando o código do pedido e o motivo.</li>
-          <li>A equipe da {site.shortName} analisa a solicitação e entra em contato com o fornecedor.</li>
-          <li>O fornecedor providencia a coleta do produto e o envio do substituto ou o estorno, conforme o caso.</li>
+          <li>A equipe da {site.shortName} analisa a solicitação.</li>
+          <li>A CCM providencia a coleta do produto e o envio do substituto ou o estorno, conforme o caso.</li>
         </ol>
-        <p>O custo do transporte de devolução fica por conta do fornecedor quando a responsabilidade é dele.</p>
+        <p>O custo do transporte de devolução fica por conta da CCM quando aplicável.</p>
       </InfoSection>
 
       <InfoSection title="Estorno">
@@ -49,7 +49,7 @@ export default function ReturnsPage() {
         <Faq
           items={[
             { q: "Posso devolver por arrependimento?", a: "Sim, dentro do prazo de 7 dias após o recebimento, mesmo sem defeito. O produto deve estar na embalagem original e sem sinais de uso." },
-            { q: "Quem paga o frete da devolução?", a: "Se o motivo for defeito, produto errado ou dano no transporte, o fornecedor arca com o frete. Em caso de arrependimento, o custo pode ser do cliente." },
+            { q: "Quem paga o frete da devolução?", a: "Se o motivo for defeito, produto errado ou dano no transporte, a CCM arca com o frete. Em caso de arrependimento, o custo pode ser do cliente." },
             { q: "Quanto tempo leva a troca?", a: "Após a coleta do produto, o prazo para envio do substituto é o mesmo da entrega padrão (2 a 4 dias úteis)." },
           ]}
         />

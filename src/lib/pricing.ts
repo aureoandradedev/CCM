@@ -34,9 +34,9 @@ export function isWholesaleActive(p: PriceLike, qty: number): boolean {
   return hasWholesale(p) && qty >= (p.wholesaleMinQty as number);
 }
 
-/** Preço unitário que vale para a quantidade escolhida. */
-export function unitPriceFor(p: PriceLike, qty: number): number {
-  return isWholesaleActive(p, qty) ? (p.wholesalePrice as number) : p.retailPrice;
+/** Preço unitário vigente do produto (retail). */
+export function unitPriceFor(p: PriceLike, _qty: number): number {
+  return p.retailPrice;
 }
 
 export function lineTotal(p: PriceLike, qty: number): number {

@@ -6,6 +6,7 @@ import { Card, Empty, Kpi, NotConfigured, PageTitle, Table, Td, Th } from "@/com
 import { adminDashboard, configured } from "@/lib/admin/data";
 import { ORDER_STATUS, formatDateTime, methodLabel } from "@/lib/orders";
 import { formatBRL } from "@/lib/utils/format";
+import { createClient } from "@/lib/supabase/server";
 
 const brl = (c: number) => formatBRL(c / 100);
 
@@ -18,8 +19,16 @@ export default async function AdminHome() {
       </>
     );
   }
-  const d = await adminDashboard();
+  const [d, atencao] = await Promise.all([
+    adminDashboard(),
+    getAtencaoHoje(),
+  ]);
   const hojeLabel = new Date(`${d.today}T12:00:00-03:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+
+  const atencaoItems: string[] = [];
+  if (atencao.emSeparacao > 0) atencaoItems.push(`${atencao.emSeparacao} ${atencao.emSeparacao === 1 ? "pedido em separação" : "pedidos em separação"}`);
+  if (atencao.pendencias > 0) atencaoItems.push(`${atencao.pendencias} ${atencao.pendencias === 1 ? "pendência" : "pendências"}`);
+  if (atencao.excecoes > 0) atencaoItems.push(`${atencao.excecoes} ${atencao.excecoes === 1 ? "exceção" : "exceções"}`);
 
   return (
     <>
@@ -36,6 +45,19 @@ export default async function AdminHome() {
           </p>
         </div>
       ) : null}
+
+      {atencaoItems.length > 0 && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle className="size-5 shrink-0 text-amber-600" />
+          <p className="flex-1">
+            <span className="font-bold">Atenção hoje: </span>
+            {atencaoItems.join(" · ")}
+          </p>
+          <Link href="/admin/compras/pendencias" className="shrink-0 text-xs font-bold text-amber-700 hover:underline">
+            Ver <ArrowRight className="inline size-3" />
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Vendido hoje" value={brl(d.hoje.vendido)} hint={`${d.hoje.orders.length} pedido(s)`} />
@@ -103,4 +125,22 @@ export default async function AdminHome() {
       </div>
     </>
   );
+}
+
+async function getAtencaoHoje(): Promise<{ emSeparacao: number; pendencias: number; excecoes: number }> {
+  try {
+    const sb = await createClient();
+    const [separacao, pendencias, excecoes] = await Promise.all([
+      sb.from("orders").select("*", { count: "exact", head: true }).eq("order_status", "separacao"),
+      sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).in("match_status", ["match_sugerido", "revisao_manual", "normalizado"]),
+      sb.from("procurement_exceptions").select("*", { count: "exact", head: true }).eq("status", "open"),
+    ]);
+    return {
+      emSeparacao: separacao.count ?? 0,
+      pendencias: pendencias.count ?? 0,
+      excecoes: excecoes.count ?? 0,
+    };
+  } catch {
+    return { emSeparacao: 0, pendencias: 0, excecoes: 0 };
+  }
 }

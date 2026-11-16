@@ -42,10 +42,10 @@ function formatCentavos(v: number) {
 
 function formatFrete(o: OfferRow) {
   if (!o.frete_tipo) return "—";
-  if (o.frete_tipo === "gratis") return "Grátis";
   if (o.frete_tipo === "gratis_acima" && o.frete_gratis_acima) {
     return `Grátis > ${formatCentavos(o.frete_gratis_acima)}`;
   }
+  if (o.frete_tipo === "fixo" && (!o.frete_valor || o.frete_valor === 0)) return "Grátis";
   if (o.frete_valor) return `Fixo ${formatCentavos(o.frete_valor)}`;
   return o.frete_tipo;
 }

@@ -107,7 +107,7 @@ export async function montarItens(itensBrutos) {
   const ids = [...agrupado.keys()];
   const { data: produtos, error } = await db()
     .from("products")
-    .select("id, sku, name, unit, images, retail_price, wholesale_price, wholesale_min_qty, supplier_id, category_slug, stock, max_per_order, max_per_order_enabled, active")
+    .select("id, sku, name, unit, images, retail_price, wholesale_price, wholesale_min_qty, supplier_id, category_slug, stock, max_per_order, max_per_order_enabled, active, cost_centavos, winning_offer_id, master_product_id")
     .in("id", ids);
   if (error) {
     console.error("[pedido] Falha ao ler produtos:", error.message);
@@ -151,6 +151,9 @@ export async function montarItens(itensBrutos) {
       unit_price_centavos: unit,
       retail_price_centavos: retail,
       line_centavos: unit * qty,
+      supplier_cost_centavos: p.cost_centavos ?? null,
+      supplier_offer_id: p.winning_offer_id ?? null,
+      master_product_id: p.master_product_id ?? null,
     });
   }
   if (rejeitados.length) throw new ErroPedido(422, "Alguns itens não puderam ser adicionados.", { itens: rejeitados });

@@ -7,9 +7,9 @@ import { NoMasterActions, ExceptionBadge, ResolveExceptionForm } from "../_compo
 import type { PendenciaRow, PendenciaMatchRow, PendenciaExceptionRow } from "@/lib/admin/compras-data";
 
 const REASON_BADGES: Record<string, { label: string; cls: string }> = {
-  "Sem produto mestre": { label: "Sem master", cls: "bg-pink-100 text-pink-800" },
-  "Revisão manual": { label: "Revisão manual", cls: "bg-amber-100 text-amber-800" },
-  "Match sugerido": { label: "Match sugerido", cls: "bg-blue-100 text-blue-800" },
+  "Sem produto mestre": { label: "Não identificado", cls: "bg-pink-100 text-pink-800" },
+  "Revisão manual": { label: "Verificar correspondência", cls: "bg-amber-100 text-amber-800" },
+  "Match sugerido": { label: "Correspondência provável", cls: "bg-blue-100 text-blue-800" },
 };
 
 type TypeFilter = "all" | "matching" | "exception";
@@ -118,7 +118,7 @@ export function PendenciasClient({ items, matchCount, exceptionCount, suppliers,
             className="h-8 rounded-md border border-brand-line bg-white px-2 text-xs text-brand-fg focus:border-brand-navy focus:outline-none"
           >
             <option value="all">Tipo: Todos</option>
-            <option value="matching">Matching ({matchCount})</option>
+            <option value="matching">Identificação ({matchCount})</option>
             <option value="exception">Exceções ({exceptionCount})</option>
           </select>
 
@@ -128,9 +128,9 @@ export function PendenciasClient({ items, matchCount, exceptionCount, suppliers,
             className="h-8 rounded-md border border-brand-line bg-white px-2 text-xs text-brand-fg focus:border-brand-navy focus:outline-none"
           >
             <option value="all">Status: Todos</option>
-            <option value="match_sugerido">Match sugerido</option>
-            <option value="revisao_manual">Revisão manual</option>
-            <option value="normalizado">Sem master</option>
+            <option value="match_sugerido">Correspondência provável</option>
+            <option value="revisao_manual">Verificar correspondência</option>
+            <option value="normalizado">Não identificado</option>
           </select>
 
           <select
@@ -174,7 +174,7 @@ export function PendenciasClient({ items, matchCount, exceptionCount, suppliers,
       {/* Counts */}
       <div className="mb-4 flex flex-wrap gap-3 text-xs">
         <span className="rounded bg-amber-50 px-2.5 py-1 font-medium text-amber-800">
-          {filteredMatchCount} matching
+          {filteredMatchCount} {filteredMatchCount === 1 ? "produto" : "produtos"} para identificar
         </span>
         <span className="rounded bg-purple-50 px-2.5 py-1 font-medium text-purple-800">
           {filteredExceptionCount} exceções
@@ -206,23 +206,16 @@ export function PendenciasClient({ items, matchCount, exceptionCount, suppliers,
                         <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}>
                           {badge.label}
                         </span>
-                        <span className="text-[10px] text-brand-fg/40">Matching</span>
-                        {m.supplier_sku && (
-                          <span className="text-[10px] text-brand-fg/30">SKU: {m.supplier_sku}</span>
-                        )}
-                        {m.ean && (
-                          <span className="text-[10px] text-brand-fg/30">EAN: {m.ean}</span>
-                        )}
                       </div>
                       <p className="mt-1 truncate text-sm font-medium text-brand-fg">{m.title}</p>
                       <p className="text-xs text-brand-fg/60">
                         Fornecedor: {m.supplier_name}
                         {m.match_confidence != null && (
-                          <span className="ml-2">Confiança: {m.match_confidence}%</span>
+                          <span className="ml-2">Semelhança: {m.match_confidence}%</span>
                         )}
                         {m.master_product_name && (
                           <span className="ml-2">
-                            Sugestão: {m.master_product_name}
+                            Possível correspondência: {m.master_product_name}
                             {m.master_product_ean && ` (${m.master_product_ean})`}
                           </span>
                         )}
@@ -235,6 +228,19 @@ export function PendenciasClient({ items, matchCount, exceptionCount, suppliers,
                       item={m.item}
                     />
                   </div>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-[10px] text-brand-fg/40 hover:text-brand-fg/60">
+                      Ver detalhes técnicos
+                    </summary>
+                    <div className="mt-1 rounded bg-gray-50 p-2 text-[10px] text-brand-fg/50 space-y-0.5">
+                      <p>Tipo: {m.match_status}</p>
+                      {m.supplier_sku && <p>SKU: {m.supplier_sku}</p>}
+                      {m.ean && <p>EAN: {m.ean}</p>}
+                      {m.match_confidence != null && <p>Confidence score: {m.match_confidence}%</p>}
+                      {m.item.master_product_id && <p>Master ID: {m.item.master_product_id}</p>}
+                      <p>Item ID: {m.id}</p>
+                    </div>
+                  </details>
                 </div>
               );
             }

@@ -7,6 +7,7 @@ import { ArrowRight, PackageOpen, ShieldCheck } from "lucide-react";
 
 import { CartLineItem } from "@/components/cart/cart-line-item";
 import { Button } from "@/components/ui/button";
+import { useShippingConfig } from "@/lib/shipping-context";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { selectLines, selectTotals, useCartStore } from "@/lib/cart/store";
@@ -14,6 +15,7 @@ import { formatBRL } from "@/lib/utils/format";
 
 /** Gaveta do carrinho: abre pela direita em qualquer página (Sheet/Base UI). */
 export function CartDrawer() {
+  const { freeShippingFrom, freeShippingLabel } = useShippingConfig();
   const hydrated = useHydrated();
   const isOpen = useCartStore((s) => s.isOpen);
   const setOpen = useCartStore((s) => s.setOpen);
@@ -31,8 +33,10 @@ export function CartDrawer() {
           </SheetTitle>
           <SheetDescription>
             {lines.length
-              ? "Preço de atacado é aplicado automaticamente."
-              : "Adicione produtos para ver o preço de atacado."}
+              ? totals.subtotal >= freeShippingFrom
+                ? "Você ganhou frete grátis!"
+                : `Faltam ${formatBRL(freeShippingFrom - totals.subtotal)} para frete grátis.`
+              : "Adicione produtos para aproveitar o frete grátis."}
           </SheetDescription>
         </SheetHeader>
 
@@ -50,10 +54,10 @@ export function CartDrawer() {
                   <dt>Subtotal ({totals.count} itens)</dt>
                   <dd className="tabular-nums">{formatBRL(totals.subtotal)}</dd>
                 </div>
-                {totals.wholesaleSavings > 0 ? (
+                {totals.subtotal >= freeShippingFrom ? (
                   <div className="flex justify-between font-medium text-brand-green">
-                    <dt>Economia no atacado</dt>
-                    <dd className="tabular-nums">- {formatBRL(totals.wholesaleSavings)}</dd>
+                    <dt>Frete</dt>
+                    <dd>Grátis</dd>
                   </div>
                 ) : null}
                 <div className="flex items-baseline justify-between pt-1">
@@ -91,7 +95,7 @@ export function CartDrawer() {
             </span>
             <div>
               <p className="font-heading text-lg font-bold text-brand-navy dark:text-foreground">Seu carrinho está vazio</p>
-              <p className="mt-1 text-sm text-brand-ink-soft">Monte sua lista de obra e o preço de atacado aparece sozinho.</p>
+              <p className="mt-1 text-sm text-brand-ink-soft">Adicione produtos e ganhe frete grátis acima de {freeShippingLabel}.</p>
             </div>
             <Button variant="brand" size="lg" render={<Link href="/ofertas" onClick={() => setOpen(false)} />}>
               Ver ofertas da semana

@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Truck, Package, Gift } from "lucide-react";
 
 import { submitSupplierRegistration, type RegistrationActionResult } from "@/app/admin/fornecedores/invite-actions";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const inputCls =
   "h-10 w-full rounded-lg border border-brand-line bg-background px-3 text-sm text-brand-ink outline-none transition-colors placeholder:text-brand-ink-soft/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60";
@@ -23,6 +25,27 @@ const STATES = [
   "PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
 
+// ── Freight UI type ───────────────────────────────────────────────────────
+
+type FreightUiType = "gratis" | "fixo" | "gratis_acima";
+
+const FREIGHT_OPTIONS: { value: FreightUiType; label: string; description: string; icon: typeof Truck }[] = [
+  { value: "gratis", label: "Frete grátis", description: "Sem custo de entrega", icon: Gift },
+  { value: "fixo", label: "Frete fixo", description: "Valor fixo por pedido", icon: Truck },
+  { value: "gratis_acima", label: "Grátis acima de um valor", description: "Grátis se atingir o mínimo", icon: Package },
+];
+
+// ── Currency mask ─────────────────────────────────────────────────────────
+
+function maskCurrency(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  const cents = parseInt(digits, 10);
+  return (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block text-xs font-semibold text-brand-ink dark:text-foreground">
@@ -33,10 +56,84 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
+function CurrencyInput({
+  name,
+  value,
+  onChange,
+  required,
+  placeholder,
+}: {
+  name: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-brand-ink-soft">
+        R$
+      </span>
+      <input
+        name={name}
+        className={cn(inputCls, "pl-10 tabular-nums")}
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(maskCurrency(e.target.value))}
+        required={required}
+        placeholder={placeholder ?? "0,00"}
+      />
+    </div>
+  );
+}
+
+function FreightCards({ selected, onChange }: { selected: FreightUiType; onChange: (v: FreightUiType) => void }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {FREIGHT_OPTIONS.map((opt) => {
+        const active = selected === opt.value;
+        const Icon = opt.icon;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "group relative flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all",
+              active
+                ? "border-brand-navy bg-brand-navy/5 ring-1 ring-brand-navy/20"
+                : "border-brand-line bg-card hover:border-brand-navy/30",
+            )}
+          >
+            <div className={cn(
+              "flex size-9 items-center justify-center rounded-lg transition-colors",
+              active ? "bg-brand-navy text-white" : "bg-muted text-brand-ink-soft group-hover:bg-brand-navy/10",
+            )}>
+              <Icon className="size-4.5" />
+            </div>
+            <div>
+              <p className={cn("text-sm font-semibold", active ? "text-brand-navy" : "text-brand-ink")}>
+                {opt.label}
+              </p>
+              <p className="mt-0.5 text-[0.7rem] leading-tight text-brand-ink-soft">{opt.description}</p>
+            </div>
+            {active && <div className="absolute right-3 top-3 size-2 rounded-full bg-brand-navy" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main form ─────────────────────────────────────────────────────────────
+
 export function RegistrationForm({ token }: { token: string }) {
   const [state, action, pending] = useActionState(submitSupplierRegistration, {} as RegistrationActionResult);
-  const [freteTipo, setFreteTipo] = useState("fixo");
+  const [freightUi, setFreightUi] = useState<FreightUiType>("fixo");
   const [diasPedido, setDiasPedido] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [pedidoMinimo, setPedidoMinimo] = useState("");
+  const [freteValor, setFreteValor] = useState("");
+  const [freteGratisAcima, setFreteGratisAcima] = useState("");
 
   if (state.ok) {
     return (
@@ -51,7 +148,18 @@ export function RegistrationForm({ token }: { token: string }) {
   }
 
   return (
-    <form action={action} className="max-w-2xl space-y-8">
+    <form
+      action={(fd) => {
+        const realFreteTipo = freightUi === "gratis_acima" ? "gratis_acima" : "fixo";
+        fd.set("frete_tipo", realFreteTipo);
+        if (freightUi === "gratis") {
+          fd.set("frete_valor", "0");
+          fd.set("frete_gratis_acima", "");
+        }
+        action(fd);
+      }}
+      className="max-w-2xl space-y-8"
+    >
       <input type="hidden" name="token" value={token} />
 
       {state.error ? (
@@ -102,27 +210,99 @@ export function RegistrationForm({ token }: { token: string }) {
       </fieldset>
 
       {/* Condições comerciais */}
-      <fieldset className="space-y-4">
+      <fieldset className="space-y-6">
         <legend className="font-heading text-lg font-bold text-brand-navy dark:text-foreground">Condições comerciais</legend>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tipo de pedido mínimo">
-            <select name="pedido_minimo_tipo" className={inputCls} defaultValue="valor">
-              <option value="valor">Valor (R$)</option>
-              <option value="volume">Volume (quantidade)</option>
-            </select>
-          </Field>
-          <Field label="Pedido mínimo *">
-            <input name="pedido_minimo" required type="number" step="0.01" min="0" className={inputCls} placeholder="Ex.: 500.00" />
-          </Field>
+        {/* 1. Pedido mínimo */}
+        <div>
+          <p className="mb-1 text-xs font-bold text-brand-ink dark:text-foreground">Pedido mínimo</p>
+          <p className="mb-3 text-[0.7rem] text-brand-ink-soft">Valor mínimo que você aceita por pedido.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Tipo">
+              <select name="pedido_minimo_tipo" className={inputCls} defaultValue="valor">
+                <option value="valor">Valor (R$)</option>
+                <option value="volume">Quantidade (unidades)</option>
+              </select>
+            </Field>
+            <Field label="Valor mínimo *">
+              <CurrencyInput
+                name="pedido_minimo"
+                value={pedidoMinimo}
+                onChange={setPedidoMinimo}
+                required
+                placeholder="500,00"
+              />
+            </Field>
+          </div>
         </div>
 
-        <Field label="Dias de pedido *" hint="Selecione os dias da semana em que aceita pedidos.">
-          <div className="mt-1 flex flex-wrap gap-2">
+        {/* 2. Frete */}
+        <div>
+          <p className="mb-1 text-xs font-bold text-brand-ink dark:text-foreground">Frete</p>
+          <p className="mb-3 text-[0.7rem] text-brand-ink-soft">Como o frete é cobrado nos seus pedidos.</p>
+
+          <FreightCards selected={freightUi} onChange={(v) => {
+            setFreightUi(v);
+            if (v === "gratis") { setFreteValor("0,00"); setFreteGratisAcima(""); }
+            else if (v === "fixo") { setFreteGratisAcima(""); }
+          }} />
+
+          {freightUi === "fixo" && (
+            <div className="mt-4 max-w-xs">
+              <Field label="Valor do frete *" hint="Cobrado em todos os pedidos.">
+                <CurrencyInput name="frete_valor" value={freteValor} onChange={setFreteValor} required placeholder="60,00" />
+              </Field>
+            </div>
+          )}
+
+          {freightUi === "gratis_acima" && (
+            <div className="mt-4 grid max-w-lg gap-4 sm:grid-cols-2">
+              <Field label="Grátis acima de *" hint="Pedidos com esse valor ou mais não pagam frete.">
+                <CurrencyInput name="frete_gratis_acima" value={freteGratisAcima} onChange={setFreteGratisAcima} required placeholder="1.000,00" />
+              </Field>
+              <Field label="Valor do frete abaixo *" hint="Cobrado quando o pedido não atinge o mínimo.">
+                <CurrencyInput name="frete_valor" value={freteValor} onChange={setFreteValor} required placeholder="60,00" />
+              </Field>
+            </div>
+          )}
+
+          {freightUi === "gratis" && (
+            <>
+              <input type="hidden" name="frete_valor" value="0" />
+              <input type="hidden" name="frete_gratis_acima" value="" />
+            </>
+          )}
+        </div>
+
+        {/* 3. Prazo de entrega */}
+        <div>
+          <p className="mb-1 text-xs font-bold text-brand-ink dark:text-foreground">Prazo de entrega</p>
+          <p className="mb-3 text-[0.7rem] text-brand-ink-soft">
+            Quantos dias úteis você leva para entregar após receber o pedido.
+          </p>
+          <div className="max-w-[180px]">
+            <Field label="Dias úteis *">
+              <input name="prazo_entrega_cd_dias" required type="number" min="1" className={cn(inputCls, "tabular-nums")} defaultValue="3" />
+            </Field>
+          </div>
+        </div>
+
+        {/* 4. Dias de pedido */}
+        <div>
+          <p className="mb-1 text-xs font-bold text-brand-ink dark:text-foreground">Dias de pedido</p>
+          <p className="mb-3 text-[0.7rem] text-brand-ink-soft">
+            Em quais dias da semana você aceita receber pedidos.
+          </p>
+          <div className="flex flex-wrap gap-2">
             {WEEKDAYS.map(({ value, label }) => {
               const checked = diasPedido.includes(value);
               return (
-                <label key={value} className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${checked ? "border-brand-navy bg-brand-navy text-white" : "border-brand-line bg-background text-brand-ink-soft hover:border-brand-navy/40"}`}>
+                <label key={value} className={cn(
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
+                  checked
+                    ? "border-brand-navy bg-brand-navy text-white"
+                    : "border-brand-line bg-background text-brand-ink-soft hover:border-brand-navy/40",
+                )}>
                   <input
                     type="checkbox"
                     name="dias_pedido"
@@ -139,34 +319,6 @@ export function RegistrationForm({ token }: { token: string }) {
               );
             })}
           </div>
-        </Field>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Prazo de entrega (dias úteis) *">
-            <input name="prazo_entrega_cd_dias" required type="number" min="1" className={inputCls} defaultValue="3" />
-          </Field>
-          <Field label="Tipo de frete">
-            <select
-              name="frete_tipo"
-              className={inputCls}
-              value={freteTipo}
-              onChange={(e) => setFreteTipo(e.target.value)}
-            >
-              <option value="fixo">Frete fixo</option>
-              <option value="gratis_acima">Grátis acima de valor</option>
-            </select>
-          </Field>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {freteTipo === "gratis_acima" ? (
-            <Field label="Frete grátis acima de (R$)">
-              <input name="frete_gratis_acima" type="number" step="0.01" min="0" className={inputCls} placeholder="Ex.: 1000.00" />
-            </Field>
-          ) : null}
-          <Field label="Valor do frete (R$)">
-            <input name="frete_valor" type="number" step="0.01" min="0" className={inputCls} placeholder="Ex.: 50.00" />
-          </Field>
         </div>
       </fieldset>
 

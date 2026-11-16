@@ -1,22 +1,59 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { PageTitle, NotConfigured } from "@/components/admin/ui";
-import { Plus } from "lucide-react";
 import { CommercialTermsAdmin } from "@/components/admin/commercial-terms-admin";
 import { SupplierForm } from "@/components/admin/settings-forms";
 import { adminSupplierById, adminSupplierCommercialTerms, adminSupplierCatalogs, configured } from "@/lib/admin/data";
 import { maskCNPJ } from "@/lib/utils/masks";
+import {
+  getSupplierKpis,
+  getSupplierProducts,
+  getSupplierSales,
+  getSupplierPerformance,
+  getSupplierRevenueTimeline,
+  getSupplierTopProducts,
+  getSupplierAlerts,
+  getSupplierHistory,
+  type PeriodKey,
+} from "@/lib/admin/supplier-bi-data";
+import {
+  TabNav,
+  PeriodSelector,
+  KpiGrid,
+  AlertsBar,
+  ProductsTable,
+  SalesTable,
+  TopProductsRanking,
+  PerformanceGrid,
+  RevenueChart,
+  CatalogsSection,
+  HistoryTimeline,
+  DataSection,
+  type TabKey,
+} from "./_supplier-bi-client";
 
-export default async function SupplierDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const VALID_TABS: TabKey[] = ["visao-geral", "produtos", "vendas", "desempenho", "catalogos", "historico", "dados"];
+const VALID_PERIODS: PeriodKey[] = ["hoje", "7d", "30d", "90d", "mes", "mes_anterior", "todos"];
+
+export default async function SupplierDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (!configured()) return <NotConfigured />;
+
   const { id } = await params;
-  const [supplier, terms, catalogs] = await Promise.all([
-    adminSupplierById(id),
-    adminSupplierCommercialTerms(id),
-    adminSupplierCatalogs(id),
-  ]);
+  const sp = await searchParams;
+  const tab = (VALID_TABS.includes(sp.tab as TabKey) ? sp.tab : "visao-geral") as TabKey;
+  const period = (VALID_PERIODS.includes(sp.period as PeriodKey) ? sp.period : "30d") as PeriodKey;
+  const salesPage = Math.max(1, parseInt(String(sp.page ?? "1"), 10) || 1);
+  const salesPerPage = 20;
+
+  const supplier = await adminSupplierById(id);
   if (!supplier) notFound();
 
   return (
@@ -28,24 +65,159 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
         <ArrowLeft className="size-4" /> Fornecedores
       </Link>
 
-      <PageTitle
-        title={supplier.name}
-        subtitle={supplier.active ? undefined : "Fornecedor inativo"}
-      />
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <InfoCard label="CNPJ" value={supplier.cnpj ? maskCNPJ(supplier.cnpj) : "—"} />
-        <InfoCard label="Razão social" value={supplier.trade_name ?? "—"} />
-        <InfoCard label="Nome fantasia" value={supplier.name} />
-        <InfoCard label="Cidade" value={supplier.city ?? "—"} />
-        <InfoCard label="UF" value={supplier.state ?? "—"} />
-        <InfoCard label="Prazo de entrega no CD" value={`${supplier.lead_time_days} dia(s) úteis`} />
-        <InfoCard label="Contato" value={supplier.contact_name ?? "—"} />
-        <InfoCard label="E-mail" value={supplier.contact_email ?? "—"} />
-        <InfoCard label="Telefone" value={supplier.contact_phone ?? "—"} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageTitle
+          title={supplier.name}
+          subtitle={supplier.active ? (supplier.trade_name ?? undefined) : "Fornecedor inativo"}
+        />
+        <Link
+          href={`/admin/automacao?search=${encodeURIComponent(supplier.name)}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-brand-line bg-card px-3 py-1.5 text-xs font-semibold text-brand-ink-soft transition hover:text-brand-navy"
+        >
+          <ExternalLink className="size-3.5" /> Central Operacional
+        </Link>
       </div>
 
-      <details className="mt-4 rounded-2xl border border-brand-line bg-card">
+      <div className="mt-4 flex items-center justify-between gap-4">
+        <TabNav current={tab} />
+      </div>
+
+      {tab !== "dados" && tab !== "historico" && tab !== "catalogos" && (
+        <div className="mb-6">
+          <PeriodSelector current={period} />
+        </div>
+      )}
+
+      {tab === "visao-geral" && <OverviewTab supplierId={id} period={period} />}
+      {tab === "produtos" && <ProductsTab supplierId={id} period={period} />}
+      {tab === "vendas" && <SalesTab supplierId={id} period={period} page={salesPage} perPage={salesPerPage} />}
+      {tab === "desempenho" && <PerformanceTab supplierId={id} period={period} />}
+      {tab === "catalogos" && <CatalogsTab supplierId={id} />}
+      {tab === "historico" && <HistoryTab supplierId={id} />}
+      {tab === "dados" && <DadosTab supplierId={id} />}
+    </>
+  );
+}
+
+// ─── Tab: Visão geral ───────────────────────────────────────────────────────
+
+async function OverviewTab({ supplierId, period }: { supplierId: string; period: PeriodKey }) {
+  const [kpis, alerts, timeline, topByRevenue, topByUnits] = await Promise.all([
+    getSupplierKpis(supplierId, period),
+    getSupplierAlerts(supplierId),
+    getSupplierRevenueTimeline(supplierId, period),
+    getSupplierTopProducts(supplierId, period, "faturamento", 5),
+    getSupplierTopProducts(supplierId, period, "unidades", 5),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <AlertsBar alerts={alerts} supplierId={supplierId} />
+      <KpiGrid kpis={kpis} />
+      <RevenueChart data={timeline} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TopProductsRanking title="Top por faturamento" products={topByRevenue} supplierId={supplierId} />
+        <TopProductsRanking title="Top por unidades" products={topByUnits} supplierId={supplierId} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: Produtos ──────────────────────────────────────────────────────────
+
+async function ProductsTab({ supplierId, period }: { supplierId: string; period: PeriodKey }) {
+  const products = await getSupplierProducts(supplierId, period);
+
+  return (
+    <div className="space-y-4">
+      <h2 className="font-heading text-lg font-bold text-brand-navy">Produtos com oferta ativa</h2>
+      <ProductsTable products={products} supplierId={supplierId} />
+    </div>
+  );
+}
+
+// ─── Tab: Vendas ────────────────────────────────────────────────────────────
+
+async function SalesTab({
+  supplierId,
+  period,
+  page,
+  perPage,
+}: {
+  supplierId: string;
+  period: PeriodKey;
+  page: number;
+  perPage: number;
+}) {
+  const { sales, total } = await getSupplierSales(supplierId, period, page, perPage);
+
+  return (
+    <div className="space-y-4">
+      <h2 className="font-heading text-lg font-bold text-brand-navy">Vendas atribuídas</h2>
+      <SalesTable sales={sales} total={total} page={page} perPage={perPage} />
+    </div>
+  );
+}
+
+// ─── Tab: Desempenho ────────────────────────────────────────────────────────
+
+async function PerformanceTab({ supplierId, period }: { supplierId: string; period: PeriodKey }) {
+  const [perf, timeline] = await Promise.all([
+    getSupplierPerformance(supplierId),
+    getSupplierRevenueTimeline(supplierId, period),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <h2 className="font-heading text-lg font-bold text-brand-navy">Indicadores operacionais</h2>
+      <PerformanceGrid perf={perf} />
+      <RevenueChart data={timeline} />
+    </div>
+  );
+}
+
+// ─── Tab: Catálogos ─────────────────────────────────────────────────────────
+
+async function CatalogsTab({ supplierId }: { supplierId: string }) {
+  const catalogs = await adminSupplierCatalogs(supplierId);
+  return <CatalogsSection catalogs={catalogs} supplierId={supplierId} />;
+}
+
+// ─── Tab: Histórico ─────────────────────────────────────────────────────────
+
+async function HistoryTab({ supplierId }: { supplierId: string }) {
+  const events = await getSupplierHistory(supplierId, 50);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading text-lg font-bold text-brand-navy">Histórico de automação</h2>
+        <Link
+          href={`/admin/automacao?search=${encodeURIComponent("supplier:" + supplierId)}`}
+          className="text-xs font-semibold text-brand-navy hover:underline"
+        >
+          Ver na Central Operacional
+        </Link>
+      </div>
+      <HistoryTimeline events={events} />
+    </div>
+  );
+}
+
+// ─── Tab: Dados e condições ─────────────────────────────────────────────────
+
+async function DadosTab({ supplierId }: { supplierId: string }) {
+  const [supplier, terms] = await Promise.all([
+    adminSupplierById(supplierId),
+    adminSupplierCommercialTerms(supplierId),
+  ]);
+  if (!supplier) return null;
+
+  return (
+    <div className="space-y-8">
+      <DataSection supplier={supplier} terms={terms} />
+
+      <details className="rounded-2xl border border-brand-line bg-card">
         <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-brand-navy dark:text-foreground">
           Editar dados cadastrais
         </summary>
@@ -54,59 +226,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
         </div>
       </details>
 
-      <CommercialTermsAdmin supplierId={supplier.id} terms={terms} />
-
-      <section className="mt-8">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-lg font-bold text-brand-navy dark:text-foreground">
-            Catálogos
-          </h2>
-          <Link
-            href={`/admin/fornecedores/${supplier.id}/importar`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-navy/90"
-          >
-            <Plus className="size-3.5" /> Importar catálogo
-          </Link>
-        </div>
-        {catalogs.length > 0 ? (
-          <div className="mt-3 overflow-x-auto rounded-xl border border-brand-line">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-brand-line bg-muted/50 text-left text-xs font-bold uppercase tracking-wider text-brand-ink-soft">
-                  <th className="px-4 py-2">Data</th>
-                  <th className="px-4 py-2">Origem</th>
-                  <th className="px-4 py-2">Itens</th>
-                  <th className="px-4 py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {catalogs.map((c) => (
-                  <tr key={c.id} className="border-b border-brand-line last:border-0">
-                    <td className="px-4 py-2 whitespace-nowrap">{new Date(c.created_at).toLocaleDateString("pt-BR")}</td>
-                    <td className="px-4 py-2">{c.source_name ?? c.source}</td>
-                    <td className="px-4 py-2">{c.total_items}</td>
-                    <td className="px-4 py-2">
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-bold">{c.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-brand-ink-soft">Nenhum catálogo importado.</p>
-        )}
-      </section>
-
-    </>
-  );
-}
-
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-brand-line bg-card p-4">
-      <p className="text-[0.65rem] font-bold uppercase tracking-wider text-brand-ink-soft">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-brand-ink">{value}</p>
+      <CommercialTermsAdmin supplierId={supplierId} terms={terms} />
     </div>
   );
 }

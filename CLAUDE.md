@@ -2,7 +2,7 @@
 
 # CCM · Central de Compras Multigiro
 
-E-commerce de material de construção da Multigiro. Diferencial do negócio: **não tem estoque próprio**, cada produto pertence a um fornecedor parceiro que fatura e entrega (integração com fornecedores é fase futura). Preço **varejo x atacado** por quantidade (modelo Obramax), desconto no Pix, entrega direto do fornecedor.
+E-commerce da Multigiro Central de Compras. **A CCM compra dos fornecedores e revende (modelo 1P)**: o fornecedor envia catálogo e estoque; a CCM decide o que vende, o modo de venda e o preço; a CCM emite a nota fiscal e entrega (ou o cliente retira no CD da CCM). **O fornecedor nunca aparece para o cliente.** Regras de negócio aprovadas: `docs/etapas/` — os testes de cada etapa são o critério de aceite. Não implementar nada além do que está aprovado nas etapas.
 
 ## Stack
 

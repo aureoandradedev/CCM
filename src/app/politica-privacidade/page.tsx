@@ -18,7 +18,7 @@ export default function PrivacyPage() {
 
       <InfoSection title="1. Quem somos">
         <p>
-          A <strong>{site.name}</strong> é uma plataforma de e-commerce que conecta clientes a fornecedores parceiros de material de construção. Não mantemos estoque próprio: cada pedido é atendido diretamente pelo fornecedor responsável.
+          A <strong>{site.name}</strong> é uma plataforma de e-commerce de material de construção. A CCM compra dos fornecedores parceiros e revende ao cliente, sendo responsável pela venda, emissão da nota fiscal e entrega.
         </p>
         <p>Endereço: {site.address}.</p>
         <p>Contato para questões de privacidade: <a href={`mailto:${site.email}`} className="text-brand-navy underline dark:text-brand-yellow">{site.email}</a>.</p>

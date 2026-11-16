@@ -33,7 +33,7 @@ export interface AutoSourceResult {
   supplierId?: string;
   oldOfferId?: string;
   oldSupplierId?: string;
-  pricingAction?: "auto_applied" | "no_change" | "not_published";
+  pricingAction?: "auto_applied" | "no_change" | "not_published" | "price_blocked";
   changePct?: number;
 }
 
@@ -46,6 +46,7 @@ interface PricingSimulation {
   changePct?: number;
   limitPct?: number;
   safe: boolean;
+  switchAllowed: boolean;
   reason?: string;
 }
 
@@ -82,7 +83,7 @@ async function simulatePricingImpact(
     .limit(1)
     .single();
 
-  if (!product) return { published: false, safe: true };
+  if (!product) return { published: false, safe: true, switchAllowed: true };
 
   const oldPriceCentavos = Math.round(Number(product.retail_price) * 100);
 
@@ -96,6 +97,7 @@ async function simulatePricingImpact(
       published: true,
       productId: product.id,
       safe: false,
+      switchAllowed: false,
       reason: "Nenhuma regra de margem ativa.",
     };
   }
@@ -111,6 +113,7 @@ async function simulatePricingImpact(
       published: true,
       productId: product.id,
       safe: false,
+      switchAllowed: false,
       reason: "Nenhuma regra de margem aplicavel.",
     };
   }
@@ -120,6 +123,7 @@ async function simulatePricingImpact(
       published: true,
       productId: product.id,
       safe: false,
+      switchAllowed: false,
       reason: "Regras de margem ambiguas (mesma prioridade).",
     };
   }
@@ -136,6 +140,7 @@ async function simulatePricingImpact(
       newPriceCentavos,
       changePct: 0,
       safe: true,
+      switchAllowed: true,
     };
   }
 
@@ -146,19 +151,17 @@ async function simulatePricingImpact(
 
   const { data: sectionConfig } = await sb
     .from("section_configs")
-    .select("value")
-    .eq("section", product.category_slug ?? "")
-    .eq("key", "auto_price_increase_limit_pct")
+    .select("auto_price_increase_limit_pct")
+    .eq("section_slug", product.category_slug ?? "")
     .limit(1)
     .single();
 
-  const limitPct = sectionConfig?.value
-    ? Number(sectionConfig.value)
+  const limitPct = sectionConfig?.auto_price_increase_limit_pct
+    ? Number(sectionConfig.auto_price_increase_limit_pct)
     : 10;
 
-  const autoPriceEnabled = await readFlag(sb, "auto_price_enabled");
-
-  if (!autoPriceEnabled) {
+  // R5.5: reduction always auto-applies
+  if (changePct <= 0) {
     return {
       published: true,
       productId: product.id,
@@ -167,11 +170,12 @@ async function simulatePricingImpact(
       newPriceCentavos,
       changePct,
       limitPct,
-      safe: false,
-      reason: "auto_price_enabled desativado e troca exige mudanca de preco.",
+      safe: true,
+      switchAllowed: true,
     };
   }
 
+  // R5.3/R5.4: increase within limit auto-applies; above limit → price blocked
   if (changePct > limitPct) {
     return {
       published: true,
@@ -182,6 +186,7 @@ async function simulatePricingImpact(
       changePct,
       limitPct,
       safe: false,
+      switchAllowed: true,
       reason: `Variacao de preco ${changePct.toFixed(1)}% excede limite ${limitPct}%.`,
     };
   }
@@ -195,6 +200,7 @@ async function simulatePricingImpact(
     changePct,
     limitPct,
     safe: true,
+    switchAllowed: true,
   };
 }
 
@@ -216,7 +222,7 @@ export async function autoSourceProduct(
   // 2. Fetch active offers
   const { data: rawOffers } = await sb
     .from("supplier_offers")
-    .select("id, master_product_id, supplier_id, cost_centavos, stock, lead_time_days, status")
+    .select("id, master_product_id, supplier_id, cost_centavos, unit_cost_centavos, stock, lead_time_days, status")
     .eq("master_product_id", masterProductId)
     .eq("status", "ativa")
     .is("replaced_at", null);
@@ -231,19 +237,21 @@ export async function autoSourceProduct(
     return { ...base, action: "pendencia", reason: "sem_fornecedor_elegivel" };
   }
 
-  // 4. Rank
+  // 4. R6 official: select by LOWEST unit cost among eligible with stock > 0
+  const unitCost = (o: RankableOffer) => o.unit_cost_centavos ?? o.cost_centavos;
+  const eligibleWithStock = offers.filter(
+    (o) => (o.stock ?? 0) > 0 && unitCost(o) > 0,
+  );
+
+  if (eligibleWithStock.length === 0) {
+    return { ...base, action: "pendencia", reason: "sem_fornecedor_com_estoque" };
+  }
+
+  eligibleWithStock.sort((a, b) => unitCost(a) - unitCost(b));
+  const recommendedOffer = eligibleWithStock[0];
+
+  // Ranking still computed for BI/audit snapshot (NOT used for supplier selection)
   const ranking: ProductRanking | null = rankProductOffers(offers);
-  if (!ranking) {
-    return { ...base, action: "pendencia", reason: "ranking_vazio" };
-  }
-
-  if (ranking.ambiguous) {
-    return { ...base, action: "pendencia", reason: "ranking_ambiguo" };
-  }
-
-  if (!ranking.recommended_offer_id) {
-    return { ...base, action: "pendencia", reason: "sem_recomendacao" };
-  }
 
   // 5. Current sourcing
   const { data: currentSel } = await sb
@@ -257,24 +265,11 @@ export async function autoSourceProduct(
   const currentOfferId = currentSel?.supplier_offer_id ?? null;
 
   // 6. Already selected
-  if (currentOfferId === ranking.recommended_offer_id) {
+  if (currentOfferId === recommendedOffer.id) {
     return { ...base, action: "noop", reason: "ja_selecionado" };
   }
 
-  // 7. Economy trigger without hysteresis → pendencia (C3)
-  if (currentOfferId && trigger !== "ineligible") {
-    const currentOffer = allOffers.find((o) => o.id === currentOfferId);
-    if (currentOffer && currentOffer.stock != null && currentOffer.stock > 0 && currentOffer.cost_centavos > 0) {
-      return {
-        ...base,
-        action: "pendencia",
-        reason: "economy_sem_hysteresis",
-        offerId: ranking.recommended_offer_id,
-      };
-    }
-  }
-
-  // 8. Check critical exceptions
+  // 7. Check critical exceptions
   const { count: criticalCount } = await sb
     .from("procurement_exceptions")
     .select("id", { count: "exact", head: true })
@@ -286,40 +281,37 @@ export async function autoSourceProduct(
     return { ...base, action: "pendencia", reason: "excecao_critica_aberta" };
   }
 
-  // 9. Get recommended offer data
-  const recommendedOffer = offers.find(
-    (o) => o.id === ranking.recommended_offer_id,
-  );
-  if (!recommendedOffer) {
-    return { ...base, action: "error", reason: "offer_recomendada_nao_encontrada" };
-  }
-
   // 10. Simulate pricing impact (pre-check)
   const pricing = await simulatePricingImpact(
     sb,
     masterProductId,
-    recommendedOffer.cost_centavos,
+    recommendedOffer.unit_cost_centavos ?? recommendedOffer.cost_centavos,
   );
 
-  if (!pricing.safe) {
+  // R6.3: if pricing error (no margin, ambiguous) AND switch not allowed → pendencia
+  if (!pricing.safe && !pricing.switchAllowed) {
     return {
       ...base,
       action: "pendencia",
       reason: pricing.reason ?? "pricing_inseguro",
-      offerId: ranking.recommended_offer_id,
+      offerId: recommendedOffer.id,
       changePct: pricing.changePct,
     };
   }
 
-  // 11. Build ranking snapshot
-  const snapshot = ranking.offers.map((o) => ({
-    offer_id: o.supplier_offer_id,
-    supplier_id: o.supplier_id,
-    score: o.score_total,
-    position: o.position,
-  }));
+  // R6.3: price blocked but switch allowed → proceed, keep old price
+  const priceBlocked = !pricing.safe && pricing.switchAllowed;
 
-  const topOffer = ranking.offers[0];
+  // 11. Build ranking snapshot (BI only)
+  const snapshot = ranking
+    ? ranking.offers.map((o) => ({
+        offer_id: o.supplier_offer_id,
+        supplier_id: o.supplier_id,
+        score: o.score_total,
+        position: o.position,
+      }))
+    : [];
+
   const isSwitch = currentOfferId != null;
   const notePrefix = isSwitch ? "[auto-switch]" : "[auto-sourcing]";
   const reason = isSwitch
@@ -328,19 +320,25 @@ export async function autoSourceProduct(
       : "economy_opportunity"
     : "primeira_selecao";
 
-  const note = `${notePrefix} ${reason} — score ${topOffer.score_total.toFixed(1)}, ${topOffer.reasons.join(", ")}`;
+  const note = priceBlocked
+    ? `${notePrefix} ${reason} — menor custo unitário: ${unitCost(recommendedOffer)} centavos — preço bloqueado (${pricing.reason})`
+    : `${notePrefix} ${reason} — menor custo unitário: ${unitCost(recommendedOffer)} centavos`;
 
   // 12. Call transactional RPC
+  // R6.3: when price blocked, pass null for new price (keep old price)
   const rpcParams: Record<string, unknown> = {
     p_master_product_id: masterProductId,
-    p_new_offer_id: ranking.recommended_offer_id,
+    p_new_offer_id: recommendedOffer.id,
     p_note: note,
-    p_score: topOffer.score_total,
+    p_score: unitCost(recommendedOffer),
     p_ranking_snapshot: snapshot,
     p_reason: reason,
     p_expected_old_offer_id: currentOfferId,
     p_expected_new_cost_centavos: recommendedOffer.cost_centavos,
-    p_new_price_centavos: pricing.published ? pricing.newPriceCentavos : null,
+    p_new_price_centavos: priceBlocked ? null : (pricing.published ? pricing.newPriceCentavos : null),
+    p_price_blocked: priceBlocked,
+    p_blocked_new_price_centavos: priceBlocked ? pricing.newPriceCentavos : null,
+    p_blocked_change_pct: priceBlocked ? pricing.changePct : null,
   };
 
   const { data: rpcResult, error: rpcError } = await sb.rpc(
@@ -359,6 +357,7 @@ export async function autoSourceProduct(
     new_supplier_id?: string;
     old_supplier_id?: string;
     price_updated?: boolean;
+    price_blocked?: boolean;
     change_pct?: number;
   };
 
@@ -374,19 +373,26 @@ export async function autoSourceProduct(
     return { ...base, action: "noop", reason: "ja_selecionado" };
   }
 
+  let pricingAction: AutoSourceResult["pricingAction"];
+  if (priceBlocked || result.price_blocked) {
+    pricingAction = "price_blocked";
+  } else if (result.price_updated) {
+    pricingAction = "auto_applied";
+  } else if (pricing.published) {
+    pricingAction = "no_change";
+  } else {
+    pricingAction = "not_published";
+  }
+
   return {
     ...base,
     action: result.action === "switched" ? "switched" : "selected",
     reason,
-    offerId: ranking.recommended_offer_id,
+    offerId: recommendedOffer.id,
     supplierId: result.new_supplier_id,
     oldOfferId: currentOfferId ?? undefined,
     oldSupplierId: result.old_supplier_id ?? undefined,
-    pricingAction: result.price_updated
-      ? "auto_applied"
-      : pricing.published
-        ? "no_change"
-        : "not_published",
+    pricingAction,
     changePct: result.change_pct ?? pricing.changePct,
   };
 }

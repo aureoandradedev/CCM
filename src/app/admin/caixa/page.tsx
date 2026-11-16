@@ -45,7 +45,7 @@ export default async function AdminCash({ searchParams }: { searchParams: Promis
         <Kpi label="Vendido" value={brl(s.vendido)} hint={`${s.orders.filter((o) => !o.revenue_excluded).length} pedido(s)`} />
         <Kpi label="Recebido" value={brl(s.recebido)} tone="green" />
         <Kpi label="Falta receber" value={brl(s.falta)} tone={s.falta ? "yellow" : "slate"} />
-        <Kpi label="Desconsiderados" value={brl(s.desconsiderados)} tone="slate" hint="Testes, duplicados, erros" />
+        <Kpi label="Fora do fechamento" value={brl(s.desconsiderados)} tone="slate" hint="Testes, duplicados e erros" />
       </div>
 
       {s.duplicados.length ? (

@@ -101,6 +101,9 @@ export interface OrderItemRow {
   unit_price_centavos: number;
   retail_price_centavos: number;
   line_centavos: number;
+  supplier_cost_centavos?: number | null;
+  supplier_offer_id?: string | null;
+  master_product_id?: string | null;
 }
 
 export const ORDER_COLUMNS =

@@ -54,15 +54,15 @@ export default async function AutomacaoPage(props: {
       {/* Exception stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         {[
-          { key: "review_match", label: "Match", color: "text-yellow-600" },
-          { key: "review_ranking", label: "Ranking", color: "text-orange-600" },
+          { key: "review_match", label: "Identificação", color: "text-yellow-600" },
+          { key: "review_ranking", label: "Vários fornecedores", color: "text-orange-600" },
           { key: "no_offer", label: "Sem oferta", color: "text-red-600" },
-          { key: "no_master_candidate", label: "Sem master", color: "text-pink-600" },
-          { key: "source_changed", label: "Mudou", color: "text-amber-600" },
-          { key: "stale_sourcing", label: "Sourcing", color: "text-red-700" },
+          { key: "no_master_candidate", label: "Não identificado", color: "text-pink-600" },
+          { key: "source_changed", label: "Dados alterados", color: "text-amber-600" },
+          { key: "stale_sourcing", label: "Forn. indisponível", color: "text-red-700" },
           { key: "stale_publication", label: "Publicação", color: "text-purple-600" },
           { key: "economy_opportunity", label: "Economia", color: "text-blue-600" },
-          { key: "inactive_item", label: "Inativos", color: "text-gray-600" },
+          { key: "inactive_item", label: "Desativados", color: "text-gray-600" },
           { key: "total", label: "Total", color: "text-brand-fg" },
         ].map(({ key, label, color }) => (
           <Link

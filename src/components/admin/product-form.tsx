@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import type { AdminCategory, AdminProduct, AdminSupplier } from "@/lib/admin/types";
 
 const UNITS = ["un", "m²", "m", "saco", "lata", "cx", "kg", "l", "par", "pç", "rolo", "galão", "balde", "barra", "milheiro"];
-const BADGES = ["oferta", "novo", "mais-vendido", "frete-gratis", "atacado", "lancamento"];
+const BADGES = ["oferta", "novo", "mais-vendido", "frete-gratis", "lancamento"];
 
 export function ProductForm({ product, id, categories, suppliers, brands }: { product: AdminProduct | null; id: string; categories: AdminCategory[]; suppliers: AdminSupplier[]; brands: string[] }) {
   const [state, action, pending] = useActionState<ActionResult, FormData>(saveProduct, {});
@@ -94,20 +94,14 @@ export function ProductForm({ product, id, categories, suppliers, brands }: { pr
 
         <Card title="Preços">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Preço varejo (R$)">
+            <Field label="Preço de venda (R$)">
               <input name="retail_price" defaultValue={money(p?.retail_price)} className={inputCls} inputMode="decimal" required />
             </Field>
-            <Field label='Preço "de" (R$)' hint="Preenchido = produto em oferta.">
+            <Field label='Preço "de" (R$)' hint="Opcional. Use para mostrar desconto/oferta.">
               <input name="list_price" defaultValue={money(p?.list_price)} className={inputCls} inputMode="decimal" />
             </Field>
             <Field label="Desconto Pix (%)" hint="Vazio usa o padrão do site.">
               <input name="pix_discount_pct" defaultValue={money(p?.pix_discount_pct)} className={inputCls} inputMode="decimal" />
-            </Field>
-            <Field label="Preço atacado (R$)">
-              <input name="wholesale_price" defaultValue={money(p?.wholesale_price)} className={inputCls} inputMode="decimal" />
-            </Field>
-            <Field label="A partir de (qtd.)">
-              <input name="wholesale_min_qty" defaultValue={p?.wholesale_min_qty ?? ""} className={inputCls} inputMode="numeric" />
             </Field>
           </div>
         </Card>

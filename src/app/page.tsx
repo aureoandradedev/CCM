@@ -7,14 +7,15 @@ import { Newsletter } from "@/components/home/newsletter";
 import { PromoBanners, type PromoBanner } from "@/components/home/promo-banners";
 import { QuickLinks } from "@/components/home/quick-links";
 import { ProductRail } from "@/components/product/product-rail";
-import { getBanners, getBrands, getCategories, getInspirations, getQuickLinks, getShowcase } from "@/lib/data/catalog";
+import { getBanners, getBrands, getCategories, getInspirations, getQuickLinks, getShowcase, getSiteSettings } from "@/lib/data/catalog";
 import { unsplash } from "@/lib/data/mock";
+import { shippingFromSettings } from "@/lib/shipping";
 
 const PROMOS: PromoBanner[] = [
   {
     id: "kit-obra",
     eyebrow: "Começo de obra",
-    title: "Cimento, areia e bloco com preço de atacado",
+    title: "Cimento, areia e bloco com os melhores preços",
     subtitle: "Feche o básico da obra em um pedido só e receba direto do distribuidor.",
     cta: "Montar kit obra",
     href: "/categoria/materiais-basicos",
@@ -34,7 +35,7 @@ const PROMOS: PromoBanner[] = [
 ];
 
 export default async function HomePage() {
-  const [banners, quickLinks, categories, ofertas, maisVendidos, atacado, tintas, loucas, inspirations, brands] = await Promise.all([
+  const [banners, quickLinks, categories, ofertas, maisVendidos, atacado, tintas, loucas, inspirations, brands, settings] = await Promise.all([
     getBanners(),
     getQuickLinks(),
     getCategories(),
@@ -45,16 +46,19 @@ export default async function HomePage() {
     getShowcase({ category: "loucas-e-metais" }, 8),
     getInspirations(),
     getBrands(),
+    getSiteSettings(),
   ]);
+  const { freeShippingLabel } = shippingFromSettings(settings.frete);
+  const links = quickLinks.map((l) => l.id === "frete" ? { ...l, subtitle: `acima de ${freeShippingLabel}` } : l);
 
   return (
     <div className="space-y-12 pt-4 md:space-y-16 md:pt-6">
       <HeroCarousel banners={banners} />
-      <QuickLinks links={quickLinks} />
+      <QuickLinks links={links} />
       <DepartmentRail categories={categories} />
       <ProductRail eyebrow="Só esta semana" title="Ofertas da semana" subtitle="Condição especial com desconto extra no Pix" href="/ofertas" products={ofertas} priorityFirst={4} />
       <PromoBanners banners={PROMOS} />
-      <ProductRail eyebrow="Compre em quantidade" title="Mais vendidos no atacado" subtitle="O preço cai sozinho ao atingir a quantidade mínima" href="/atacado" hrefLabel="Ver tudo do atacado" products={atacado} />
+      <ProductRail eyebrow="Compre em quantidade" title="Mais vendidos por volume" subtitle={`Frete grátis em compras acima de ${freeShippingLabel}`} href="/ofertas" hrefLabel="Ver ofertas" products={atacado} />
       <HowItWorks />
       <ProductRail eyebrow="Quem constrói recomenda" title="Os mais vendidos" href="/busca?ordenar=relevance" products={maisVendidos} />
       <InspirationGrid items={inspirations} />

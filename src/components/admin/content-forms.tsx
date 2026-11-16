@@ -188,7 +188,7 @@ export function AvisoForm({ value }: { value: string }) {
   return (
     <form action={action} className="space-y-3">
       <Feedback state={state} />
-      <Field label="Aviso na barra do topo" hint="Vazio = mostra os avisos padrão (frete, Pix, atacado).">
+      <Field label="Aviso na barra do topo" hint="Vazio = mostra os avisos padrão (frete grátis, Pix).">
         <input name="topo" defaultValue={value} className={inputCls} placeholder="Ex.: Black Friday: até 40% em pisos até domingo" />
       </Field>
       <Button type="submit" variant="navy" size="sm" disabled={pending}>

@@ -1,6 +1,6 @@
 # CCM · Central de Compras Multigiro
 
-E-commerce de material de construção com **preço de varejo e de atacado**, entregue **direto dos fornecedores parceiros** (o CCM não mantém estoque próprio).
+E-commerce da Multigiro Central de Compras. **A CCM compra dos fornecedores e revende (modelo 1P)**: o fornecedor envia catálogo e estoque; a CCM decide o que vende, o modo de venda e o preço; a CCM emite a nota fiscal e entrega (ou o cliente retira no CD da CCM). O fornecedor nunca aparece para o cliente.
 
 Referências visuais estudadas: Obramax (estrutura e varejo/atacado), Telhanorte (energia promocional, atalhos, Pix), Deca e Portobello (tipografia editorial e galeria de ambientes).
 
@@ -55,8 +55,6 @@ Só para contas com `profiles.role = 'admin'`. Mesmas funções do painel do mer
 
 ## Próximas fases
 
-- Integração de catálogo/estoque com fornecedores (API, planilha ou ERP) e painel do fornecedor
-- Frete cotado por fornecedor/região e notificação automática ao fornecedor
 - Ativação automática de campanhas por horário (hoje: botão "Ativar agora" no admin)
 
 Mais detalhes de arquitetura e convenções em `CLAUDE.md`.

@@ -15,7 +15,7 @@ const DECISIONS = [
 export function PurchaseOrderActions({ poId, status, minimumMet }: { poId: string; status: string; minimumMet: boolean }) {
   const [state, action, pending] = useActionState<ActionResult, FormData>(decidePurchaseOrder, {});
 
-  if (status !== "draft") return null;
+  if (!["draft", "ready", "minimum_not_met"].includes(status)) return null;
 
   const options = minimumMet
     ? DECISIONS.filter((d) => d.value === "send")

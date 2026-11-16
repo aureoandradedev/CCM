@@ -497,7 +497,7 @@ async function phaseDetectExceptions(
   try {
     const { data: rawOffers } = await sb
       .from("supplier_offers")
-      .select("id, master_product_id, supplier_id, cost_centavos, stock, lead_time_days, status")
+      .select("id, master_product_id, supplier_id, cost_centavos, unit_cost_centavos, stock, lead_time_days, status")
       .eq("status", "ativa")
       .is("replaced_at", null);
     operationalIds = await getOperationalSupplierIds(sb);
@@ -517,7 +517,7 @@ async function phaseDetectExceptions(
     if (selOfferIds.length > 0) {
       const { data: selOffers } = await sb
         .from("supplier_offers")
-        .select("id, master_product_id, supplier_id, cost_centavos, stock, lead_time_days, status, replaced_at")
+        .select("id, master_product_id, supplier_id, cost_centavos, unit_cost_centavos, stock, lead_time_days, status, replaced_at")
         .in("id", selOfferIds);
       selOfferMap = new Map((selOffers ?? []).map((o: { id: string }) => [o.id, o]));
     }
@@ -573,27 +573,38 @@ async function phaseDetectExceptions(
           });
         }
 
+        // R6 official: economy opportunity = cheapest unit cost with stock > 0
         const sel = selMap.get(ranking.master_product_id);
-        if (sel && ranking.recommended_offer_id && ranking.recommended_offer_id !== sel.supplier_offer_id) {
+        if (sel) {
           const selOffer = selOfferMap.get(sel.supplier_offer_id);
           if (selOffer && selOffer.status === "ativa" && selOffer.replaced_at == null) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const recOffer = currentOffers.find((o: any) => o.id === ranking.recommended_offer_id);
-            if (recOffer && recOffer.cost_centavos < selOffer.cost_centavos) {
-              const savings = selOffer.cost_centavos - recOffer.cost_centavos;
+            const productOffers = currentOffers.filter((o: any) =>
+              o.master_product_id === ranking.master_product_id &&
+              (o.stock ?? 0) > 0 &&
+              (o.unit_cost_centavos ?? o.cost_centavos) > 0
+            );
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            productOffers.sort((a: any, b: any) =>
+              (a.unit_cost_centavos ?? a.cost_centavos) - (b.unit_cost_centavos ?? b.cost_centavos)
+            );
+            const cheapest = productOffers[0];
+            if (cheapest && cheapest.id !== sel.supplier_offer_id &&
+                (cheapest.unit_cost_centavos ?? cheapest.cost_centavos) < (selOffer.unit_cost_centavos ?? selOffer.cost_centavos)) {
+              const savings = (selOffer.unit_cost_centavos ?? selOffer.cost_centavos) - (cheapest.unit_cost_centavos ?? cheapest.cost_centavos);
               exceptions.push({
                 type: "economy_opportunity",
                 severity: "low",
                 entity_type: "master_product",
                 entity_id: ranking.master_product_id,
                 master_product_id: ranking.master_product_id,
-                supplier_id: recOffer.supplier_id,
+                supplier_id: cheapest.supplier_id,
                 title: `Economia disponível: ${mpName} (-R$ ${(savings / 100).toFixed(2)})`,
                 detail: {
                   current_offer_id: sel.supplier_offer_id,
-                  current_cost: selOffer.cost_centavos,
-                  recommended_offer_id: ranking.recommended_offer_id,
-                  recommended_cost: recOffer.cost_centavos,
+                  current_cost: selOffer.unit_cost_centavos ?? selOffer.cost_centavos,
+                  recommended_offer_id: cheapest.id,
+                  recommended_cost: cheapest.unit_cost_centavos ?? cheapest.cost_centavos,
                   savings_centavos: savings,
                 },
                 fingerprint: `economy:${ranking.master_product_id}`,
@@ -768,7 +779,7 @@ async function phaseDetectExceptions(
     if (pubOfferIds.length > 0) {
       const { data: pubOffers } = await sb
         .from("supplier_offers")
-        .select("id, cost_centavos, stock, status, replaced_at")
+        .select("id, cost_centavos, unit_cost_centavos, stock, status, replaced_at")
         .in("id", pubOfferIds);
       pubOfferMap = new Map((pubOffers ?? []).map((o: { id: string }) => [o.id, o]));
     }
@@ -817,8 +828,9 @@ async function phaseDetectExceptions(
         continue;
       }
 
-      const costChanged = offer.cost_centavos !== prod.cost_centavos;
-      const pricing = calculatePrice(offer.cost_centavos, mr);
+      const offerUnitCost = offer.unit_cost_centavos ?? offer.cost_centavos;
+      const costChanged = offerUnitCost !== prod.cost_centavos;
+      const pricing = calculatePrice(offerUnitCost, mr);
       const currentRetailCentavos = Math.round(Number(prod.retail_price) * 100);
       const priceChanged = pricing.rounded_price_centavos !== currentRetailCentavos;
 
@@ -836,7 +848,7 @@ async function phaseDetectExceptions(
             cost_changed: costChanged,
             price_changed: priceChanged,
             current_cost: prod.cost_centavos,
-            offer_cost: offer.cost_centavos,
+            offer_unit_cost: offerUnitCost,
           },
           fingerprint: `stale_pub:${prod.id}`,
         });

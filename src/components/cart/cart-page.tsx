@@ -7,19 +7,20 @@ import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 
 import { CartLineItem } from "@/components/cart/cart-line-item";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
-import { FREE_SHIPPING_FROM } from "@/components/product/shipping-estimate";
 import { Button } from "@/components/ui/button";
+import { useShippingConfig } from "@/lib/shipping-context";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { selectLines, selectTotals, useCartStore } from "@/lib/cart/store";
 import { formatBRL } from "@/lib/utils/format";
 
 export function CartPage() {
+  const { freeShippingFrom, freeShippingLabel } = useShippingConfig();
   const hydrated = useHydrated();
   const lines = useCartStore(useShallow(selectLines));
   const totals = useCartStore(useShallow(selectTotals));
   const clear = useCartStore((s) => s.clear);
 
-  const missingForFree = Math.max(0, FREE_SHIPPING_FROM - totals.subtotal);
+  const missingForFree = Math.max(0, freeShippingFrom - totals.subtotal);
 
   return (
     <div className="container-ccm pt-4 md:pt-6">
@@ -41,7 +42,7 @@ export function CartPage() {
         <div className="mt-6 flex flex-col items-center gap-4 rounded-3xl border border-dashed border-brand-line bg-card px-6 py-16 text-center">
           <Image src="/brand/mascote-bone-alpha.png" alt="" width={335} height={370} className="h-40 w-auto" />
           <p className="font-heading text-xl font-bold text-brand-navy dark:text-foreground">Seu carrinho está vazio</p>
-          <p className="max-w-sm text-sm text-brand-ink-soft">Monte a lista da obra: o preço de atacado é aplicado sozinho ao atingir a quantidade mínima.</p>
+          <p className="max-w-sm text-sm text-brand-ink-soft">Adicione produtos e ganhe frete grátis em compras acima de {freeShippingLabel}.</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Button variant="brand" size="lg" render={<Link href="/ofertas" />}>
               Ver ofertas
@@ -71,18 +72,12 @@ export function CartPage() {
               <h2 className="font-heading text-lg font-extrabold text-brand-navy dark:text-foreground">Resumo</h2>
               <dl className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between text-brand-ink-soft">
-                  <dt>Subtotal (preço de varejo)</dt>
-                  <dd className="tabular-nums">{formatBRL(totals.retailSubtotal)}</dd>
+                  <dt>Subtotal</dt>
+                  <dd className="tabular-nums">{formatBRL(totals.subtotal)}</dd>
                 </div>
-                {totals.wholesaleSavings > 0 ? (
-                  <div className="flex justify-between font-medium text-brand-green">
-                    <dt>Economia no atacado</dt>
-                    <dd className="tabular-nums">- {formatBRL(totals.wholesaleSavings)}</dd>
-                  </div>
-                ) : null}
                 <div className="flex justify-between text-brand-ink-soft">
                   <dt>Frete</dt>
-                  <dd>{totals.subtotal >= FREE_SHIPPING_FROM ? <span className="font-semibold text-brand-green">Grátis</span> : "calculado no checkout"}</dd>
+                  <dd>{totals.subtotal >= freeShippingFrom ? <span className="font-semibold text-brand-green">Grátis</span> : "calculado no checkout"}</dd>
                 </div>
                 <div className="flex items-baseline justify-between border-t border-brand-line pt-3">
                   <dt className="font-heading text-base font-bold text-brand-navy dark:text-foreground">Total</dt>
@@ -100,7 +95,7 @@ export function CartPage() {
                     Faltam <strong>{formatBRL(missingForFree)}</strong> para frete grátis na entrega.
                   </p>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/70">
-                    <div className="h-full rounded-full bg-brand-yellow-2 transition-[width] duration-300" style={{ width: `${Math.min(100, (totals.subtotal / FREE_SHIPPING_FROM) * 100)}%` }} />
+                    <div className="h-full rounded-full bg-brand-yellow-2 transition-[width] duration-300" style={{ width: `${Math.min(100, (totals.subtotal / freeShippingFrom) * 100)}%` }} />
                   </div>
                 </div>
               ) : null}

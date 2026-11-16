@@ -21,8 +21,8 @@ const EVENT_LABEL: Record<string, string> = {
   arquivado: "Arquivado",
   reaberto: "Reaberto",
   cancelado: "Cancelado",
-  desconsiderado: "Desconsiderado no faturamento",
-  reconsiderado: "Voltou ao faturamento",
+  desconsiderado: "Removido do fechamento",
+  reconsiderado: "Devolvido ao fechamento",
 };
 
 export default async function AdminOrder({ params }: { params: Promise<{ code: string }> }) {

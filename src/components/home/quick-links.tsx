@@ -4,7 +4,7 @@ import type { QuickLink } from "@/types/catalog";
 import { Reveal } from "@/components/motion/reveal";
 import { Icon } from "@/components/ui/icon";
 
-/** Atalhos de diferenciais (Telhanorte): Pix, atacado, fornecedor, orçamento, televendas. */
+/** Atalhos de diferenciais: Pix, frete grátis, fornecedor, orçamento, televendas. */
 export function QuickLinks({ links }: { links: QuickLink[] }) {
   return (
     <Reveal as="section" className="container-ccm" aria-label="Diferenciais" stagger={0.05}>

@@ -13,7 +13,7 @@ export default function PaymentsPage() {
     <InfoPage
       crumb="Formas de pagamento"
       title="Formas de pagamento"
-      intro="Pagamento seguro processado pela Cielo. Você só é cobrado quando o pagamento é aprovado e o fornecedor confirma a disponibilidade."
+      intro="Pagamento seguro processado pela Cielo. Você só é cobrado quando o pagamento é aprovado e a disponibilidade é confirmada."
     >
       <InfoSection title="Pix">
         <p>

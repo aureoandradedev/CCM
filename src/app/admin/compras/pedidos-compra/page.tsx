@@ -2,11 +2,13 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { Card, Kpi, NotConfigured, PageTitle, Table, Th } from "@/components/admin/ui";
-import { adminPurchaseOrders, adminSuppliers, configured } from "@/lib/admin/data";
+import { adminPurchaseOrders, adminSuppliers, configured, consolidateTodayPurchaseOrders } from "@/lib/admin/data";
 import { PurchaseOrderActions } from "./_actions-panel";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
+  ready: "Pronto",
+  minimum_not_met: "Abaixo do mínimo",
   sent: "Enviado",
   confirmed: "Confirmado",
   partial: "Parcial",
@@ -31,6 +33,9 @@ function statusCls(status: string) {
 
 export default async function PedidosCompraPage() {
   if (!configured()) return <NotConfigured />;
+
+  await consolidateTodayPurchaseOrders();
+
   const [orders, suppliers] = await Promise.all([
     adminPurchaseOrders(),
     adminSuppliers(),
@@ -38,8 +43,8 @@ export default async function PedidosCompraPage() {
 
   const nameMap = Object.fromEntries(suppliers.map((s) => [s.id, s.name]));
 
-  const drafts = orders.filter((o) => o.status === "draft");
-  const belowMin = drafts.filter((o) => !o.minimum_met);
+  const actionable = orders.filter((o) => ["draft", "ready", "minimum_not_met"].includes(o.status));
+  const belowMin = orders.filter((o) => !o.minimum_met && ["draft", "minimum_not_met"].includes(o.status));
   const sent = orders.filter((o) => o.status === "sent");
 
   return (
@@ -54,7 +59,7 @@ export default async function PedidosCompraPage() {
       <PageTitle title="Pedidos de compra" subtitle="Ciclos de compra por fornecedor" />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-4">
-        <Kpi label="Rascunhos" value={String(drafts.length)} tone={drafts.length > 0 ? "yellow" : "slate"} />
+        <Kpi label="Pendentes" value={String(actionable.length)} tone={actionable.length > 0 ? "yellow" : "slate"} />
         <Kpi label="Abaixo do mínimo" value={String(belowMin.length)} tone={belowMin.length > 0 ? "red" : "slate"} />
         <Kpi label="Enviados" value={String(sent.length)} tone={sent.length > 0 ? "green" : "slate"} />
         <Kpi label="Total" value={String(orders.length)} />
@@ -69,10 +74,10 @@ export default async function PedidosCompraPage() {
                   <p className="font-medium text-brand-ink">{nameMap[po.supplier_id] ?? po.supplier_id}</p>
                   <p className="text-sm text-brand-ink-soft">
                     Ciclo: {new Date(po.cycle_date).toLocaleDateString("pt-BR")} · {formatBRL(po.total_centavos)}
-                    {po.minimum_centavos != null ? ` de ${formatBRL(po.minimum_centavos)}` : ""}
+                    {po.minimum_value != null ? ` (mín. ${po.minimum_type === "volume" ? `${po.minimum_value} un.` : formatBRL(po.minimum_value * 100)})` : ""}
                   </p>
                 </div>
-                <PurchaseOrderActions poId={po.id} status="draft" minimumMet={false} />
+                <PurchaseOrderActions poId={po.id} status={po.status} minimumMet={po.minimum_met} />
               </div>
             </div>
           ))}

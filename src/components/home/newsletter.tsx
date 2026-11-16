@@ -23,7 +23,7 @@ export function Newsletter() {
     await new Promise((r) => setTimeout(r, 500));
     setSending(false);
     setPhone("");
-    toast.success("Pronto! Você vai receber as ofertas de atacado no WhatsApp.");
+    toast.success("Pronto! Você vai receber as melhores ofertas no WhatsApp.");
   };
 
   return (
@@ -35,7 +35,7 @@ export function Newsletter() {
           </span>
           <div>
             <h2 id="news-title" className="font-heading text-2xl font-extrabold tracking-tight md:text-[1.75rem]">
-              Ofertas de atacado direto no seu WhatsApp
+              Ofertas exclusivas direto no seu WhatsApp
             </h2>
             <p className="mt-1 text-sm text-brand-navy/80">Uma mensagem por semana com ofertas exclusivas e novidades. Sem spam.</p>
           </div>

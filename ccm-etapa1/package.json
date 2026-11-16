@@ -1,0 +1,8 @@
+{
+  "name": "ccm-etapa1",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": { "test": "node --test test/etapa1.test.ts test/etapa1-additional.test.ts test/etapa1-extended.test.ts test/purchase-cycle-impl.test.ts test/engine-r6.test.ts test/r4-1b-materialize.test.ts" },
+  "engines": { "node": ">=22.18" }
+}

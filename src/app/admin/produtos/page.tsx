@@ -24,7 +24,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
   if (!configured()) return <NotConfigured />;
   const page = Number(sp.page ?? 1) || 1;
   const [{ items, total }, categories, suppliers] = await Promise.all([
-    adminListProducts({ q: sp.q, category: sp.cat, supplier: sp.forn, foto: sp.foto as "sem" | "pendente" | undefined, status: (sp.status as "ativos" | "inativos" | "todos") ?? "ativos", oferta: sp.oferta === "1", atacado: sp.atacado === "1", page }),
+    adminListProducts({ q: sp.q, category: sp.cat, supplier: sp.forn, foto: sp.foto as "sem" | "pendente" | undefined, status: (sp.status as "ativos" | "inativos" | "todos") ?? "ativos", oferta: sp.oferta === "1", page }),
     adminCategories(),
     adminSuppliers(),
   ]);
@@ -61,7 +61,6 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
         <Chip href={href(sp, { foto: sp.foto === "sem" ? undefined : "sem" })} active={sp.foto === "sem"}>Sem foto real</Chip>
         <Chip href={href(sp, { foto: sp.foto === "pendente" ? undefined : "pendente" })} active={sp.foto === "pendente"}>Foto pendente</Chip>
         <Chip href={href(sp, { oferta: sp.oferta === "1" ? undefined : "1" })} active={sp.oferta === "1"}>Em oferta</Chip>
-        <Chip href={href(sp, { atacado: sp.atacado === "1" ? undefined : "1" })} active={sp.atacado === "1"}>Com atacado</Chip>
         <span className="mx-1 w-px bg-brand-line" />
         {categories.map((c) => (
           <Chip key={c.slug} href={href(sp, { cat: sp.cat === c.slug ? undefined : c.slug })} active={sp.cat === c.slug}>
@@ -87,8 +86,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
               <Th className="w-14"></Th>
               <Th>Produto</Th>
               <Th>Categoria</Th>
-              <Th className="text-right">Varejo</Th>
-              <Th className="text-right">Atacado</Th>
+              <Th className="text-right">Preço</Th>
               <Th>Estoque</Th>
               <Th className="w-44"></Th>
             </tr>
@@ -121,7 +119,6 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
                     {p.list_price ? <p className="text-xs text-brand-ink-soft line-through">{formatBRL(Number(p.list_price))}</p> : null}
                     <p className="text-[0.65rem] text-brand-ink-soft">/{p.unit}</p>
                   </Td>
-                  <Td className="text-right text-xs tabular-nums">{p.wholesale_price ? <>{formatBRL(Number(p.wholesale_price))}<p className="text-brand-ink-soft">≥ {p.wholesale_min_qty}</p></> : "—"}</Td>
                   <Td className="text-xs">
                     {p.stock === null ? <span className="text-brand-ink-soft">sem controle</span> : p.stock === 0 ? <span className="font-bold text-brand-red">esgotado</span> : p.stock <= 5 ? <span className="font-bold text-brand-orange">{p.stock} (últimas)</span> : p.stock}
                     {p.max_per_order_enabled && p.max_per_order ? <p className="text-brand-ink-soft">máx. {p.max_per_order}/pedido</p> : null}

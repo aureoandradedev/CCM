@@ -87,7 +87,7 @@ export async function submitSupplierRegistration(
       p_prazo_entrega_cd_dias: Number(fd.get("prazo_entrega_cd_dias")) || 3,
       p_frete_tipo: freteTipo,
       p_frete_gratis_acima: freteTipo === "gratis_acima" ? Number(String(fd.get("frete_gratis_acima") ?? "0").replace(/\./g, "").replace(",", ".")) || null : null,
-      p_frete_valor: Number(String(fd.get("frete_valor") ?? "0").replace(/\./g, "").replace(",", ".")) || null,
+      p_frete_valor: (() => { const v = Number(String(fd.get("frete_valor") ?? "0").replace(/\./g, "").replace(",", ".")); return Number.isFinite(v) ? v : null; })(),
     });
 
     if (error) return { error: error.message };

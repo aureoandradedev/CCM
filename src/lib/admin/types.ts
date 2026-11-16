@@ -1,3 +1,5 @@
+import { FREE_SHIPPING_FROM_CENTAVOS, STANDARD_SHIPPING_CENTAVOS } from "@/lib/shipping";
+
 /** Linhas do banco usadas pelo painel admin (colunas como no Postgres). */
 
 export interface AdminProduct {
@@ -135,7 +137,8 @@ export interface PurchaseOrder {
   status: "draft" | "sent" | "confirmed" | "partial" | "completed" | "cancelled";
   total_centavos: number;
   item_count: number;
-  minimum_centavos: number | null;
+  minimum_type: string | null;
+  minimum_value: number | null;
   minimum_met: boolean;
   freight_centavos: number;
   decision: string | null;
@@ -263,7 +266,7 @@ export interface SiteSettings {
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
-  frete: { freeShippingFromCentavos: 79900, flatCentavos: 4990, pickupEnabled: true },
+  frete: { freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS, flatCentavos: STANDARD_SHIPPING_CENTAVOS, pickupEnabled: true },
   entrega_bloqueio: { ativo: false, data: null, mensagem: "" },
   descontos: { pixPct: 5, primeiraCompra: { ativo: false, percentual: 0 }, secoes: {} },
   best_sellers: { ids: [] },

@@ -61,11 +61,7 @@ export async function saveProduct(_prev: ActionResult, fd: FormData): Promise<Ac
     const name = str(fd, "name");
     if (name.length < 3) return { error: "Nome do produto muito curto." };
     const retail = numOrNull(fd, "retail_price");
-    if (retail === null || retail < 0) return { error: "Preço de varejo inválido." };
-    const wholesale = numOrNull(fd, "wholesale_price");
-    const wholesaleMin = intOrNull(fd, "wholesale_min_qty");
-    if (wholesale !== null && (wholesaleMin === null || wholesaleMin < 2)) return { error: "Preço de atacado exige quantidade mínima (≥ 2)." };
-    if (wholesale !== null && wholesale >= retail) return { error: "Atacado precisa ser menor que o varejo." };
+    if (retail === null || retail < 0) return { error: "Preço de venda inválido." };
     const listPrice = numOrNull(fd, "list_price");
     if (listPrice !== null && listPrice <= retail) return { error: "O preço \"de\" precisa ser maior que o preço atual." };
     const category = str(fd, "category_slug");
@@ -98,8 +94,6 @@ export async function saveProduct(_prev: ActionResult, fd: FormData): Promise<Ac
       unit: str(fd, "unit") || "un",
       pack_info: str(fd, "pack_info") || null,
       retail_price: retail,
-      wholesale_price: wholesale,
-      wholesale_min_qty: wholesale !== null ? wholesaleMin : null,
       list_price: listPrice,
       pix_discount_pct: numOrNull(fd, "pix_discount_pct"),
       image_manual: bool(fd, "image_manual"),
@@ -530,7 +524,7 @@ export async function saveCommercialTerms(_p: ActionResult, fd: FormData): Promi
     const supplierId = str(fd, "supplier_id");
     if (!supplierId) return { error: "Fornecedor não informado." };
 
-    const toNum = (v: string) => parseFloat(v.replace(",", ".") || "0");
+    const toNum = (v: string) => parseFloat(v.replace(/\./g, "").replace(",", ".") || "0");
     const pedidoMinimoTipo = str(fd, "pedido_minimo_tipo");
     const pedidoMinimo = toNum(str(fd, "pedido_minimo"));
     const freteTipo = str(fd, "frete_tipo");
@@ -747,10 +741,24 @@ export async function decidePurchaseOrder(_p: ActionResult, fd: FormData): Promi
       decided_by: adminId,
       decided_at: new Date().toISOString(),
       status: decision === "wait_next_cycle" ? "cancelled" : "sent",
-    }).eq("id", poId).eq("status", "draft");
+    }).eq("id", poId).in("status", ["draft", "ready", "minimum_not_met"]);
 
     if (error) return { error: error.message };
     return { ok: "Decisão registrada." };
+  }, ["/admin/compras"]);
+}
+
+export async function consolidateCyclePurchaseOrders(): Promise<ActionResult> {
+  return run(async (sb) => {
+    const spDate = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    const { data, error } = await sb.rpc("consolidate_cycle_purchase_orders", {
+      p_cycle_date: spDate,
+    });
+    if (error) return { error: error.message };
+    const res = data as { ok?: boolean; error?: string; generated?: number; skipped?: number };
+    if (!res.ok) return { error: res.error ?? "Erro ao consolidar." };
+    if (res.generated === 0) return {};
+    return { ok: `${res.generated} pedido(s) de compra gerado(s) automaticamente.` };
   }, ["/admin/compras"]);
 }
 

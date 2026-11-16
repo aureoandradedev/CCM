@@ -13,6 +13,8 @@ const CONFIG_LABELS: Record<string, string> = {
   auto_switch_enabled: "Troca automática de fornecedor",
   auto_price_increase_limit_pct: "Limite de aumento automático (%)",
   package_discount_pct: "Desconto caixa fechada (%)",
+  horario_corte_ciclo: "Horário de corte do ciclo (HH:MM)",
+  feriados: "Feriados (array JSON de datas YYYY-MM-DD)",
 };
 
 function formatValue(v: unknown): string {
@@ -61,6 +63,8 @@ export function CcmConfigsPanel({ configs }: { configs: CcmConfig[] }) {
               <option value="auto_switch_enabled">Troca automática de fornecedor (true/false)</option>
               <option value="auto_price_increase_limit_pct">Limite de aumento automático (%)</option>
               <option value="package_discount_pct">Desconto caixa fechada (%)</option>
+              <option value="horario_corte_ciclo">Horário de corte do ciclo (HH:MM)</option>
+              <option value="feriados">Feriados (array JSON de datas)</option>
             </select>
           </Field>
           <Field label="Escopo">

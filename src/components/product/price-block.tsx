@@ -1,5 +1,5 @@
 import { formatBRL, formatUnit, splitBRL } from "@/lib/utils/format";
-import { hasWholesale, installmentPlan, offerDiscountPct, pixPrice, wholesaleSavingsPct, type PriceLike } from "@/lib/pricing";
+import { installmentPlan, offerDiscountPct, pixPrice, type PriceLike } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 interface PriceBlockProps extends PriceLike {
@@ -9,18 +9,11 @@ interface PriceBlockProps extends PriceLike {
   className?: string;
 }
 
-/**
- * Bloco de preço padrão da Multigiro Central de Compras (usado no card e na página do produto):
- *  - preço "de" riscado quando há oferta
- *  - preço varejo em destaque + unidade
- *  - "no Pix" em verde (Telhanorte)
- *  - faixa laranja do atacado com a quantidade mínima (Obramax)
- */
+/** Bloco de preço (card e PDP): preço "de" riscado, preço vigente, Pix e parcelamento. */
 export function PriceBlock({ unit, variant = "card", className, ...p }: PriceBlockProps) {
   const off = offerDiscountPct(p);
   const price = splitBRL(p.retailPrice);
   const pix = pixPrice(p.retailPrice, p.pixDiscountPct);
-  const wholesale = hasWholesale(p);
   const detail = variant === "detail";
   const plan = detail ? installmentPlan(p.retailPrice) : null;
 
@@ -51,24 +44,6 @@ export function PriceBlock({ unit, variant = "card", className, ...p }: PriceBlo
         ) : null}
       </div>
 
-      {wholesale ? (
-        <div
-          className={cn(
-            "mt-1 flex items-center gap-2 rounded-lg bg-brand-orange-soft px-2 py-1.5 text-brand-navy dark:text-foreground",
-            detail ? "text-sm" : "text-xs",
-          )}
-        >
-          <span className="rounded-md bg-brand-orange px-1.5 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-white">
-            Atacado
-          </span>
-          <span className="leading-tight">
-            <strong className="font-heading font-bold">{formatBRL(p.wholesalePrice as number)}</strong>
-            <span className="text-brand-ink-soft">/{formatUnit(unit)}</span>
-            {" "}a partir de <strong>{p.wholesaleMinQty} {formatUnit(unit)}</strong>
-            {detail ? <span className="text-brand-ink-soft"> · economize {wholesaleSavingsPct(p)}%</span> : null}
-          </span>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -19,7 +19,7 @@ export default async function DepartmentsPage() {
     <div className="container-ccm pt-4 md:pt-6">
       <Breadcrumbs items={[{ label: "Departamentos" }]} />
       <h1 className="mt-4 font-heading text-[2rem] font-extrabold tracking-tight text-brand-navy md:mt-6 md:text-[2.6rem] dark:text-foreground">Todos os departamentos</h1>
-      <p className="mt-2 max-w-2xl text-sm text-brand-ink-soft">Do alicerce ao acabamento. Cada departamento tem fornecedores parceiros com preço de varejo e de atacado.</p>
+      <p className="mt-2 max-w-2xl text-sm text-brand-ink-soft">Do alicerce ao acabamento. Cada departamento tem fornecedores parceiros com os melhores preços da região.</p>
 
       <Reveal stagger={0.05}>
         <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

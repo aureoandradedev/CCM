@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { AdminCategory, AdminSupplier } from "@/lib/admin/types";
+import type { SupplierListSummary } from "@/lib/admin/supplier-bi-data";
 import { maskCNPJ } from "@/lib/utils/masks";
 
 function SupplierStatusBadge({ supplier, hasActiveTerms }: { supplier: AdminSupplier; hasActiveTerms: boolean }) {
@@ -119,7 +120,11 @@ function matchesSearch(s: AdminSupplier, q: string): boolean {
   return false;
 }
 
-export function SuppliersAdmin({ suppliers, supplierIdsWithTerms }: { suppliers: AdminSupplier[]; supplierIdsWithTerms: string[] }) {
+function fmtBrl(centavos: number): string {
+  return (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+export function SuppliersAdmin({ suppliers, supplierIdsWithTerms, summaries = {} }: { suppliers: AdminSupplier[]; supplierIdsWithTerms: string[]; summaries?: Record<string, SupplierListSummary> }) {
   const termsSet = new Set(supplierIdsWithTerms);
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => suppliers.filter((s) => matchesSearch(s, query.trim())), [suppliers, query]);
@@ -146,29 +151,42 @@ export function SuppliersAdmin({ suppliers, supplierIdsWithTerms }: { suppliers:
             {query.trim() ? `Nenhum fornecedor encontrado para "${query.trim()}".` : "Nenhum fornecedor cadastrado."}
           </p>
         ) : (
-          filtered.map((s) => (
-            <div key={s.id} className="rounded-2xl border border-brand-line bg-card p-3">
-              <div className="flex items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Link href={`/admin/fornecedores/${s.id}`} className="font-semibold text-brand-navy hover:underline dark:text-foreground">
-                      {s.name}
-                    </Link>
-                    <SupplierStatusBadge supplier={s} hasActiveTerms={termsSet.has(s.id)} />
+          filtered.map((s) => {
+            const kpi = summaries[s.id];
+            return (
+              <div key={s.id} className="rounded-2xl border border-brand-line bg-card p-3">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/admin/fornecedores/${s.id}`} className="font-semibold text-brand-navy hover:underline dark:text-foreground">
+                        {s.name}
+                      </Link>
+                      <SupplierStatusBadge supplier={s} hasActiveTerms={termsSet.has(s.id)} />
+                    </div>
+                    <p className="text-xs text-brand-ink-soft">
+                      {s.city ?? "—"} · despacho {s.lead_time_days} dia(s) · {s.cnpj ? maskCNPJ(s.cnpj) : "sem CNPJ"} · {s.contact_name ?? ""} {s.contact_phone ?? ""}
+                    </p>
+                    {kpi && (
+                      <div className="mt-1.5 flex flex-wrap gap-3 text-[0.65rem] font-semibold tabular-nums text-brand-ink-soft">
+                        <span title="Faturamento 30 dias">Fat. 30d: <span className="text-brand-navy">{fmtBrl(kpi.faturamento30d)}</span></span>
+                        <span title="Unidades vendidas 30 dias">Un. 30d: <span className="text-brand-navy">{kpi.unidades30d}</span></span>
+                        <span title="Produtos com oferta ativa">Prod. ativos: <span className="text-brand-navy">{kpi.produtosAtivos}</span></span>
+                        {kpi.ultimaVenda && (
+                          <span title="Última venda">Últ. venda: <span className="text-brand-navy">{new Date(kpi.ultimaVenda).toLocaleDateString("pt-BR")}</span></span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-xs text-brand-ink-soft">
-                    {s.city ?? "—"} · despacho {s.lead_time_days} dia(s) · {s.cnpj ? maskCNPJ(s.cnpj) : "sem CNPJ"} · {s.contact_name ?? ""} {s.contact_phone ?? ""}
-                  </p>
+                  <Link
+                    href={`/admin/fornecedores/${s.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink-soft transition-colors hover:border-brand-navy hover:text-brand-navy"
+                  >
+                    <Pencil className="size-3" /> Editar
+                  </Link>
                 </div>
-                <Link
-                  href={`/admin/fornecedores/${s.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink-soft transition-colors hover:border-brand-navy hover:text-brand-navy"
-                >
-                  <Pencil className="size-3" /> Editar
-                </Link>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

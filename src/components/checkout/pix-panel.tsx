@@ -105,7 +105,7 @@ export function PixPanel({ orderId, orderCode, totalCentavos, pricingVersion, on
       <div className="rounded-2xl border border-brand-orange/40 bg-brand-orange-soft p-5 text-sm">
         <p className="font-semibold text-brand-navy">O valor do pedido foi atualizado para {formatBRL(confirmarVersao.totalCentavos / 100)}.</p>
         <Button variant="brand" className="mt-3" onClick={() => { setConfirmarVersao(null); void gerar(confirmarVersao.pricingVersion); }}>
-          Confirmar e gerar Pix
+          Confirmar e enviar pedido
         </Button>
       </div>
     );

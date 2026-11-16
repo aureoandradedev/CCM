@@ -15,11 +15,11 @@ export default function ProsPage() {
       crumb="Profissionais"
       eyebrow="Pedreiros, eletricistas, engenheiros e arquitetos"
       title="Quem constrói todo dia merece preço de todo dia."
-      intro="Cadastre-se como profissional e tenha atacado desde a primeira unidade em itens selecionados, orçamento por lista com resposta rápida e um vendedor dedicado no WhatsApp."
+      intro="Cadastre-se como profissional e tenha condições especiais em itens selecionados, orçamento por lista com resposta rápida e um vendedor dedicado no WhatsApp."
     >
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          ["Atacado desde 1 un.", "Em cimento, argamassa, cabos e tintas selecionadas."],
+          ["Preço especial", "Em cimento, argamassa, cabos e tintas selecionadas."],
           ["Lista salva por obra", "Repita o pedido da última obra em um clique."],
           ["Vendedor dedicado", "Um contato fixo que conhece o seu histórico."],
         ].map(([t, d]) => (

@@ -128,7 +128,6 @@ export default async function ProductPage({ params }: Props) {
                 ["Marca", product.brand],
                 ["Unidade de venda", formatUnit(product.unit)],
                 ...(product.packInfo ? [["Embalagem", product.packInfo]] : []),
-                ...(product.wholesaleMinQty ? [["Atacado a partir de", `${product.wholesaleMinQty} ${formatUnit(product.unit)}`]] : []),
                 ...(product.specs ?? []).map((s) => [s.label, s.value]),
               ].map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-3 py-2.5">

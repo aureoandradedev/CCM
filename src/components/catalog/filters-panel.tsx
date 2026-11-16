@@ -28,7 +28,7 @@ export function FiltersPanel({ basePath, params, category, brands, hideSubcatego
         <h2 className="font-heading text-base font-bold text-brand-navy dark:text-foreground">Filtros</h2>
         {active > 0 ? (
           <Link
-            href={catalogHref(basePath, params, { sub: undefined, marca: undefined, atacado: false, ofertas: false, min: undefined, max: undefined })}
+            href={catalogHref(basePath, params, { sub: undefined, marca: undefined, ofertas: false, min: undefined, max: undefined })}
             className="inline-flex items-center gap-1 text-xs font-semibold text-brand-red hover:underline"
           >
             <X className="size-3" /> Limpar ({active})
@@ -37,10 +37,6 @@ export function FiltersPanel({ basePath, params, category, brands, hideSubcatego
       </div>
 
       <FilterGroup title="Condições">
-        <ToggleLink href={catalogHref(basePath, params, { atacado: !params.atacado })} active={params.atacado}>
-          <span className="rounded bg-brand-orange px-1.5 py-0.5 text-[0.6rem] font-extrabold uppercase text-white">Atacado</span>
-          Com preço de atacado
-        </ToggleLink>
         <ToggleLink href={catalogHref(basePath, params, { ofertas: !params.ofertas })} active={params.ofertas}>
           <span className="rounded bg-brand-red px-1.5 py-0.5 text-[0.6rem] font-extrabold uppercase text-white">Oferta</span>
           Em promoção
@@ -72,7 +68,7 @@ export function FiltersPanel({ basePath, params, category, brands, hideSubcatego
         </FilterGroup>
       ) : null}
 
-      <FilterGroup title="Preço (varejo)">
+      <FilterGroup title="Preço">
         {PRICE_RANGES.map((r) => (
           <ToggleLink
             key={r.label}

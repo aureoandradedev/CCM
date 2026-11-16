@@ -10,6 +10,7 @@ import type {
   Supplier,
 } from "@/types/catalog";
 
+
 /**
  * Catálogo MOCK do CCM.
  *
@@ -1334,11 +1335,11 @@ export const products: Product[] = [
 
 export const banners: Banner[] = [
   {
-    id: "hero-atacado",
-    eyebrow: "Preço de atacado sem burocracia",
+    id: "hero-central",
+    eyebrow: "Central de Compras",
     title: "Sua obra inteira em um só pedido.",
     subtitle:
-      "Cimento, piso, tinta e elétrica direto dos melhores fornecedores da região, com preço de atacado a partir de poucas unidades.",
+      "Cimento, piso, tinta e elétrica direto dos melhores fornecedores da região, com frete grátis e desconto no Pix.",
     cta: "Ver ofertas da semana",
     href: "/ofertas",
     image: "/brand/mascote-capacete-alpha.png",
@@ -1358,7 +1359,7 @@ export const banners: Banner[] = [
   {
     id: "hero-loucas",
     eyebrow: "Louças e metais",
-    title: "Banheiro de revista, preço de atacado.",
+    title: "Banheiro de revista, preço negociado.",
     subtitle: "Deca e Docol com preço negociado e entrega direto na sua obra.",
     cta: "Explorar louças",
     href: "/categoria/loucas-e-metais",
@@ -1369,7 +1370,7 @@ export const banners: Banner[] = [
 
 export const quickLinks: QuickLink[] = [
   { id: "pix", icon: "QrCode", title: "5% off no Pix", subtitle: "em todo o site", href: "/ofertas" },
-  { id: "atacado", icon: "Boxes", title: "Preço de atacado", subtitle: "a partir de poucas un.", href: "/atacado" },
+  { id: "frete", icon: "Package", title: "Frete grátis", subtitle: "", href: "/ofertas" },
   { id: "fornecedor", icon: "Truck", title: "Ofertas selecionadas", subtitle: "pela Central de Compras", href: "/como-funciona" },
   { id: "orcamento", icon: "ClipboardList", title: "Orçamento de obra", subtitle: "mande sua lista", href: "/orcamento" },
   { id: "whats", icon: "MessageCircle", title: "Televendas", subtitle: "fale com um vendedor", href: "/atendimento" },

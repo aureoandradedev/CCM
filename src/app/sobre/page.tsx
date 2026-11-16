@@ -14,22 +14,22 @@ export default function AboutPage() {
       crumb="Sobre a Multigiro"
       eyebrow="Quem somos"
       title="Uma central de compras para a sua obra."
-      intro="A Multigiro Central de Compras nasceu com um propósito simples: garantir preço de atacado para quem constrói, reforma ou cuida de manutenção predial, sem a complexidade de negociar direto com distribuidores."
+      intro="A Multigiro Central de Compras nasceu com um propósito simples: garantir o melhor preço para quem constrói, reforma ou cuida de manutenção predial, sem a complexidade de negociar direto com distribuidores."
     >
       <InfoSection title="O modelo">
         <p>
-          Diferente de um depósito ou home center, a <strong>{site.name}</strong> não mantém estoque próprio. Trabalhamos como uma central de compras: selecionamos fornecedores parceiros da região, negociamos condições e conectamos cada pedido diretamente ao distribuidor ou fabricante responsável pelo produto.
+          A <strong>{site.name}</strong> compra direto dos distribuidores e fábricas da região e revende para você. Selecionamos os melhores fornecedores, negociamos em volume e repassamos a economia no preço final.
         </p>
         <p>
-          Isso significa menos etapas entre a fábrica e a sua obra, e por isso o preço é de atacado mesmo para quantidades menores.
+          Isso significa menos etapas entre a fábrica e a sua obra, e por isso o preço é mais baixo mesmo para quantidades menores.
         </p>
       </InfoSection>
 
       <InfoSection title="O que nos diferencia">
         <ul className="list-inside list-disc space-y-1">
-          <li><strong>Preço de atacado acessível:</strong> quantidade mínima a partir de poucas unidades, sem exigir CNPJ.</li>
+          <li><strong>Preço negociado:</strong> compramos direto dos distribuidores e fábricas, sem intermediários desnecessários.</li>
           <li><strong>Fornecedores selecionados:</strong> cada parceiro é avaliado por preço, prazo e confiabilidade.</li>
-          <li><strong>Entrega na obra:</strong> o fornecedor entrega direto no endereço que você indicar.</li>
+          <li><strong>Entrega pela CCM:</strong> entregamos direto no endereço que você indicar.</li>
           <li><strong>Pagamento seguro:</strong> Pix com 5% de desconto, cartão via Cielo ou faturado para PJ.</li>
         </ul>
       </InfoSection>

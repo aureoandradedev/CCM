@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed:gen": "node scripts/gen-seed.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test ccm-etapa1/test/etapa1.test.ts ccm-etapa1/test/etapa1-extended.test.ts ccm-etapa1/test/purchase-cycle-impl.test.ts ccm-etapa1/test/etapa1-additional.test.ts ccm-etapa1/test/engine-r6.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

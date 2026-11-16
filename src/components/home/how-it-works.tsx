@@ -9,12 +9,12 @@ const STEPS = [
   {
     icon: ClipboardCheck,
     title: "Você monta a lista",
-    text: "Busque, compare varejo e atacado e adicione tudo em um carrinho só, de cimento a lâmpada.",
+    text: "Busque, compare preços e adicione tudo em um carrinho só, de cimento a lâmpada.",
   },
   {
     icon: Package,
     title: "A equipe separa o pedido",
-    text: "Trabalhamos com os melhores distribuidores da região. Preço de atacado, sem estoque parado.",
+    text: "Compramos dos melhores distribuidores da região. Preço negociado diretamente com a fábrica.",
   },
   {
     icon: Truck,
@@ -34,10 +34,10 @@ export function HowItWorks() {
             <div className="min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-yellow">Como funciona</p>
             <h2 id="how-title" className="mt-2 font-heading text-[2.1rem] leading-[1.02] font-extrabold tracking-tight text-balance md:text-[2.7rem]">
-              Central de compras, não depósito. Por isso o preço é de atacado.
+              Central de compras, não depósito. Por isso o preço é negociado.
             </h2>
             <p className="mt-4 max-w-md text-[0.95rem] leading-relaxed text-white/80">
-              A Multigiro Central de Compras negocia direto com distribuidores e fábricas para você pagar preço de atacado, mesmo comprando pouco.
+              A Multigiro Central de Compras negocia direto com distribuidores e fábricas para você pagar menos, mesmo comprando pouco.
             </p>
             <Button variant="brand" size="lg" className="mt-6" render={<Link href="/como-funciona" />}>
               Entenda o modelo
@@ -73,7 +73,7 @@ export function HowItWorks() {
           {[
             ["+5.000", "itens no catálogo"],
             ["2 a 4 dias", "prazo médio de entrega"],
-            ["0", "estoque parado"],
+            ["100%", "entrega própria"],
             ["5%", "de desconto no Pix"],
           ].map(([n, l]) => (
             <div key={l} data-reveal>

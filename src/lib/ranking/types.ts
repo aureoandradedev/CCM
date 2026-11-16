@@ -3,6 +3,7 @@ export interface RankableOffer {
   master_product_id: string;
   supplier_id: string;
   cost_centavos: number;
+  unit_cost_centavos?: number | null;
   stock: number | null;
   lead_time_days: number;
   status: string;
