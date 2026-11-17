@@ -1,7 +1,7 @@
 import Image from "next/image";
-import { MapPin, Package } from "lucide-react";
+import { MapPin, Package, Truck } from "lucide-react";
 
-import { formatDateTime, methodLabel, paymentLabel, statusLabel, TONE_CLASS, type OrderItemRow, type OrderRow } from "@/lib/orders";
+import { formatDate, formatDateTime, methodLabel, paymentLabel, shipmentStatusLabel, statusLabel, TONE_CLASS, type OrderItemRow, type OrderRow, type OrderShipmentRow } from "@/lib/orders";
 import { formatBRL, formatUnit } from "@/lib/utils/format";
 import { maskDocument, maskPhone } from "@/lib/utils/masks";
 import { cn } from "@/lib/utils";
@@ -14,31 +14,98 @@ export function PaymentBadge({ status }: { status: string }) {
   const s = paymentLabel(status);
   return <span className={cn("inline-flex h-6 items-center rounded-full px-2.5 text-xs font-bold", TONE_CLASS[s.tone])}>{s.label}</span>;
 }
+function ShipmentBadge({ status }: { status: string }) {
+  const s = shipmentStatusLabel(status);
+  return <span className={cn("inline-flex h-6 items-center rounded-full px-2.5 text-xs font-bold", TONE_CLASS[s.tone])}>{s.label}</span>;
+}
 
-/** Detalhe de um pedido (itens, totais, entrega). Usado na conta do cliente e no admin. */
-export function OrderDetail({ order, items, showCustomer = false }: { order: OrderRow; items: OrderItemRow[]; showCustomer?: boolean }) {
+function ItemRow({ it }: { it: OrderItemRow }) {
+  return (
+    <li className="flex items-center gap-3 px-4 py-3 text-sm">
+      <span className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
+        {it.image ? <Image src={it.image} alt="" fill sizes="56px" className="object-cover" /> : <Package className="m-auto size-6 text-brand-ink-soft" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-2 font-medium text-brand-ink">{it.name}</p>
+        <p className="text-xs text-brand-ink-soft">
+          {it.qty} {formatUnit(it.unit)} × {formatBRL(it.unit_price_centavos / 100)}
+          {it.price_tier === "wholesale" ? <span className="ml-1 rounded bg-brand-orange px-1 text-[0.6rem] font-bold uppercase text-white">Atacado</span> : null}
+        </p>
+      </div>
+      <span className="font-heading font-bold text-brand-navy tabular-nums">{formatBRL(it.line_centavos / 100)}</span>
+    </li>
+  );
+}
+
+export function OrderDetail({ order, items, shipments = [], showCustomer = false }: { order: OrderRow; items: OrderItemRow[]; shipments?: OrderShipmentRow[]; showCustomer?: boolean }) {
+  const hasMultipleShipments = shipments.length > 1;
+
+  const itemsByShipment = new Map<string, OrderItemRow[]>();
+  const unassigned: OrderItemRow[] = [];
+  for (const it of items) {
+    if (it.shipment_id) {
+      const arr = itemsByShipment.get(it.shipment_id) ?? [];
+      arr.push(it);
+      itemsByShipment.set(it.shipment_id, arr);
+    } else {
+      unassigned.push(it);
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
       <div className="space-y-4">
-        <section className="rounded-2xl border border-brand-line bg-card">
-          <ul className="divide-y divide-brand-line">
-            {items.map((it) => (
-              <li key={it.id} className="flex items-center gap-3 px-4 py-3 text-sm">
-                <span className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  {it.image ? <Image src={it.image} alt="" fill sizes="56px" className="object-cover" /> : <Package className="m-auto size-6 text-brand-ink-soft" />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 font-medium text-brand-ink">{it.name}</p>
-                  <p className="text-xs text-brand-ink-soft">
-                    {it.qty} {formatUnit(it.unit)} × {formatBRL(it.unit_price_centavos / 100)}
-                    {it.price_tier === "wholesale" ? <span className="ml-1 rounded bg-brand-orange px-1 text-[0.6rem] font-bold uppercase text-white">Atacado</span> : null}
-                  </p>
+        {hasMultipleShipments ? (
+          shipments.map((s) => {
+            const shipItems = itemsByShipment.get(s.id) ?? [];
+            return (
+              <section key={s.id} className="rounded-2xl border border-brand-line bg-card">
+                <div className="flex items-center gap-2 border-b border-brand-line px-4 py-3">
+                  <Truck className="size-4 text-brand-navy" />
+                  <span className="text-sm font-semibold text-brand-navy dark:text-foreground">Entrega {s.sequence}</span>
+                  <ShipmentBadge status={s.status} />
+                  <span className="ml-auto text-xs text-brand-ink-soft">
+                    {s.promised_from && s.promised_to
+                      ? `${formatDate(s.promised_from)} a ${formatDate(s.promised_to)}`
+                      : "Prazo a confirmar"}
+                  </span>
                 </div>
-                <span className="font-heading font-bold text-brand-navy tabular-nums">{formatBRL(it.line_centavos / 100)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+                {s.tracking_code ? (
+                  <div className="border-b border-brand-line px-4 py-2 text-xs text-brand-ink-soft">
+                    Rastreio: <span className="font-mono font-semibold text-brand-ink">{s.tracking_code}</span>
+                    {s.carrier ? ` · ${s.carrier}` : ""}
+                  </div>
+                ) : null}
+                <ul className="divide-y divide-brand-line">
+                  {shipItems.map((it) => <ItemRow key={it.id} it={it} />)}
+                </ul>
+              </section>
+            );
+          })
+        ) : (
+          <section className="rounded-2xl border border-brand-line bg-card">
+            {shipments.length === 1 && shipments[0].promised_from && shipments[0].promised_to ? (
+              <div className="flex items-center gap-2 border-b border-brand-line px-4 py-3">
+                <Truck className="size-4 text-brand-navy" />
+                <span className="text-sm font-semibold text-brand-navy dark:text-foreground">Entrega</span>
+                <ShipmentBadge status={shipments[0].status} />
+                <span className="ml-auto text-xs text-brand-ink-soft">
+                  {formatDate(shipments[0].promised_from)} a {formatDate(shipments[0].promised_to)}
+                </span>
+              </div>
+            ) : null}
+            <ul className="divide-y divide-brand-line">
+              {items.map((it) => <ItemRow key={it.id} it={it} />)}
+            </ul>
+          </section>
+        )}
+        {unassigned.length > 0 && hasMultipleShipments ? (
+          <section className="rounded-2xl border border-brand-line bg-card">
+            <ul className="divide-y divide-brand-line">
+              {unassigned.map((it) => <ItemRow key={it.id} it={it} />)}
+            </ul>
+          </section>
+        ) : null}
       </div>
 
       <aside className="space-y-4">

@@ -1,9 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useShallow } from "zustand/react/shallow";
 import Image from "next/image";
-import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Package, ShieldCheck } from "lucide-react";
 
 import { CartLineItem } from "@/components/cart/cart-line-item";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -11,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { useShippingConfig } from "@/lib/shipping-context";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { selectLines, selectTotals, useCartStore } from "@/lib/cart/store";
+import { groupCartLinesForEstimate } from "@/lib/delivery-promise";
+import { formatDate } from "@/lib/orders";
 import { formatBRL } from "@/lib/utils/format";
 
 export function CartPage() {
@@ -18,6 +21,10 @@ export function CartPage() {
   const hydrated = useHydrated();
   const lines = useCartStore(useShallow(selectLines));
   const totals = useCartStore(useShallow(selectTotals));
+  const deliveryGroups = useMemo(
+    () => (lines.length === 0 ? [] : groupCartLinesForEstimate(lines)),
+    [lines],
+  );
   const clear = useCartStore((s) => s.clear);
 
   const missingForFree = Math.max(0, freeShippingFrom - totals.subtotal);
@@ -55,11 +62,44 @@ export function CartPage() {
       ) : (
         <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-6">
-            <ul className="space-y-3">
-              {lines.map((l) => (
-                <CartLineItem key={l.productId} line={l} variant="page" />
-              ))}
-            </ul>
+            {deliveryGroups.length > 1 ? (
+              <p className="text-sm text-brand-ink-soft">
+                Seu pedido pode chegar em entregas separadas.
+              </p>
+            ) : null}
+            {deliveryGroups.length > 1 ? (
+              deliveryGroups.map((g) => {
+                const groupLines = g.items.map((entry) => entry.item);
+                return (
+                  <div key={g.sequence} className="rounded-2xl border border-brand-line bg-card p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-navy dark:text-foreground">
+                      <Package className="size-4" />
+                      Entrega {g.sequence}
+                      {g.promisable ? (
+                        <span className="ml-auto text-xs font-normal text-brand-ink-soft">
+                          Previsão: {formatDate(g.promisedFrom)} a {formatDate(g.promisedTo)}
+                        </span>
+                      ) : (
+                        <span className="ml-auto text-xs font-normal text-brand-ink-soft">
+                          Prazo a confirmar
+                        </span>
+                      )}
+                    </div>
+                    <ul className="space-y-3">
+                      {groupLines.map((l) => (
+                        <CartLineItem key={l.productId} line={l} variant="page" />
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })
+            ) : (
+              <ul className="space-y-3">
+                {lines.map((l) => (
+                  <CartLineItem key={l.productId} line={l} variant="page" />
+                ))}
+              </ul>
+            )}
 
             <Button variant="link" className="px-0 text-brand-navy dark:text-foreground" render={<Link href="/departamentos" />}>
               <ArrowLeft />

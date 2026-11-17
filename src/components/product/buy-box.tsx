@@ -95,7 +95,11 @@ export function BuyBox({ product }: { product: Product }) {
 
       <SaleModeInfo product={product} />
 
-      <ShippingEstimate subtotal={total} />
+      <ShippingEstimate
+        expectedAvailabilityDate={product.expectedAvailabilityDate}
+        stockStatus={product.stockStatus}
+        subtotal={total}
+      />
 
       <div className="flex items-start gap-3 rounded-2xl border border-brand-line bg-card p-4 text-sm">
         <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-navy/8 text-brand-navy dark:bg-muted dark:text-foreground">

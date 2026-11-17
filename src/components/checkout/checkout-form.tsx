@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, CreditCard, Info, Lock, QrCode, Store, Truck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { ApiError, apiFetch } from "@/lib/api";
 import { selectLines, selectTotals, useCartStore } from "@/lib/cart/store";
+import { groupCartLinesForEstimate } from "@/lib/delivery-promise";
+import { formatDate } from "@/lib/orders";
 import { pixPrice, round2 } from "@/lib/pricing";
 import { formatBRL } from "@/lib/utils/format";
 import { isValidCNPJ, isValidCPF, isValidEmail, maskCEP, maskDocument, maskPhone, onlyDigits } from "@/lib/utils/masks";
@@ -363,6 +365,30 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
   );
 }
 
+function DeliveryGroupsPreview() {
+  const lines = useCartStore(useShallow(selectLines));
+  const groups = useMemo(
+    () => (lines.length === 0 ? [] : groupCartLinesForEstimate(lines)),
+    [lines],
+  );
+  if (groups.length <= 1) return null;
+  return (
+    <div className="mt-3 space-y-2 border-t border-brand-line pt-3">
+      <p className="text-xs font-semibold text-brand-ink-soft">Previsão estimada de entregas</p>
+      {groups.map((g) => (
+        <div key={g.sequence} className="rounded-lg bg-muted px-3 py-2 text-xs">
+          <span className="font-semibold text-brand-navy dark:text-foreground">Entrega {g.sequence}</span>
+          <span className="ml-2 text-brand-ink-soft">
+            {g.promisable ? `${formatDate(g.promisedFrom)} a ${formatDate(g.promisedTo)}` : "Prazo a confirmar"}
+          </span>
+          <span className="ml-1 text-brand-ink-soft">({g.items.length} {g.items.length === 1 ? "item" : "itens"})</span>
+        </div>
+      ))}
+      <p className="text-[0.68rem] text-brand-ink-soft">Datas definitivas após confirmação do pedido.</p>
+    </div>
+  );
+}
+
 function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, children }: { lines: { productId: string; qty: number; name: string }[]; totals: { subtotal: number }; shipping: number; desconto: number; total: number; hydrated: boolean; children?: React.ReactNode }) {
   return (
     <aside className="lg:sticky lg:top-24 lg:self-start">
@@ -377,6 +403,7 @@ function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, chi
                 </li>
               ))}
             </ul>
+            <DeliveryGroupsPreview />
             <dl className="mt-4 space-y-2 border-t border-brand-line pt-4 text-sm">
               <div className="flex justify-between text-brand-ink-soft">
                 <dt>Produtos</dt>

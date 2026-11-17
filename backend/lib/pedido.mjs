@@ -10,6 +10,7 @@ import { createHmac } from "node:crypto";
 import { config } from "./config.mjs";
 import { db, registrarEvento } from "./supabase.mjs";
 import { atacadoAtivo, calcularFrete, descontoPixCentavos, metodoEhPix, metodoOnline, precoUnitarioCentavos, centavos } from "./precos.mjs";
+import { computeShipments } from "./delivery-promise.mjs";
 
 export class ErroPedido extends Error {
   constructor(status, erro, extra = {}) {
@@ -107,7 +108,7 @@ export async function montarItens(itensBrutos) {
   const ids = [...agrupado.keys()];
   const { data: produtos, error } = await db()
     .from("products")
-    .select("id, sku, name, unit, images, retail_price, wholesale_price, wholesale_min_qty, supplier_id, category_slug, stock, max_per_order, max_per_order_enabled, active, cost_centavos, winning_offer_id, master_product_id")
+    .select("id, sku, name, unit, images, retail_price, wholesale_price, wholesale_min_qty, supplier_id, category_slug, stock, max_per_order, max_per_order_enabled, active, cost_centavos, winning_offer_id, master_product_id, expected_availability_date")
     .in("id", ids);
   if (error) {
     console.error("[pedido] Falha ao ler produtos:", error.message);
@@ -154,6 +155,8 @@ export async function montarItens(itensBrutos) {
       supplier_cost_centavos: p.cost_centavos ?? null,
       supplier_offer_id: p.winning_offer_id ?? null,
       master_product_id: p.master_product_id ?? null,
+      expected_availability_date: p.expected_availability_date ?? null,
+      stock: p.stock ?? null,
     });
   }
   if (rejeitados.length) throw new ErroPedido(422, "Alguns itens não puderam ser adicionados.", { itens: rejeitados });
@@ -307,13 +310,19 @@ export async function criarPedido(body, usuario = null) {
     customer_hash: customerHash,
     client_request_id: clientRequestId,
   };
-  const orderItems = itens.map(({ category_slug: _, ...rest }) => rest);
+  const orderItems = itens.map(({ category_slug: _, expected_availability_date: _ead, stock: _stk, ...rest }) => rest);
 
-  const { data: criado, error } = await db().rpc("create_order_atomic", { p_order: orderData, p_items: orderItems });
+  const shipments = computeShipments(itens, deliveryMethod, totais.freight_centavos);
+
+  const { data: criado, error } = await db().rpc("create_order_atomic", { p_order: orderData, p_items: orderItems, p_shipments: shipments });
   if (error) {
     if (/insufficient_stock/.test(error.message || "")) {
       const m = error.message.match(/insufficient_stock:([^:]+)/);
       throw new ErroPedido(409, `Estoque insuficiente para "${(m?.[1] || "produto").trim()}". Atualize o carrinho e tente novamente.`);
+    }
+    if (/orphan_items/.test(error.message || "")) {
+      console.error("[pedido] Itens sem shipment atribuído:", error.message);
+      throw new ErroPedido(500, "Erro interno ao agrupar entregas. Tente novamente.");
     }
     throw new ErroPedido(500, "Falha ao criar o pedido.");
   }
@@ -338,6 +347,7 @@ function respostaPedido(o, reaproveitado) {
       freightCentavos: o.freight_centavos,
       totalCentavos: o.total_centavos,
     },
+    shipments: o.shipments || [],
   };
 }
 

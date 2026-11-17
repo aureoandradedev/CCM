@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { Product } from "@/types/catalog";
 import { MAX_QTY_PER_LINE, computeCartTotals, type CartTotals } from "@/lib/pricing";
+import { groupCartLinesForEstimate, type DeliveryGroup, type CartLineForGrouping } from "@/lib/delivery-promise";
 
 /**
  * Carrinho do CCM.
@@ -27,6 +28,8 @@ export interface CartLine {
   supplierId?: string;
   supplierName?: string;
   leadTimeDays?: number;
+  expectedAvailabilityDate?: string;
+  stockStatus?: string;
   qty: number;
   addedAt: number;
 }
@@ -67,6 +70,8 @@ function toLine(product: Product, qty: number): CartLine {
     wholesaleMinQty: product.wholesaleMinQty,
     supplierId: product.supplier?.id,
     leadTimeDays: product.supplier?.leadTimeDays,
+    expectedAvailabilityDate: product.expectedAvailabilityDate,
+    stockStatus: product.stockStatus,
     qty,
     addedAt: Date.now(),
   };
@@ -171,4 +176,27 @@ export function selectLineQty(productId: string) {
 
 export function selectTotals(state: CartState): CartTotals {
   return computeCartTotals(Object.values(state.lines));
+}
+
+const EMPTY_GROUPS: DeliveryGroup<CartLine & CartLineForGrouping>[] = [];
+let _dgKey = "";
+let _dgResult = EMPTY_GROUPS;
+
+export function selectDeliveryGroups(state: CartState): DeliveryGroup<CartLine & CartLineForGrouping>[] {
+  const entries = Object.entries(state.lines);
+  if (entries.length === 0) return EMPTY_GROUPS;
+
+  const key = entries.map(([id, l]) => `${id}:${l.expectedAvailabilityDate ?? ""}:${l.stockStatus ?? ""}`).sort().join("|");
+  if (key === _dgKey) return _dgResult;
+
+  const lines = entries.map(([, l]) => ({
+    ...l,
+    productId: l.productId,
+    name: l.name,
+    expectedAvailabilityDate: l.expectedAvailabilityDate,
+    stockStatus: l.stockStatus,
+  }));
+  _dgResult = groupCartLinesForEstimate(lines);
+  _dgKey = key;
+  return _dgResult;
 }

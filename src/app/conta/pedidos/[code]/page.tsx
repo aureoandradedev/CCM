@@ -17,7 +17,7 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
   if (!user) redirect(`/conta?next=/conta/pedidos/${code}`);
   const found = await getOrderByCode(code);
   if (!found) notFound();
-  const { order, items } = found;
+  const { order, items, shipments } = found;
   const podePagar = order.payment_status !== "pago" && order.order_status === "aguardando-pagamento" && ["pix", "cartao-pendente", "cartao-credito", "cartao-debito"].includes(order.payment_method);
 
   return (
@@ -34,7 +34,7 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
       ) : null}
 
       <div className="mt-6">
-        <OrderDetail order={order} items={items} />
+        <OrderDetail order={order} items={items} shipments={shipments} />
       </div>
     </div>
   );

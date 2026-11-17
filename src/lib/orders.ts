@@ -92,6 +92,7 @@ export interface OrderItemRow {
   id: string;
   product_id: string | null;
   supplier_id: string | null;
+  shipment_id: string | null;
   name: string;
   sku: string | null;
   image: string | null;
@@ -104,6 +105,43 @@ export interface OrderItemRow {
   supplier_cost_centavos?: number | null;
   supplier_offer_id?: string | null;
   master_product_id?: string | null;
+}
+
+export type ShipmentStatus =
+  | "preparando"
+  | "aguardando_disponibilidade"
+  | "enviado"
+  | "entregue"
+  | "cancelado";
+
+export const SHIPMENT_STATUS: Record<ShipmentStatus, { label: string; tone: string }> = {
+  preparando: { label: "Preparando", tone: "blue" },
+  aguardando_disponibilidade: { label: "Aguardando disponibilidade", tone: "yellow" },
+  enviado: { label: "Enviado", tone: "navy" },
+  entregue: { label: "Entregue", tone: "green" },
+  cancelado: { label: "Cancelado", tone: "red" },
+};
+
+export interface OrderShipmentRow {
+  id: string;
+  order_id: string;
+  sequence: number;
+  status: ShipmentStatus;
+  delivery_method: string;
+  available_from: string | null;
+  promised_from: string | null;
+  promised_to: string | null;
+  freight_centavos: number;
+  tracking_code: string | null;
+  carrier: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function shipmentStatusLabel(s: string): { label: string; tone: string } {
+  return (SHIPMENT_STATUS as Record<string, { label: string; tone: string }>)[s] ?? { label: s, tone: "slate" };
 }
 
 export const ORDER_COLUMNS =

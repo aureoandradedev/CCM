@@ -30,7 +30,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
   if (!configured()) return <NotConfigured />;
   const found = await adminGetOrder(code);
   if (!found) notFound();
-  const { order, items, events } = found;
+  const { order, items, events, shipments } = found;
 
   return (
     <>
@@ -41,7 +41,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
 
       <div className="space-y-6">
         <OrderActions order={order} />
-        <OrderDetail order={order} items={items} showCustomer />
+        <OrderDetail order={order} items={items} shipments={shipments} showCustomer />
 
         <Card title="Pagamento (detalhes)">
           <dl className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">

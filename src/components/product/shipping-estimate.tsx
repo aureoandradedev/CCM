@@ -1,29 +1,32 @@
 "use client";
 
 import { MapPin, Truck } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { computeItemEstimate } from "@/lib/delivery-promise";
+import { formatDate } from "@/lib/orders";
 import { useShippingConfig } from "@/lib/shipping-context";
 import { formatBRL } from "@/lib/utils/format";
 import { maskCEP, onlyDigits } from "@/lib/utils/masks";
 
-interface Option {
-  label: string;
-  eta: string;
-  price: number;
+interface Props {
+  expectedAvailabilityDate?: string;
+  stockStatus?: string;
+  subtotal: number;
 }
 
-/**
- * Simulador de frete. Por enquanto a estimativa é local (prazo do fornecedor +
- * transporte); a cotação real vem quando a integração com os fornecedores entrar.
- */
-export function ShippingEstimate({ leadTimeDays = 3, subtotal }: { leadTimeDays?: number; subtotal: number }) {
+export function ShippingEstimate({ expectedAvailabilityDate, stockStatus, subtotal }: Props) {
   const { freeShippingFrom, freeShippingLabel, standardShipping } = useShippingConfig();
   const [cep, setCep] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [options, setOptions] = useState<Option[] | null>(null);
+  const [showResult, setShowResult] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const estimate = useMemo(
+    () => computeItemEstimate({ expectedAvailabilityDate, stockStatus }),
+    [expectedAvailabilityDate, stockStatus],
+  );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,14 +37,12 @@ export function ShippingEstimate({ leadTimeDays = 3, subtotal }: { leadTimeDays?
     }
     setError(null);
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 450));
-    const free = subtotal >= freeShippingFrom;
-    setOptions([
-      { label: "Entrega pela CCM", eta: `${leadTimeDays + 1} a ${leadTimeDays + 3} dias úteis`, price: free ? 0 : standardShipping },
-      { label: "Retirar no CD da CCM", eta: `${leadTimeDays} ${leadTimeDays === 1 ? "dia útil" : "dias úteis"}`, price: 0 },
-    ]);
+    await new Promise((r) => setTimeout(r, 300));
+    setShowResult(true);
     setLoading(false);
   };
+
+  const free = subtotal >= freeShippingFrom;
 
   return (
     <div className="rounded-2xl border border-brand-line bg-card p-4">
@@ -74,18 +75,40 @@ export function ShippingEstimate({ leadTimeDays = 3, subtotal }: { leadTimeDays?
           {error}
         </p>
       ) : null}
-      {options ? (
+      {showResult ? (
         <ul className="mt-3 divide-y divide-brand-line text-sm" aria-live="polite">
-          {options.map((o) => (
-            <li key={o.label} className="flex items-center justify-between gap-3 py-2">
-              <div>
-                <p className="font-semibold text-brand-ink">{o.label}</p>
-                <p className="text-xs text-brand-ink-soft">{o.eta}</p>
-              </div>
-              <span className={o.price === 0 ? "font-bold text-brand-green" : "font-semibold text-brand-ink"}>{o.price === 0 ? "Grátis" : formatBRL(o.price)}</span>
+          {estimate.promisable ? (
+            <>
+              <li className="flex items-center justify-between gap-3 py-2">
+                <div>
+                  <p className="font-semibold text-brand-ink">Entrega pela CCM</p>
+                  <p className="text-xs text-brand-ink-soft">
+                    Receba entre {formatDate(estimate.deliveryFrom)} e {formatDate(estimate.deliveryTo)}
+                  </p>
+                </div>
+                <span className={free ? "font-bold text-brand-green" : "font-semibold text-brand-ink"}>
+                  {free ? "Grátis" : formatBRL(standardShipping)}
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3 py-2">
+                <div>
+                  <p className="font-semibold text-brand-ink">Retirar no CD da CCM</p>
+                  <p className="text-xs text-brand-ink-soft">
+                    Disponível a partir de {formatDate(estimate.availableFrom)}
+                  </p>
+                </div>
+                <span className="font-bold text-brand-green">Grátis</span>
+              </li>
+            </>
+          ) : (
+            <li className="py-2">
+              <p className="font-semibold text-brand-ink">Disponibilidade a confirmar</p>
+              <p className="text-xs text-brand-ink-soft">
+                O prazo de entrega será informado após a confirmação do pedido.
+              </p>
             </li>
-          ))}
-          {subtotal < freeShippingFrom ? (
+          )}
+          {!free ? (
             <li className="pt-2 text-xs text-brand-ink-soft">
               Frete grátis para pedidos a partir de {freeShippingLabel}.
             </li>
