@@ -108,15 +108,19 @@ export interface OrderItemRow {
 }
 
 export type ShipmentStatus =
-  | "preparando"
   | "aguardando_disponibilidade"
+  | "preparando"
+  | "pronto_para_envio"
+  | "pronto_para_retirada"
   | "enviado"
   | "entregue"
   | "cancelado";
 
 export const SHIPMENT_STATUS: Record<ShipmentStatus, { label: string; tone: string }> = {
-  preparando: { label: "Preparando", tone: "blue" },
   aguardando_disponibilidade: { label: "Aguardando disponibilidade", tone: "yellow" },
+  preparando: { label: "Preparando", tone: "blue" },
+  pronto_para_envio: { label: "Pronto para envio", tone: "navy" },
+  pronto_para_retirada: { label: "Pronto para retirada", tone: "navy" },
   enviado: { label: "Enviado", tone: "navy" },
   entregue: { label: "Entregue", tone: "green" },
   cancelado: { label: "Cancelado", tone: "red" },

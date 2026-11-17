@@ -24,6 +24,7 @@ import {
   type PurchaseOrder,
   type PurchaseOrderItem,
   type ReceivingSessionRow,
+  type ShipmentOccurrenceRow,
   type SiteSettings,
 } from "./types";
 
@@ -344,17 +345,27 @@ export async function adminOrderCounts(): Promise<Record<string, number>> {
   return out;
 }
 
-export async function adminGetOrder(code: string): Promise<{ order: OrderRow; items: OrderItemRow[]; events: OrderEvent[]; shipments: OrderShipmentRow[] } | null> {
+export async function adminGetOrder(code: string): Promise<{ order: OrderRow; items: OrderItemRow[]; events: OrderEvent[]; shipments: OrderShipmentRow[]; occurrences: ShipmentOccurrenceRow[] } | null> {
   if (!configured()) return null;
   const sb = await createClient();
   const { data: order } = await sb.from("orders").select(ORDER_COLUMNS).eq("code", code.toUpperCase()).maybeSingle();
   if (!order) return null;
   const [{ data: items }, { data: events }, { data: shipments }] = await Promise.all([
     sb.from("order_items").select("*").eq("order_id", order.id).order("name"),
-    sb.from("order_events").select("id, type, data, actor_kind, created_at").eq("order_id", order.id).order("created_at", { ascending: false }),
+    sb.from("order_events").select("id, type, data, actor_kind, shipment_id, created_at").eq("order_id", order.id).order("created_at", { ascending: false }),
     sb.from("order_shipments").select("*").eq("order_id", order.id).order("sequence"),
   ]);
-  return { order: order as OrderRow, items: (items as OrderItemRow[] | null) ?? [], events: (events as OrderEvent[] | null) ?? [], shipments: (shipments as OrderShipmentRow[] | null) ?? [] };
+  const shipmentIds = (shipments ?? []).map((s: { id: string }) => s.id);
+  const { data: occurrences } = shipmentIds.length
+    ? await sb.from("shipment_occurrences").select("*").in("shipment_id", shipmentIds).order("occurred_at", { ascending: false })
+    : { data: [] };
+  return {
+    order: order as OrderRow,
+    items: (items as OrderItemRow[] | null) ?? [],
+    events: (events as OrderEvent[] | null) ?? [],
+    shipments: (shipments as OrderShipmentRow[] | null) ?? [],
+    occurrences: (occurrences as ShipmentOccurrenceRow[] | null) ?? [],
+  };
 }
 
 /* ----------------------------------- caixa --------------------------------- */

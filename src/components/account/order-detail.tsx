@@ -61,8 +61,8 @@ export function OrderDetail({ order, items, shipments = [], showCustomer = false
             return (
               <section key={s.id} className="rounded-2xl border border-brand-line bg-card">
                 <div className="flex items-center gap-2 border-b border-brand-line px-4 py-3">
-                  <Truck className="size-4 text-brand-navy" />
-                  <span className="text-sm font-semibold text-brand-navy dark:text-foreground">Entrega {s.sequence}</span>
+                  {s.delivery_method === "pickup" ? <MapPin className="size-4 text-brand-navy" /> : <Truck className="size-4 text-brand-navy" />}
+                  <span className="text-sm font-semibold text-brand-navy dark:text-foreground">{s.delivery_method === "pickup" ? "Retirada" : "Entrega"} {s.sequence}</span>
                   <ShipmentBadge status={s.status} />
                   <span className="ml-auto text-xs text-brand-ink-soft">
                     {s.promised_from && s.promised_to

@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { OrderDetail } from "@/components/account/order-detail";
 import { OrderActions } from "@/components/admin/order-actions";
+import { ShipmentActionsPanel } from "@/components/admin/shipment-actions";
 import { Card, NotConfigured, PageTitle } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { adminGetOrder, configured } from "@/lib/admin/data";
@@ -23,6 +24,9 @@ const EVENT_LABEL: Record<string, string> = {
   cancelado: "Cancelado",
   desconsiderado: "Removido do fechamento",
   reconsiderado: "Devolvido ao fechamento",
+  shipment_status_changed: "Status de entrega alterado",
+  shipment_tracking_set: "Rastreio atualizado",
+  shipment_occurrence: "Ocorrência de entrega",
 };
 
 export default async function AdminOrder({ params }: { params: Promise<{ code: string }> }) {
@@ -30,7 +34,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
   if (!configured()) return <NotConfigured />;
   const found = await adminGetOrder(code);
   if (!found) notFound();
-  const { order, items, events, shipments } = found;
+  const { order, items, events, shipments, occurrences } = found;
 
   return (
     <>
@@ -42,6 +46,21 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
       <div className="space-y-6">
         <OrderActions order={order} />
         <OrderDetail order={order} items={items} shipments={shipments} showCustomer />
+
+        {shipments.length > 0 ? (
+          <Card title="Entregas (gestão)">
+            <div className="space-y-4">
+              {shipments.map((s) => (
+                <ShipmentActionsPanel
+                  key={s.id}
+                  shipment={s}
+                  events={events}
+                  occurrences={occurrences.filter((o) => o.shipment_id === s.id)}
+                />
+              ))}
+            </div>
+          </Card>
+        ) : null}
 
         <Card title="Pagamento (detalhes)">
           <dl className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">

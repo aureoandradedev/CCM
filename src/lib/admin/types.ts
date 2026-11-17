@@ -223,6 +223,17 @@ export interface OrderEvent {
   type: string;
   data: Record<string, unknown>;
   actor_kind: string;
+  shipment_id: string | null;
+  created_at: string;
+}
+
+export interface ShipmentOccurrenceRow {
+  id: string;
+  shipment_id: string;
+  type: "attempt" | "delay" | "damage" | "return" | "note";
+  description: string;
+  occurred_at: string;
+  logged_by: string | null;
   created_at: string;
 }
 

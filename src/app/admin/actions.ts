@@ -964,3 +964,58 @@ export async function resolveException(_p: ActionResult, fd: FormData): Promise<
     return { ok: "Exceção atualizada." };
   }, ["/admin/recebimento"]);
 }
+
+/* ============================= SHIPMENT LIFECYCLE ============================== */
+
+export async function updateShipmentStatus(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const shipmentId = str(fd, "shipmentId");
+    const newStatus = str(fd, "status");
+    if (!shipmentId || !newStatus) return { error: "shipmentId e status obrigatórios." };
+
+    const { data: ship } = await sb.from("order_shipments").select("status").eq("id", shipmentId).maybeSingle();
+    if (!ship) return { error: "Shipment não encontrado." };
+
+    const { data, error } = await sb.rpc("transition_shipment_status", {
+      p_shipment_id: shipmentId, p_new_status: newStatus, p_expected: ship.status,
+      p_actor_kind: "admin", p_actor_id: adminId,
+    });
+    if (error) return { error: error.message };
+    if (data?.error) return { error: data.error };
+    return { ok: `Status → ${newStatus}` };
+  }, ["/admin/pedidos"]);
+}
+
+export async function setShipmentTracking(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const shipmentId = str(fd, "shipmentId");
+    const trackingCode = str(fd, "trackingCode");
+    const carrier = str(fd, "carrier");
+    if (!shipmentId) return { error: "shipmentId obrigatório." };
+
+    const { data, error } = await sb.rpc("set_shipment_tracking", {
+      p_shipment_id: shipmentId, p_tracking_code: trackingCode || null, p_carrier: carrier || null,
+      p_actor_kind: "admin", p_actor_id: adminId,
+    });
+    if (error) return { error: error.message };
+    if (data?.error) return { error: data.error };
+    return { ok: "Rastreio atualizado." };
+  }, ["/admin/pedidos"]);
+}
+
+export async function logShipmentOccurrence(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const shipmentId = str(fd, "shipmentId");
+    const type = str(fd, "type");
+    const description = str(fd, "description");
+    if (!shipmentId || !type || !description) return { error: "Campos obrigatórios." };
+
+    const { data, error } = await sb.rpc("log_shipment_occurrence", {
+      p_shipment_id: shipmentId, p_type: type, p_description: description,
+      p_actor_kind: "admin", p_actor_id: adminId,
+    });
+    if (error) return { error: error.message };
+    if (data?.error) return { error: data.error };
+    return { ok: "Ocorrência registrada." };
+  }, ["/admin/pedidos"]);
+}

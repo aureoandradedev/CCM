@@ -52,9 +52,14 @@ export async function exigirAdmin(req, res, next) {
 }
 
 /** Registra um evento no histórico do pedido (auditoria). Nunca lança. */
-export async function registrarEvento(orderId, type, data = {}, actor = { kind: "system", id: null }) {
+export async function registrarEvento(orderId, type, data = {}, actor = { kind: "system", id: null }, shipmentId = null) {
   try {
-    await db().from("order_events").insert({ order_id: orderId, type, data, actor_kind: actor.kind || "system", actor_id: actor.id || null });
+    await db().from("order_events").insert({
+      order_id: orderId, type, data,
+      actor_kind: actor.kind || "system",
+      actor_id: actor.id || null,
+      shipment_id: shipmentId || null,
+    });
   } catch (e) {
     console.warn("[evento] falha ao registrar", type, e.message);
   }
