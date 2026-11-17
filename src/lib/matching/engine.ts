@@ -40,7 +40,7 @@ const UNIT_EQUIV: Record<string, string> = {
   pol: "pol", polegada: "pol", polegadas: "pol",
 };
 
-function canonicalTokens(str: string): string[] {
+export function canonicalTokens(str: string): string[] {
   let s = removeAccents(str).toLowerCase();
   s = s.replace(/[-_.]+/g, " ");
   s = s.replace(/([a-z])(\d)/g, "$1 $2");

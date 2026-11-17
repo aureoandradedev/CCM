@@ -13,9 +13,11 @@
 import { normalizeItems } from "@/lib/normalization/normalizers";
 import type { CatalogItemRow, ReferenceData, SubcategoryRef } from "@/lib/normalization/types";
 import { buildMasterIndex, matchItems } from "@/lib/matching/engine";
-import type { MatchableItem } from "@/lib/matching/types";
+import type { MatchableItem, MatchResult } from "@/lib/matching/types";
 import type { OrchestratorPhaseResult } from "./orchestrator-types";
 import { autoSourceProducts, summarizeAutoSourceResults, type AutoSourceResult } from "./auto-sourcing";
+import { lookupSkuBinding, lookupNameBindings, checkBindingGuard, canonicalNameKey } from "@/lib/matching/bindings";
+import { MATCH_THRESHOLDS, NAME_BINDING_BOOST } from "@/lib/matching/config";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any;
@@ -93,6 +95,9 @@ async function loadReferenceData(sb: SupabaseClient): Promise<ReferenceData> {
 }
 
 // ─── Phase 0: Reuse approved bindings with consistency guard ─────────────
+// Primary: matching_bindings table (persistent, auditable)
+// Fallback: legacy scan of supplier_catalog_items (pre-migration approvals)
+// Guard: EAN + brand/model + hard conflict attributes (voltage, weight, etc.)
 
 async function scopedReuseBindings(
   sb: SupabaseClient,
@@ -120,28 +125,47 @@ async function scopedReuseBindings(
         continue;
       }
 
-      const { data: prevItems } = await sb
-        .from("supplier_catalog_items")
-        .select("id, master_product_id, match_confidence, match_signals")
-        .eq("supplier_id", item.supplier_id)
-        .eq("supplier_sku", item.supplier_sku)
-        .eq("match_status", "aprovado")
-        .not("master_product_id", "is", null)
-        .neq("catalog_id", catalogId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+      // ── 1. Try matching_bindings table (primary) ──────────────────────
+      const binding = await lookupSkuBinding(sb, item.supplier_id, item.supplier_sku);
 
-      if (!prevItems || prevItems.length === 0) {
+      let masterProductId: string | null = null;
+      let confidence: number | null = null;
+      let reuseSource: string | null = null;
+
+      if (binding) {
+        masterProductId = binding.master_product_id;
+        confidence = binding.confidence;
+        reuseSource = "matching_bindings";
+      } else {
+        // ── 2. Legacy fallback: scan catalog_items ────────────────────
+        const { data: prevItems } = await sb
+          .from("supplier_catalog_items")
+          .select("id, master_product_id, match_confidence, match_signals")
+          .eq("supplier_id", item.supplier_id)
+          .eq("supplier_sku", item.supplier_sku)
+          .eq("match_status", "aprovado")
+          .not("master_product_id", "is", null)
+          .neq("catalog_id", catalogId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (prevItems && prevItems.length > 0) {
+          masterProductId = prevItems[0].master_product_id;
+          confidence = prevItems[0].match_confidence;
+          reuseSource = `legacy_item:${prevItems[0].id}`;
+        }
+      }
+
+      if (!masterProductId) {
         result.skipped++;
         continue;
       }
 
-      const prev = prevItems[0];
-
+      // ── 3. Fetch master for guard check ─────────────────────────────
       const { data: master } = await sb
         .from("master_products")
-        .select("id, ean, brand_slug, model, name")
-        .eq("id", prev.master_product_id)
+        .select("id, ean, brand_slug, model, name, specs")
+        .eq("id", masterProductId)
         .single();
 
       if (!master) {
@@ -149,41 +173,15 @@ async function scopedReuseBindings(
         continue;
       }
 
-      // --- Consistency guard ---
-      let guardPassed = true;
-      let guardDetail = "";
+      // ── 4. Enhanced guard: EAN + brand/model + hard conflicts ───────
+      const guard = checkBindingGuard(
+        { ean: item.ean, brand: item.brand, model: item.model, name: item.name },
+        { ean: master.ean, brand_slug: master.brand_slug, model: master.model, specs: master.specs ?? {} },
+      );
 
-      if (item.ean && item.ean.trim() !== "") {
-        if (master.ean && master.ean !== item.ean) {
-          guardPassed = false;
-          guardDetail = `EAN mismatch: item=${item.ean}, master=${master.ean}`;
-        }
-      } else {
-        const itemBrand = item.brand ? normalizeText(item.brand) : null;
-        const masterBrand = master.brand_slug ?? null;
-        const itemModel = item.model ? normalizeText(item.model) : null;
-        const masterModel = master.model ? normalizeText(master.model) : null;
-
-        if (
-          itemBrand && masterBrand &&
-          itemBrand !== masterBrand &&
-          !masterBrand.includes(itemBrand) &&
-          !itemBrand.includes(masterBrand)
-        ) {
-          guardPassed = false;
-          guardDetail = `Brand mismatch: item=${itemBrand}, master=${masterBrand}`;
-        } else if (
-          itemModel && masterModel &&
-          itemModel !== masterModel
-        ) {
-          guardPassed = false;
-          guardDetail = `Model mismatch: item=${itemModel}, master=${masterModel}`;
-        }
-      }
-
-      if (!guardPassed) {
+      if (!guard.passed) {
         const failSignals = [
-          { signal: "binding_guard_failed", weight: 0, matched: false, detail: guardDetail },
+          { signal: "binding_guard_failed", weight: 0, matched: false, detail: guard.detail },
         ];
         await sb
           .from("supplier_catalog_items")
@@ -194,17 +192,17 @@ async function scopedReuseBindings(
         continue;
       }
 
-      const reuseSignals = [
-        ...(prev.match_signals as MatchSignal[] ?? []),
-        { signal: "reused_binding", weight: 0, matched: true, detail: `Reused from item ${prev.id}` },
+      // ── 5. Approve automatically ───────────────────────────────────
+      const reuseSignals: MatchSignal[] = [
+        { signal: "reused_binding", weight: 0, matched: true, detail: `source: ${reuseSource}` },
       ];
 
       const { error } = await sb
         .from("supplier_catalog_items")
         .update({
           match_status: "aprovado",
-          master_product_id: prev.master_product_id,
-          match_confidence: prev.match_confidence,
+          master_product_id: masterProductId,
+          match_confidence: confidence,
           match_signals: reuseSignals,
         })
         .eq("id", item.id)
@@ -322,6 +320,9 @@ async function scopedMatch(
     const matchResults = matchItems(items, idx);
     result.processed = matchResults.length;
 
+    // ── Name binding boost (auxiliary evidence) ─────────────────────────
+    await applyNameBindingBoost(sb, items, matchResults);
+
     for (const r of matchResults) {
       const { error } = await sb
         .from("supplier_catalog_items")
@@ -346,6 +347,59 @@ async function scopedMatch(
     result.ok = false;
     result.errors++;
     return result;
+  }
+}
+
+// ─── Name binding boost (applied after matching, before auto-approve) ───────
+
+async function applyNameBindingBoost(
+  sb: SupabaseClient,
+  items: MatchableItem[],
+  results: MatchResult[],
+): Promise<void> {
+  const itemMap = new Map(items.map(i => [i.id, i]));
+  const nameKeyMap = new Map<string, string>();
+
+  for (const item of items) {
+    const nn = item.normalized_data?.name_normalized;
+    if (nn) {
+      const key = canonicalNameKey(nn);
+      if (key) nameKeyMap.set(item.id, key);
+    }
+  }
+
+  const uniqueKeys = [...new Set(nameKeyMap.values())];
+  if (uniqueKeys.length === 0) return;
+
+  const bindingsMap = await lookupNameBindings(sb, uniqueKeys);
+  if (bindingsMap.size === 0) return;
+
+  for (const r of results) {
+    if (!r.master_product_id) continue;
+    if (r.match_status === "match_sugerido") continue;
+
+    const nk = nameKeyMap.get(r.item_id);
+    if (!nk) continue;
+
+    const boundMasters = bindingsMap.get(nk);
+    if (!boundMasters?.has(r.master_product_id)) continue;
+
+    r.match_confidence += NAME_BINDING_BOOST;
+    r.match_signals.push({
+      signal: "name_binding_boost",
+      weight: NAME_BINDING_BOOST,
+      matched: true,
+      detail: "nome normalizado com vínculo anterior",
+    });
+
+    const hasHardConflict = r.match_signals.some(
+      s => s.signal === "hard_conflict_override",
+    );
+    if (!hasHardConflict && r.match_confidence >= MATCH_THRESHOLDS.HIGH_CONFIDENCE) {
+      r.match_status = "match_sugerido";
+    } else if (r.match_confidence >= MATCH_THRESHOLDS.REVIEW && r.match_status === "normalizado") {
+      r.match_status = "revisao_manual";
+    }
   }
 }
 

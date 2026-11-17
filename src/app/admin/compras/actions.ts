@@ -12,6 +12,7 @@ import { runOrchestrator } from "@/lib/admin/orchestrator";
 import type { OrchestratorResult } from "@/lib/admin/orchestrator-types";
 import { processCatalogScoped, type ScopedCatalogResult } from "@/lib/admin/catalog-processor";
 import { autoSourceProduct, autoSourceProducts, summarizeAutoSourceResults, type AutoSourceResult } from "@/lib/admin/auto-sourcing";
+import { recordApprovalBindings } from "@/lib/matching/bindings";
 
 export interface ActionResult {
   ok?: string;
@@ -93,6 +94,26 @@ export async function approveMatch(_prev: ActionResult, fd: FormData): Promise<A
       .in("match_status", ["match_sugerido", "revisao_manual", "normalizado"]);
 
     if (error) return { error: error.message };
+
+    // Record matching bindings for future reuse
+    const { data: itemData } = await sb
+      .from("supplier_catalog_items")
+      .select("supplier_id, supplier_sku, ean, name, normalized_data, match_confidence")
+      .eq("id", itemId)
+      .single();
+    if (itemData) {
+      const nd = itemData.normalized_data as { name_normalized?: string } | null;
+      await recordApprovalBindings(sb, {
+        supplierId: itemData.supplier_id,
+        supplierSku: itemData.supplier_sku,
+        eanClean: itemData.ean?.replace(/[\s\-.\/]/g, "") ?? null,
+        nameNormalized: nd?.name_normalized ?? itemData.name,
+        masterProductId,
+        confidence: itemData.match_confidence ?? 100,
+        origin: "admin_approve",
+        originItemId: itemId,
+      });
+    }
 
     const offerResult = await ensureOfferForApprovedItem(sb, itemId);
     if (!offerResult.ok) {
@@ -293,6 +314,26 @@ export async function createMasterFromItem(_prev: ActionResult, fd: FormData): P
 
     if (linkErr) return { error: linkErr.message };
 
+    // Record matching bindings for future reuse
+    const { data: itemData } = await sb
+      .from("supplier_catalog_items")
+      .select("supplier_id, supplier_sku, ean, name, normalized_data")
+      .eq("id", itemId)
+      .single();
+    if (itemData) {
+      const nd = itemData.normalized_data as { name_normalized?: string } | null;
+      await recordApprovalBindings(sb, {
+        supplierId: itemData.supplier_id,
+        supplierSku: itemData.supplier_sku,
+        eanClean: itemData.ean?.replace(/[\s\-.\/]/g, "") ?? null,
+        nameNormalized: nd?.name_normalized ?? itemData.name,
+        masterProductId: master.id,
+        confidence: 100,
+        origin: "admin_create",
+        originItemId: itemId,
+      });
+    }
+
     const offerResult = await ensureOfferForApprovedItem(sb, itemId);
     if (!offerResult.ok) {
       return { ok: `Produto mestre "${name}" criado e item vinculado. Oferta não criada: ${offerResult.error}`, offerCreated: false };
@@ -330,6 +371,26 @@ export async function associateToMaster(_prev: ActionResult, fd: FormData): Prom
       .eq("id", itemId);
 
     if (error) return { error: error.message };
+
+    // Record matching bindings for future reuse
+    const { data: itemData } = await sb
+      .from("supplier_catalog_items")
+      .select("supplier_id, supplier_sku, ean, name, normalized_data")
+      .eq("id", itemId)
+      .single();
+    if (itemData) {
+      const nd = itemData.normalized_data as { name_normalized?: string } | null;
+      await recordApprovalBindings(sb, {
+        supplierId: itemData.supplier_id,
+        supplierSku: itemData.supplier_sku,
+        eanClean: itemData.ean?.replace(/[\s\-.\/]/g, "") ?? null,
+        nameNormalized: nd?.name_normalized ?? itemData.name,
+        masterProductId,
+        confidence: 100,
+        origin: "admin_associate",
+        originItemId: itemId,
+      });
+    }
 
     const offerResult = await ensureOfferForApprovedItem(sb, itemId);
     if (!offerResult.ok) {

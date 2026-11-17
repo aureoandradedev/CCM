@@ -76,6 +76,8 @@ export const ATTRIBUTE_PENALTIES = {
 
 export const MIN_SCORE_GAP = 5;
 
+export const NAME_BINDING_BOOST = 10;
+
 export const STOP_TOKENS = new Set([
   "unidade", "produto", "novo", "caixa", "pacote",
   "com", "para", "sem", "por", "und", "pcs",
