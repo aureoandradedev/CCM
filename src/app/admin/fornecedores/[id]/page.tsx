@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { PageTitle, NotConfigured } from "@/components/admin/ui";
 import { CommercialTermsAdmin } from "@/components/admin/commercial-terms-admin";
+import { SupplierBusinessHours } from "@/components/admin/supplier-business-hours";
 import { SupplierForm } from "@/components/admin/settings-forms";
 import { adminSupplierById, adminSupplierCommercialTerms, adminSupplierCatalogs, configured } from "@/lib/admin/data";
 import { maskCNPJ } from "@/lib/utils/masks";
@@ -227,6 +228,14 @@ async function DadosTab({ supplierId }: { supplierId: string }) {
       </details>
 
       <CommercialTermsAdmin supplierId={supplierId} terms={terms} />
+
+      {terms && (
+        <SupplierBusinessHours
+          supplierId={supplierId}
+          businessHours={terms.business_hours}
+          leadTimeMinutes={terms.lead_time_minutes}
+        />
+      )}
     </div>
   );
 }

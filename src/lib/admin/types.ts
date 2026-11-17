@@ -89,6 +89,9 @@ export interface SupplierCommercialTerms {
   frete_valor: number | null;
   dias_pedido: number[];
   prazo_entrega_cd_dias: number;
+  cutoff_time: string | null;
+  business_hours: Record<string, { open: string; close: string }> | null;
+  lead_time_minutes: number | null;
   active: boolean;
   valid_from: string;
   valid_to: string | null;
@@ -263,6 +266,17 @@ export interface SiteSettings {
   descontos: DescontosSettings;
   best_sellers: { ids: string[] };
   avisos: { topo: string };
+}
+
+export interface HolidayCalendarRow {
+  id: string;
+  scope: "national" | "state" | "municipal";
+  state_code: string | null;
+  city_name: string | null;
+  holiday_date: string;
+  name: string;
+  recurring: boolean;
+  created_at: string;
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {

@@ -834,6 +834,100 @@ export async function adjustInventory(_p: ActionResult, fd: FormData): Promise<A
   }, ["/admin/compras"]);
 }
 
+/* ========================= HOLIDAY CALENDARS ============================== */
+
+export async function saveHoliday(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const scope = str(fd, "scope") as "national" | "state" | "municipal";
+    const stateCode = str(fd, "state_code") || null;
+    const cityName = str(fd, "city_name") || null;
+    const holidayDate = str(fd, "holiday_date");
+    const name = str(fd, "name");
+    const recurring = str(fd, "recurring") === "true";
+
+    if (!holidayDate || !name) return { error: "Data e nome são obrigatórios." };
+    if (scope === "state" && !stateCode) return { error: "Estado é obrigatório para feriado estadual." };
+    if (scope === "municipal" && (!stateCode || !cityName)) return { error: "Estado e cidade são obrigatórios para feriado municipal." };
+
+    const id = str(fd, "id");
+    if (id) {
+      const { error } = await sb.from("holiday_calendars").update({
+        scope, state_code: stateCode, city_name: cityName,
+        holiday_date: holidayDate, name, recurring,
+      }).eq("id", id);
+      if (error) return { error: error.message };
+      return { ok: "Feriado atualizado." };
+    }
+
+    const { error } = await sb.from("holiday_calendars").insert({
+      scope, state_code: stateCode, city_name: cityName,
+      holiday_date: holidayDate, name, recurring, created_by: adminId,
+    });
+    if (error) return { error: error.message };
+    return { ok: "Feriado cadastrado." };
+  }, ["/admin/configuracoes"]);
+}
+
+export async function deleteHoliday(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb) => {
+    const id = str(fd, "id");
+    if (!id) return { error: "ID obrigatório." };
+    const { error } = await sb.from("holiday_calendars").delete().eq("id", id);
+    if (error) return { error: error.message };
+    return { ok: "Feriado removido." };
+  }, ["/admin/configuracoes"]);
+}
+
+export async function saveSupplierBusinessHours(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb) => {
+    const supplierId = str(fd, "supplier_id");
+    const businessHoursRaw = str(fd, "business_hours");
+    const leadTimeMinutes = Number(str(fd, "lead_time_minutes")) || 30;
+
+    if (!supplierId) return { error: "Fornecedor obrigatório." };
+
+    let businessHours: Record<string, { open: string; close: string }> | null = null;
+    if (businessHoursRaw) {
+      try {
+        businessHours = JSON.parse(businessHoursRaw);
+      } catch {
+        return { error: "Horários inválidos." };
+      }
+    }
+
+    const { error } = await sb.from("supplier_commercial_terms")
+      .update({ business_hours: businessHours, lead_time_minutes: leadTimeMinutes })
+      .eq("supplier_id", supplierId)
+      .eq("active", true)
+      .is("valid_to", null);
+    if (error) return { error: error.message };
+    return { ok: "Horários de funcionamento atualizados." };
+  }, ["/admin/fornecedores"]);
+}
+
+export async function saveCdConfig(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const city = str(fd, "cd_city") || null;
+    const state = str(fd, "cd_state") || null;
+
+    const upsert = async (key: string, value: string | null) => {
+      const jsonValue = value ? JSON.stringify(value) : "null";
+      const { error } = await sb.from("ccm_configs")
+        .update({ value: jsonValue, updated_by: adminId })
+        .eq("key", key).eq("scope", "global");
+      if (error) {
+        await sb.from("ccm_configs").insert({
+          key, scope: "global", value: jsonValue, updated_by: adminId,
+        });
+      }
+    };
+
+    await upsert("cd_city", city);
+    await upsert("cd_state", state);
+    return { ok: "Configuração do CD atualizada." };
+  }, ["/admin/configuracoes"]);
+}
+
 /* ================================== ADMINS ================================ */
 
 export async function setAdminRole(_p: ActionResult, fd: FormData): Promise<ActionResult> {

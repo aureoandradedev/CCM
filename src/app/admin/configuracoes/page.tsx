@@ -1,11 +1,15 @@
 import { CcmConfigsPanel } from "@/components/admin/ccm-configs-panel";
+import { CdConfigPanel } from "@/components/admin/cd-config-panel";
+import { HolidayCalendarPanel } from "@/components/admin/holiday-calendar-panel";
 import { AdminRoleForm, FreightForm } from "@/components/admin/settings-forms";
 import { Card, NotConfigured, PageTitle } from "@/components/admin/ui";
-import { adminAdmins, adminConfigs, adminSettings, configured } from "@/lib/admin/data";
+import { adminAdmins, adminConfigs, adminSettings, readCdConfig, readHolidayCalendars, configured } from "@/lib/admin/data";
 
 export default async function AdminSettingsPage() {
   if (!configured()) return <NotConfigured />;
-  const [settings, admins, configs] = await Promise.all([adminSettings(), adminAdmins(), adminConfigs()]);
+  const [settings, admins, configs, holidays, cdConfig] = await Promise.all([
+    adminSettings(), adminAdmins(), adminConfigs(), readHolidayCalendars(), readCdConfig(),
+  ]);
   return (
     <>
       <PageTitle title="Configurações" />
@@ -18,6 +22,17 @@ export default async function AdminSettingsPage() {
         </Card>
         <Card title="Configurações CCM" className="lg:col-span-1">
           <CcmConfigsPanel configs={configs} />
+        </Card>
+      </div>
+
+      {/* ── Calendário + CD ───────────────────────────────── */}
+      <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand-ink-soft">Calendário e CD</h2>
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <Card title="Feriados">
+          <HolidayCalendarPanel holidays={holidays} />
+        </Card>
+        <Card title="Centro de Distribuição">
+          <CdConfigPanel city={cdConfig.city} state={cdConfig.state} />
         </Card>
       </div>
 

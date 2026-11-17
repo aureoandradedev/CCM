@@ -16,6 +16,7 @@ import {
   type AdminSupplier,
   type CcmConfig,
   type CcmConfigHistory,
+  type HolidayCalendarRow,
   type InventorySummary,
   type LinkedProfile,
   type OrderEvent,
@@ -143,7 +144,7 @@ export async function adminSupplierCommercialTerms(supplierId: string): Promise<
   const sb = await createClient();
   const { data } = await sb
     .from("supplier_commercial_terms")
-    .select("id, supplier_id, pedido_minimo_tipo, pedido_minimo, frete_tipo, frete_gratis_acima, frete_valor, dias_pedido, prazo_entrega_cd_dias, active, valid_from, valid_to")
+    .select("id, supplier_id, pedido_minimo_tipo, pedido_minimo, frete_tipo, frete_gratis_acima, frete_valor, dias_pedido, prazo_entrega_cd_dias, cutoff_time, business_hours, lead_time_minutes, active, valid_from, valid_to")
     .eq("supplier_id", supplierId)
     .eq("active", true)
     .is("valid_to", null)
@@ -638,4 +639,32 @@ export function isAfterCutoff(cutoffTime: string): boolean {
     minute: "2-digit",
   });
   return brTime >= cutoffTime;
+}
+
+/* ------ Bloco 1: Holiday Calendars + CD Config ----------------------------- */
+
+export async function readHolidayCalendars(): Promise<HolidayCalendarRow[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb.from("holiday_calendars")
+    .select("id, scope, state_code, city_name, holiday_date, name, recurring, created_at")
+    .order("holiday_date", { ascending: true });
+  return (data as HolidayCalendarRow[] | null) ?? [];
+}
+
+export async function readCdConfig(): Promise<{ city: string | null; state: string | null }> {
+  if (!configured()) return { city: null, state: null };
+  const sb = await createClient();
+  const [cityRes, stateRes] = await Promise.all([
+    sb.from("ccm_configs").select("value")
+      .eq("key", "cd_city").eq("scope", "global").limit(1).single(),
+    sb.from("ccm_configs").select("value")
+      .eq("key", "cd_state").eq("scope", "global").limit(1).single(),
+  ]);
+  const city = cityRes.data?.value;
+  const state = stateRes.data?.value;
+  return {
+    city: typeof city === "string" ? city : null,
+    state: typeof state === "string" ? state : null,
+  };
 }
