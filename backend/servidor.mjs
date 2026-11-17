@@ -14,6 +14,7 @@ import helmet from "helmet";
 import { config, supabaseConfigurado } from "./lib/config.mjs";
 import { imagens } from "./routes/imagens.mjs";
 import { pagamentos } from "./routes/pagamentos.mjs";
+import recebimento from "./routes/recebimento.mjs";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -61,6 +62,7 @@ app.get("/api/status", (_req, res) => {
 
 app.use("/api/pagamentos", pagamentos);
 app.use("/api/imagens", imagens);
+app.use("/api/recebimento", recebimento);
 
 app.use((_req, res) => res.status(404).json({ ok: false, erro: "rota não encontrada" }));
 app.use((err, _req, res, next) => {

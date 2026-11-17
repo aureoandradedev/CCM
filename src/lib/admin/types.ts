@@ -279,6 +279,67 @@ export interface HolidayCalendarRow {
   created_at: string;
 }
 
+export interface ReceivingSessionRow {
+  id: string;
+  purchase_order_id: string;
+  inspector_id: string | null;
+  status: "in_progress" | "completed" | "cancelled";
+  started_at: string;
+  completed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  supplier_purchase_orders?: {
+    supplier_id: string;
+    cycle_date: string;
+    status: string;
+    suppliers?: { name: string };
+  };
+}
+
+export interface ReceivingItemRow {
+  id: string;
+  receiving_session_id: string;
+  purchase_order_item_id: string;
+  master_product_id: string;
+  expected_qty: number;
+  received_qty: number;
+  accepted_qty: number;
+  damaged_qty: number;
+  is_swapped: boolean;
+  swapped_product_id: string | null;
+  photos: string[];
+  notes: string | null;
+  created_at: string;
+  master_products?: { name: string; ean: string | null };
+}
+
+export interface OperationalExceptionRow {
+  id: string;
+  type: "shortage" | "damage" | "swap" | "excess" | "late_delivery" | "other";
+  receiving_session_id: string | null;
+  supplier_id: string | null;
+  severity: "low" | "medium" | "high" | "critical";
+  resolution_status: "open" | "investigating" | "resolved" | "accepted";
+  resolution_notes: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  details: Record<string, unknown>;
+  suppliers?: { name: string };
+  exception_links?: ExceptionLinkRow[];
+}
+
+export interface ExceptionLinkRow {
+  id: string;
+  exception_id: string;
+  link_type: "order" | "shipment" | "product" | "purchase_order";
+  order_id: string | null;
+  shipment_id: string | null;
+  product_id: string | null;
+  purchase_order_id: string | null;
+}
+
 export const DEFAULT_SETTINGS: SiteSettings = {
   frete: { freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS, flatCentavos: STANDARD_SHIPPING_CENTAVOS, pickupEnabled: true },
   entrega_bloqueio: { ativo: false, data: null, mensagem: "" },

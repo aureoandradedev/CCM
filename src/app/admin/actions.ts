@@ -942,3 +942,25 @@ export async function setAdminRole(_p: ActionResult, fd: FormData): Promise<Acti
     return { ok: revogar ? "Acesso revogado." : "Agora é administrador." };
   }, ["/admin/configuracoes"]);
 }
+
+/* ============================= RECEBIMENTO ============================== */
+
+export async function resolveException(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const exceptionId = str(fd, "exceptionId");
+    const status = str(fd, "status") as "resolved" | "accepted" | "investigating";
+    const notes = str(fd, "notes");
+    if (!exceptionId) return { error: "ID da exceção obrigatório." };
+    const { error } = await sb
+      .from("operational_exceptions")
+      .update({
+        resolution_status: status,
+        resolution_notes: notes || null,
+        resolved_by: adminId,
+        resolved_at: new Date().toISOString(),
+      })
+      .eq("id", exceptionId);
+    if (error) return { error: error.message };
+    return { ok: "Exceção atualizada." };
+  }, ["/admin/recebimento"]);
+}

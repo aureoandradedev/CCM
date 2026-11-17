@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
   DollarSign,
   Package,
@@ -226,6 +227,7 @@ export default async function ComprasDashboard() {
           { href: "/admin/compras/condicoes", label: "Condições comerciais", icon: ShoppingCart, desc: "Termos por fornecedor" },
           { href: "/admin/compras/pedidos-compra", label: "Pedidos de compra", icon: Package, desc: "Ciclos, mínimos, envio" },
           { href: "/admin/compras/estoque", label: "Estoque CCM", icon: Warehouse, desc: "Sobras e inventário" },
+          { href: "/admin/recebimento", label: "Recebimento no CD", icon: ClipboardCheck, desc: "Conferência e exceções" },
           { href: "/admin/compras/precos", label: "Preços e fornecedores", icon: DollarSign, desc: "Preços e seleção" },
           { href: "/admin/compras/configuracoes-venda", label: "Configuração de venda", icon: Settings, desc: "Seções, limites, regras" },
         ].map((s) => (

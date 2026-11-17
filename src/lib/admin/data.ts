@@ -19,9 +19,11 @@ import {
   type HolidayCalendarRow,
   type InventorySummary,
   type LinkedProfile,
+  type OperationalExceptionRow,
   type OrderEvent,
   type PurchaseOrder,
   type PurchaseOrderItem,
+  type ReceivingSessionRow,
   type SiteSettings,
 } from "./types";
 
@@ -667,4 +669,54 @@ export async function readCdConfig(): Promise<{ city: string | null; state: stri
     city: typeof city === "string" ? city : null,
     state: typeof state === "string" ? state : null,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Receiving + Exceptions
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function readReceivingSessions(): Promise<ReceivingSessionRow[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb
+    .from("receiving_sessions")
+    .select("*, supplier_purchase_orders(supplier_id, cycle_date, status, suppliers(name))")
+    .order("started_at", { ascending: false })
+    .limit(50);
+  return (data as ReceivingSessionRow[] | null) ?? [];
+}
+
+export async function readReceivingSession(id: string): Promise<ReceivingSessionRow | null> {
+  if (!configured()) return null;
+  const sb = await createClient();
+  const { data } = await sb
+    .from("receiving_sessions")
+    .select("*, supplier_purchase_orders(supplier_id, cycle_date, status, suppliers(name))")
+    .eq("id", id)
+    .maybeSingle();
+  return data as ReceivingSessionRow | null;
+}
+
+export async function readPendingPurchaseOrders() {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb
+    .from("supplier_purchase_orders")
+    .select("id, supplier_id, cycle_date, status, item_count, total_centavos, suppliers(name)")
+    .in("status", ["sent", "ready"])
+    .order("cycle_date", { ascending: false });
+  return data ?? [];
+}
+
+export async function readOperationalExceptions(status?: string): Promise<OperationalExceptionRow[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let query = sb
+    .from("operational_exceptions")
+    .select("*, suppliers(name), exception_links(*)")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (status) query = query.eq("resolution_status", status);
+  const { data } = await query;
+  return (data as OperationalExceptionRow[] | null) ?? [];
 }
