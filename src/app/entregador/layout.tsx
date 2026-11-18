@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 
 import { requireRole } from "@/lib/admin/guard";
+import { firstName } from "@/lib/supabase/auth";
+import { EntregadorShell } from "@/components/entregador/entregador-shell";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Entregas", robots: { index: false, follow: false } };
 
 export default async function EntregadorLayout({ children }: { children: React.ReactNode }) {
-  await requireRole(["entregador"], "/entregador");
-  return <>{children}</>;
+  const user = await requireRole(["entregador"], "/entregador");
+  return <EntregadorShell userName={firstName(user)}>{children}</EntregadorShell>;
 }
