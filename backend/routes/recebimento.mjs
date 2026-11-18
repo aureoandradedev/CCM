@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { exigirAdmin } from "../lib/supabase.mjs";
+import { exigirAdmin, exigirRole } from "../lib/supabase.mjs";
 import {
   startReceiving,
   recordItem,
@@ -15,7 +15,7 @@ function handleErr(res, e) {
   res.status(status).json({ ok: false, erro: e.message });
 }
 
-router.post("/start", exigirAdmin, async (req, res) => {
+router.post("/start", exigirRole("recebedor"), async (req, res) => {
   try {
     const { purchaseOrderId } = req.body;
     if (!purchaseOrderId) return res.status(400).json({ ok: false, erro: "purchaseOrderId obrigatório." });
@@ -26,7 +26,7 @@ router.post("/start", exigirAdmin, async (req, res) => {
   }
 });
 
-router.post("/item", exigirAdmin, async (req, res) => {
+router.post("/item", exigirRole("recebedor"), async (req, res) => {
   try {
     const { sessionId, ...data } = req.body;
     if (!sessionId) return res.status(400).json({ ok: false, erro: "sessionId obrigatório." });
@@ -37,7 +37,7 @@ router.post("/item", exigirAdmin, async (req, res) => {
   }
 });
 
-router.post("/complete", exigirAdmin, async (req, res) => {
+router.post("/complete", exigirRole("recebedor"), async (req, res) => {
   try {
     const { sessionId } = req.body;
     if (!sessionId) return res.status(400).json({ ok: false, erro: "sessionId obrigatório." });
