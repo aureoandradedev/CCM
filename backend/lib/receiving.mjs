@@ -8,6 +8,7 @@
  *   4. confirmAllocation(sessionId, plan) → persiste alocação, estoque, exceções
  */
 import { db } from "./supabase.mjs";
+import { recordReceivingResult, recordReceivingSwap } from "./supplier-performance.mjs";
 
 export class ReceivingError extends Error {
   constructor(status, message) {
@@ -195,6 +196,30 @@ export async function completeReceiving(sessionId) {
       damagedQty: i.damaged_qty,
     }));
 
+  const summary = {
+    totalExpected,
+    totalReceived,
+    totalAccepted: items.reduce((s, i) => s + i.accepted_qty, 0),
+    totalDamaged: items.reduce((s, i) => s + i.damaged_qty, 0),
+  };
+
+  // Record performance events (idempotent — safe on retry)
+  const { data: po } = await db()
+    .from("supplier_purchase_orders")
+    .select("supplier_id")
+    .eq("id", session.purchase_order_id)
+    .maybeSingle();
+  if (po?.supplier_id) {
+    await recordReceivingResult(po.supplier_id, sessionId, summary);
+    const swaps = items.filter((i) => i.is_swapped);
+    for (const sw of swaps) {
+      await recordReceivingSwap(po.supplier_id, sessionId, {
+        originalProductId: sw.master_product_id,
+        swappedProductId: sw.swapped_product_id,
+      });
+    }
+  }
+
   return {
     sessionId,
     poStatus,
@@ -202,12 +227,7 @@ export async function completeReceiving(sessionId) {
     allocationInputs: { received, pending },
     shortages,
     damages,
-    summary: {
-      totalExpected,
-      totalReceived,
-      totalAccepted: items.reduce((s, i) => s + i.accepted_qty, 0),
-      totalDamaged: items.reduce((s, i) => s + i.damaged_qty, 0),
-    },
+    summary,
   };
 }
 

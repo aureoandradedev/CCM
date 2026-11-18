@@ -17,8 +17,12 @@ import {
   getSupplierTopProducts,
   getSupplierAlerts,
   getSupplierHistory,
+  getSupplierOperationalEvents,
   type PeriodKey,
 } from "@/lib/admin/supplier-bi-data";
+import { aggregateOperationalKpis, type PerformanceEventType } from "@/lib/supplier-performance";
+import { fetchOperationalKpis } from "@/app/admin/actions";
+import { SupplierKpiPanel } from "@/components/admin/supplier-kpi-panel";
 import {
   TabNav,
   PeriodSelector,
@@ -163,14 +167,23 @@ async function SalesTab({
 // ─── Tab: Desempenho ────────────────────────────────────────────────────────
 
 async function PerformanceTab({ supplierId, period }: { supplierId: string; period: PeriodKey }) {
-  const [perf, timeline] = await Promise.all([
+  const [perf, timeline, opEvents] = await Promise.all([
     getSupplierPerformance(supplierId),
     getSupplierRevenueTimeline(supplierId, period),
+    getSupplierOperationalEvents(supplierId, "30d"),
   ]);
+
+  const mapped = opEvents.map((e) => ({
+    ...e,
+    supplier_id: supplierId,
+    event_type: e.event_type as PerformanceEventType,
+  }));
+  const initialKpis = mapped.length > 0 ? aggregateOperationalKpis(mapped) : null;
 
   return (
     <div className="space-y-6">
-      <h2 className="font-heading text-lg font-bold text-brand-navy">Indicadores operacionais</h2>
+      <SupplierKpiPanel initialKpis={initialKpis} supplierId={supplierId} fetchKpis={fetchOperationalKpis} />
+      <h2 className="font-heading text-lg font-bold text-brand-navy">Indicadores de sourcing</h2>
       <PerformanceGrid perf={perf} />
       <RevenueChart data={timeline} />
     </div>

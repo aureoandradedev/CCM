@@ -1118,3 +1118,30 @@ async function fetchSalesByMasterProduct(
   return map;
 }
 
+// ─── Operational KPIs (from supplier_performance_events) ──────────────────
+
+export type OperationalPeriodKey = "30d" | "90d" | "todos";
+
+export async function getSupplierOperationalEvents(
+  supplierId: string,
+  period: OperationalPeriodKey,
+): Promise<Array<{ id: string; event_type: string; reference_type: string | null; reference_id: string | null; metric_value: number | null; data: Record<string, unknown>; created_at: string }>> {
+  const sb = await createClient();
+  let query = sb
+    .from("supplier_performance_events")
+    .select("id, event_type, reference_type, reference_id, metric_value, data, created_at")
+    .eq("supplier_id", supplierId)
+    .order("created_at", { ascending: false });
+
+  if (period === "30d") {
+    const from = new Date(Date.now() - 30 * 86400000).toISOString();
+    query = query.gte("created_at", from);
+  } else if (period === "90d") {
+    const from = new Date(Date.now() - 90 * 86400000).toISOString();
+    query = query.gte("created_at", from);
+  }
+
+  const { data } = await query;
+  return (data ?? []) as Array<{ id: string; event_type: string; reference_type: string | null; reference_id: string | null; metric_value: number | null; data: Record<string, unknown>; created_at: string }>;
+}
+

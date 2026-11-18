@@ -758,14 +758,35 @@ export async function decidePurchaseOrder(_p: ActionResult, fd: FormData): Promi
     const decision = str(fd, "decision");
     if (!poId || !decision) return { error: "Dados inválidos." };
 
+    const { data: po } = await sb.from("supplier_purchase_orders").select("supplier_id").eq("id", poId).maybeSingle();
+
+    const cancelDecisions = ["wait_next_cycle", "move_supplier"];
+    const newStatus = cancelDecisions.includes(decision) ? "cancelled" : "sent";
     const { error } = await sb.from("supplier_purchase_orders").update({
       decision,
       decided_by: adminId,
       decided_at: new Date().toISOString(),
-      status: decision === "wait_next_cycle" ? "cancelled" : "sent",
+      status: newStatus,
+      sent_at: newStatus === "sent" ? new Date().toISOString() : undefined,
     }).eq("id", poId).in("status", ["draft", "ready", "minimum_not_met"]);
 
     if (error) return { error: error.message };
+
+    if (po?.supplier_id) {
+      if (newStatus === "sent") {
+        await sb.from("supplier_performance_events").upsert({
+          supplier_id: po.supplier_id, event_type: "po_sent",
+          reference_type: "purchase_order", reference_id: poId,
+        }, { onConflict: "supplier_id,event_type,reference_type,reference_id", ignoreDuplicates: true });
+      } else {
+        await sb.from("supplier_performance_events").upsert({
+          supplier_id: po.supplier_id, event_type: "cut_from_cycle",
+          reference_type: "purchase_order", reference_id: poId,
+          data: { reason: decision },
+        }, { onConflict: "supplier_id,event_type,reference_type,reference_id", ignoreDuplicates: true });
+      }
+    }
+
     return { ok: "Decisão registrada." };
   }, ["/admin/compras"]);
 }
@@ -1001,6 +1022,66 @@ export async function setShipmentTracking(_p: ActionResult, fd: FormData): Promi
     if (data?.error) return { error: data.error };
     return { ok: "Rastreio atualizado." };
   }, ["/admin/pedidos"]);
+}
+
+/* ============================= PERFORMANCE ============================== */
+
+export async function confirmPurchaseOrder(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb) => {
+    const poId = str(fd, "purchase_order_id");
+    if (!poId) return { error: "ID do pedido obrigatório." };
+
+    const { data: po } = await sb
+      .from("supplier_purchase_orders")
+      .select("id, supplier_id, sent_at, confirmed_at, status")
+      .eq("id", poId)
+      .maybeSingle();
+
+    if (!po) return { error: "Pedido de compra não encontrado." };
+    if (po.confirmed_at) return { error: "Pedido já confirmado." };
+    if (po.status !== "sent") return { error: `Status '${po.status}' não permite confirmação.` };
+
+    const now = new Date().toISOString();
+    const { error } = await sb
+      .from("supplier_purchase_orders")
+      .update({ confirmed_at: now })
+      .eq("id", poId);
+    if (error) return { error: error.message };
+
+    let confirmationHours: number | null = null;
+    if (po.sent_at) {
+      const sentMs = new Date(po.sent_at).getTime();
+      const nowMs = new Date(now).getTime();
+      confirmationHours = Math.round(((nowMs - sentMs) / 3600000) * 10) / 10;
+    }
+
+    if (po.supplier_id) {
+      await sb.from("supplier_performance_events").upsert({
+        supplier_id: po.supplier_id, event_type: "po_confirmed",
+        reference_type: "purchase_order", reference_id: poId,
+        metric_value: confirmationHours,
+      }, { onConflict: "supplier_id,event_type,reference_type,reference_id", ignoreDuplicates: true });
+    }
+
+    return { ok: "Confirmação registrada." };
+  }, ["/admin/compras"]);
+}
+
+export async function fetchOperationalKpis(supplierId: string, period: "30d" | "90d" | "todos") {
+  "use server";
+  const { getSupplierOperationalEvents } = await import("@/lib/admin/supplier-bi-data");
+  const { aggregateOperationalKpis } = await import("@/lib/supplier-performance");
+  const { assertAdmin } = await import("@/lib/admin/guard");
+  await assertAdmin();
+
+  const events = await getSupplierOperationalEvents(supplierId, period);
+  const mapped = events.map((e) => ({
+    ...e,
+    supplier_id: supplierId,
+    event_type: e.event_type as import("@/lib/supplier-performance").PerformanceEventType,
+  }));
+  if (mapped.length === 0) return null;
+  return aggregateOperationalKpis(mapped);
 }
 
 export async function logShipmentOccurrence(_p: ActionResult, fd: FormData): Promise<ActionResult> {
