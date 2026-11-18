@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { assertAdmin } from "@/lib/admin/guard";
+import { assertAdmin, assertRole } from "@/lib/admin/guard";
+import type { UserRole } from "@/lib/supabase/auth";
 import type { CampaignProduct } from "@/lib/admin/types";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/utils/format";
@@ -21,6 +22,19 @@ async function run(fn: (sb: Awaited<ReturnType<typeof createClient>>, adminId: s
     const admin = await assertAdmin();
     const sb = await createClient();
     const r = (await fn(sb, admin.id)) ?? {};
+    for (const p of paths) revalidatePath(p, "layout");
+    revalidatePath("/", "layout");
+    return r;
+  } catch (e) {
+    return { error: (e as Error).message || "Erro inesperado." };
+  }
+}
+
+async function runOp(roles: UserRole[], fn: (sb: Awaited<ReturnType<typeof createClient>>, userId: string) => Promise<ActionResult | void>, paths: string[] = ["/admin"]): Promise<ActionResult> {
+  try {
+    const user = await assertRole(roles);
+    const sb = await createClient();
+    const r = (await fn(sb, user.id)) ?? {};
     for (const p of paths) revalidatePath(p, "layout");
     revalidatePath("/", "layout");
     return r;
@@ -753,7 +767,7 @@ export async function generatePurchaseOrder(_p: ActionResult, fd: FormData): Pro
 }
 
 export async function decidePurchaseOrder(_p: ActionResult, fd: FormData): Promise<ActionResult> {
-  return run(async (sb, adminId) => {
+  return runOp(["compras"], async (sb, userId) => {
     const poId = str(fd, "purchase_order_id");
     const decision = str(fd, "decision");
     if (!poId || !decision) return { error: "Dados inválidos." };
@@ -764,7 +778,7 @@ export async function decidePurchaseOrder(_p: ActionResult, fd: FormData): Promi
     const newStatus = cancelDecisions.includes(decision) ? "cancelled" : "sent";
     const { error } = await sb.from("supplier_purchase_orders").update({
       decision,
-      decided_by: adminId,
+      decided_by: userId,
       decided_at: new Date().toISOString(),
       status: newStatus,
       sent_at: newStatus === "sent" ? new Date().toISOString() : undefined,
@@ -788,7 +802,7 @@ export async function decidePurchaseOrder(_p: ActionResult, fd: FormData): Promi
     }
 
     return { ok: "Decisão registrada." };
-  }, ["/admin/compras"]);
+  }, ["/admin/compras", "/compras"]);
 }
 
 export async function consolidateCyclePurchaseOrders(): Promise<ActionResult> {
@@ -1027,7 +1041,7 @@ export async function setShipmentTracking(_p: ActionResult, fd: FormData): Promi
 /* ============================= PERFORMANCE ============================== */
 
 export async function confirmPurchaseOrder(_p: ActionResult, fd: FormData): Promise<ActionResult> {
-  return run(async (sb) => {
+  return runOp(["compras"], async (sb) => {
     const poId = str(fd, "purchase_order_id");
     if (!poId) return { error: "ID do pedido obrigatório." };
 
@@ -1064,15 +1078,15 @@ export async function confirmPurchaseOrder(_p: ActionResult, fd: FormData): Prom
     }
 
     return { ok: "Confirmação registrada." };
-  }, ["/admin/compras"]);
+  }, ["/admin/compras", "/compras"]);
 }
 
 export async function fetchOperationalKpis(supplierId: string, period: "30d" | "90d" | "todos") {
   "use server";
   const { getSupplierOperationalEvents } = await import("@/lib/admin/supplier-bi-data");
   const { aggregateOperationalKpis } = await import("@/lib/supplier-performance");
-  const { assertAdmin } = await import("@/lib/admin/guard");
-  await assertAdmin();
+  const { assertRole } = await import("@/lib/admin/guard");
+  await assertRole(["compras"]);
 
   const events = await getSupplierOperationalEvents(supplierId, period);
   const mapped = events.map((e) => ({

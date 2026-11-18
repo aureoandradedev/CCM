@@ -92,10 +92,11 @@ const TABS = [
 
 export type TabKey = (typeof TABS)[number]["key"];
 
-export function TabNav({ current }: { current: TabKey }) {
+export function TabNav({ current, excludeTabs }: { current: TabKey; excludeTabs?: TabKey[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
+  const excludeSet = excludeTabs ? new Set(excludeTabs) : null;
 
   function setTab(t: TabKey) {
     const params = new URLSearchParams(sp.toString());
@@ -106,7 +107,7 @@ export function TabNav({ current }: { current: TabKey }) {
 
   return (
     <div className="mb-6 flex gap-1 overflow-x-auto border-b border-brand-line pb-px">
-      {TABS.map((t) => (
+      {TABS.filter((t) => !excludeSet || !excludeSet.has(t.key)).map((t) => (
         <button
           key={t.key}
           onClick={() => setTab(t.key)}

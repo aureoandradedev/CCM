@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { assertAdmin } from "@/lib/admin/guard";
+import { assertRole } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
 
 export interface ActionResult {
@@ -18,10 +18,11 @@ async function run(
   ) => Promise<ActionResult | void>,
 ): Promise<ActionResult> {
   try {
-    const admin = await assertAdmin();
+    const user = await assertRole(["compras"]);
     const sb = await createClient();
-    const r = (await fn(sb, admin.id)) ?? {};
+    const r = (await fn(sb, user.id)) ?? {};
     revalidatePath("/admin/compras", "layout");
+    revalidatePath("/compras", "layout");
     return r;
   } catch (e) {
     return { error: (e as Error).message || "Erro inesperado." };

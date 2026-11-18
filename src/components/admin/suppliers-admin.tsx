@@ -124,7 +124,7 @@ function fmtBrl(centavos: number): string {
   return (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export function SuppliersAdmin({ suppliers, supplierIdsWithTerms, summaries = {} }: { suppliers: AdminSupplier[]; supplierIdsWithTerms: string[]; summaries?: Record<string, SupplierListSummary> }) {
+export function SuppliersAdmin({ suppliers, supplierIdsWithTerms, summaries = {}, basePath = "/admin/fornecedores", readOnly = false }: { suppliers: AdminSupplier[]; supplierIdsWithTerms: string[]; summaries?: Record<string, SupplierListSummary>; basePath?: string; readOnly?: boolean }) {
   const termsSet = new Set(supplierIdsWithTerms);
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => suppliers.filter((s) => matchesSearch(s, query.trim())), [suppliers, query]);
@@ -132,8 +132,8 @@ export function SuppliersAdmin({ suppliers, supplierIdsWithTerms, summaries = {}
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <NewSupplierDialog />
-        <InviteSupplierDialog />
+        {!readOnly && <NewSupplierDialog />}
+        {!readOnly && <InviteSupplierDialog />}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-ink-soft" />
           <input
@@ -158,7 +158,7 @@ export function SuppliersAdmin({ suppliers, supplierIdsWithTerms, summaries = {}
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <Link href={`/admin/fornecedores/${s.id}`} className="font-semibold text-brand-navy hover:underline dark:text-foreground">
+                      <Link href={`${basePath}/${s.id}`} className="font-semibold text-brand-navy hover:underline dark:text-foreground">
                         {s.name}
                       </Link>
                       <SupplierStatusBadge supplier={s} hasActiveTerms={termsSet.has(s.id)} />
@@ -178,10 +178,10 @@ export function SuppliersAdmin({ suppliers, supplierIdsWithTerms, summaries = {}
                     )}
                   </div>
                   <Link
-                    href={`/admin/fornecedores/${s.id}`}
+                    href={`${basePath}/${s.id}`}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink-soft transition-colors hover:border-brand-navy hover:text-brand-navy"
                   >
-                    <Pencil className="size-3" /> Editar
+                    <Pencil className="size-3" /> {readOnly ? "Ver" : "Editar"}
                   </Link>
                 </div>
               </div>

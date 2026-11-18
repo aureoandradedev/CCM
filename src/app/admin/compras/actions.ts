@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { assertAdmin } from "@/lib/admin/guard";
+import { assertAdmin, assertRole } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
 import { rankProductOffers } from "@/lib/ranking/engine";
 import type { RankableOffer } from "@/lib/ranking/types";
@@ -68,10 +68,11 @@ async function run(
   fn: (sb: Awaited<ReturnType<typeof createClient>>, adminId: string) => Promise<ActionResult | void>,
 ): Promise<ActionResult> {
   try {
-    const admin = await assertAdmin();
+    const user = await assertRole(["compras"]);
     const sb = await createClient();
-    const r = (await fn(sb, admin.id)) ?? {};
+    const r = (await fn(sb, user.id)) ?? {};
     revalidatePath("/admin/compras", "layout");
+    revalidatePath("/compras", "layout");
     if (r.error) r.error = friendlyError(r.error);
     return r;
   } catch (e) {
@@ -269,76 +270,45 @@ export async function createMasterFromItem(_prev: ActionResult, fd: FormData): P
   if (!itemId || !name) return { error: "Item e nome são obrigatórios." };
 
   return run(async (sb) => {
-    const { data: item } = await sb
-      .from("supplier_catalog_items")
-      .select("id, match_status")
-      .eq("id", itemId)
-      .single();
-    if (!item) return { error: "Item não encontrado." };
+    const { data: rpcResult, error: rpcErr } = await sb.rpc("create_master_from_catalog_item", {
+      p_item_id: itemId,
+      p_name: name,
+      p_brand_slug: brandSlug,
+      p_brand_name: brandName,
+      p_model: model,
+      p_ean: ean,
+      p_category_slug: categorySlug,
+      p_subcategory_slug: subcategorySlug,
+      p_unit: unit,
+    });
 
-    let resolvedBrandSlug = brandSlug;
-    if (brandSlug) {
-      const { data: existing } = await sb.from("brands").select("slug").eq("slug", brandSlug).maybeSingle();
-      if (!existing) {
-        const { error: brandErr } = await sb.from("brands").insert({ slug: brandSlug, name: brandName || brandSlug });
-        if (brandErr) resolvedBrandSlug = null;
-      }
+    if (rpcErr) {
+      const msg = rpcErr.message ?? "";
+      if (msg.includes("permission_denied")) return { error: "Sem permissão para criar produto mestre." };
+      if (msg.includes("not_found")) return { error: "Item não encontrado." };
+      if (msg.includes("invalid_state")) return { error: "Item não está em estado compatível para criação de produto mestre." };
+      if (msg.includes("duplicate_ean")) return { error: `EAN duplicado: ${msg.split(": ")[1] ?? msg}` };
+      return { error: msg || "Erro ao criar produto mestre." };
     }
 
-    const { data: master, error: insertErr } = await sb
-      .from("master_products")
-      .insert({
-        name,
-        brand_slug: resolvedBrandSlug,
-        brand_name: brandName,
-        model,
-        ean,
-        category_slug: categorySlug || null,
-        subcategory_slug: subcategorySlug || null,
-        unit,
-      })
-      .select("id")
-      .single();
+    const r = rpcResult as { master_product_id: string; supplier_id: string; supplier_sku: string; ean: string | null; item_name: string; name_normalized: string };
 
-    if (insertErr) return { error: insertErr.message };
-
-    const { error: linkErr } = await sb
-      .from("supplier_catalog_items")
-      .update({
-        master_product_id: master.id,
-        match_status: "aprovado",
-        match_confidence: 100,
-        match_signals: [{ signal: "admin_created_master", weight: 100, matched: true, detail: "Produto mestre criado pelo admin" }],
-      })
-      .eq("id", itemId);
-
-    if (linkErr) return { error: linkErr.message };
-
-    // Record matching bindings for future reuse
-    const { data: itemData } = await sb
-      .from("supplier_catalog_items")
-      .select("supplier_id, supplier_sku, ean, name, normalized_data")
-      .eq("id", itemId)
-      .single();
-    if (itemData) {
-      const nd = itemData.normalized_data as { name_normalized?: string } | null;
-      await recordApprovalBindings(sb, {
-        supplierId: itemData.supplier_id,
-        supplierSku: itemData.supplier_sku,
-        eanClean: itemData.ean?.replace(/[\s\-.\/]/g, "") ?? null,
-        nameNormalized: nd?.name_normalized ?? itemData.name,
-        masterProductId: master.id,
-        confidence: 100,
-        origin: "admin_create",
-        originItemId: itemId,
-      });
-    }
+    await recordApprovalBindings(sb, {
+      supplierId: r.supplier_id,
+      supplierSku: r.supplier_sku,
+      eanClean: r.ean?.replace(/[\s\-.\/]/g, "") ?? null,
+      nameNormalized: r.name_normalized ?? r.item_name,
+      masterProductId: r.master_product_id,
+      confidence: 100,
+      origin: "admin_create",
+      originItemId: itemId,
+    });
 
     const offerResult = await ensureOfferForApprovedItem(sb, itemId);
     if (!offerResult.ok) {
       return { ok: `Produto mestre "${name}" criado e item vinculado. Oferta não criada: ${offerResult.error}`, offerCreated: false };
     }
-    const asr = await autoSourceProduct(sb, master.id, "first_selection");
+    const asr = await autoSourceProduct(sb, r.master_product_id, "first_selection");
     const offerLabel = offerResult.action === "versioned" ? "atualizada" : "criada";
     const autoLabel = asr.action === "selected" ? " Sourcing automático." : asr.action === "disabled" ? "" : ` Auto-sourcing: ${asr.reason}.`;
     return { ok: `Produto mestre "${name}" criado, oferta ${offerLabel}.${autoLabel}`, offerCreated: true, autoSourceResult: asr };
@@ -407,7 +377,7 @@ export async function associateToMaster(_prev: ActionResult, fd: FormData): Prom
 
 export async function searchMasters(query: string): Promise<{ id: string; name: string; brand_slug: string | null; model: string | null; ean: string | null }[]> {
   try {
-    await assertAdmin();
+    await assertRole(["compras"]);
     const sb = await createClient();
     const q = query.trim();
     if (!q) return [];
@@ -519,7 +489,7 @@ export async function processarCatalogo(catalogId: string): Promise<CatalogProce
   if (!catalogId) return { error: "Catálogo inválido." };
 
   try {
-    await assertAdmin();
+    await assertRole(["compras"]);
     const sb = await createClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await processCatalogScoped(sb as any, catalogId);
@@ -534,6 +504,7 @@ export async function processarCatalogo(catalogId: string): Promise<CatalogProce
       .join(", ");
 
     revalidatePath("/admin/compras", "layout");
+    revalidatePath("/compras", "layout");
 
     return {
       ok: `Catálogo processado (${result.duration_ms}ms). ${summary || "Nenhum item pendente."}`,
@@ -548,6 +519,11 @@ export async function processarCatalogo(catalogId: string): Promise<CatalogProce
 // ─── Backfill offers for approved items missing them ─────────────────────
 
 export async function backfillApprovedOffers(): Promise<ActionResult> {
+  try {
+    await assertAdmin();
+  } catch {
+    return { error: "Apenas admin pode executar backfill de ofertas." };
+  }
   return run(async (sb) => {
     const { data: approvedItems } = await sb
       .from("supplier_catalog_items")
@@ -673,7 +649,7 @@ const BINDING_SELECT = "id, binding_type, master_product_id, supplier_id, suppli
 
 export async function getItemBindings(itemId: string): Promise<BindingInfo[]> {
   try {
-    await assertAdmin();
+    await assertRole(["compras"]);
     const sb = await createClient();
 
     const { data: item } = await sb
