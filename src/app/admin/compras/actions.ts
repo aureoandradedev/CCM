@@ -12,7 +12,7 @@ import { runOrchestrator } from "@/lib/admin/orchestrator";
 import type { OrchestratorResult } from "@/lib/admin/orchestrator-types";
 import { processCatalogScoped, type ScopedCatalogResult } from "@/lib/admin/catalog-processor";
 import { autoSourceProduct, autoSourceProducts, summarizeAutoSourceResults, type AutoSourceResult } from "@/lib/admin/auto-sourcing";
-import { recordApprovalBindings } from "@/lib/matching/bindings";
+import { recordApprovalBindings, canonicalNameKey } from "@/lib/matching/bindings";
 
 export interface ActionResult {
   ok?: string;
@@ -425,9 +425,9 @@ export async function searchMasters(query: string): Promise<{ id: string; name: 
   }
 }
 
-// ─── Rejeitar item normalizado (ignorar) ──────────────────────────────────
+// ─── Ignorar item temporariamente ──────────────────────────────────────────
 
-export async function rejectNormalizedItem(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+export async function ignoreItem(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
   const itemId = String(fd.get("itemId") ?? "");
   if (!itemId) return { error: "Item inválido." };
 
@@ -435,16 +435,52 @@ export async function rejectNormalizedItem(_prev: ActionResult, fd: FormData): P
     const { error } = await sb
       .from("supplier_catalog_items")
       .update({
-        match_status: "rejeitado",
+        match_status: "ignorado",
         master_product_id: null,
         match_confidence: null,
         match_signals: null,
       })
       .eq("id", itemId)
-      .eq("match_status", "normalizado");
+      .in("match_status", ["match_sugerido", "revisao_manual", "normalizado"]);
 
     if (error) return { error: error.message };
-    return { ok: "Item ignorado." };
+    return { ok: "Item ignorado temporariamente." };
+  });
+}
+
+// ─── Restaurar item ignorado para revisão ─────────────────────────────────
+
+export async function restoreIgnoredItem(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const itemId = String(fd.get("itemId") ?? "");
+  if (!itemId) return { error: "Item inválido." };
+
+  return run(async (sb) => {
+    const { data, error } = await sb.rpc("restore_ignored_item", {
+      p_item_id: itemId,
+    });
+
+    if (error) return { error: error.message };
+    const result = data as { ok?: boolean; error?: string };
+    if (result?.error) return { error: result.error };
+    return { ok: "Item restaurado para revisão." };
+  });
+}
+
+// ─── Desfazer aprovação (corrigir vínculo pós-confirmação) ───────────────
+
+export async function undoItemApproval(itemId: string, reason?: string): Promise<ActionResult> {
+  if (!itemId) return { error: "Item inválido." };
+
+  return run(async (sb) => {
+    const { data, error } = await sb.rpc("undo_item_approval", {
+      p_item_id: itemId,
+      p_reason: reason || null,
+    });
+
+    if (error) return { error: error.message };
+    const result = data as { ok?: boolean; error?: string; revoked_bindings?: number };
+    if (result?.error) return { error: result.error };
+    return { ok: `Aprovação desfeita. ${result?.revoked_bindings ?? 0} vínculo(s) revogado(s). Item devolvido para pendências.` };
   });
 }
 
@@ -596,5 +632,130 @@ export async function resolveException(_prev: ActionResult, fd: FormData): Promi
     const result = data as { ok?: string; error?: string };
     if (result.error) return { error: result.error };
     return { ok: result.ok ?? "Exceção resolvida." };
+  });
+}
+
+// ─── Vínculos (bindings) ─────────────────────────────────────────────────────
+
+export interface BindingInfo {
+  id: string;
+  bindingType: string;
+  masterProductId: string;
+  masterProductName: string | null;
+  masterProductEan: string | null;
+  supplierId: string | null;
+  supplierSku: string | null;
+  eanClean: string | null;
+  normalizedName: string | null;
+  confidence: number | null;
+  origin: string;
+  createdAt: string;
+}
+
+function mapBinding(b: Record<string, unknown>): BindingInfo {
+  return {
+    id: b.id as string,
+    bindingType: b.binding_type as string,
+    masterProductId: b.master_product_id as string,
+    masterProductName: (b.master_products as { name: string } | null)?.name ?? null,
+    masterProductEan: (b.master_products as { ean: string } | null)?.ean ?? null,
+    supplierId: b.supplier_id as string | null,
+    supplierSku: b.supplier_sku as string | null,
+    eanClean: b.ean_clean as string | null,
+    normalizedName: b.normalized_name as string | null,
+    confidence: b.confidence as number | null,
+    origin: b.origin as string,
+    createdAt: b.created_at as string,
+  };
+}
+
+const BINDING_SELECT = "id, binding_type, master_product_id, supplier_id, supplier_sku, ean_clean, normalized_name, confidence, origin, created_at, master_products(name, ean)";
+
+export async function getItemBindings(itemId: string): Promise<BindingInfo[]> {
+  try {
+    await assertAdmin();
+    const sb = await createClient();
+
+    const { data: item } = await sb
+      .from("supplier_catalog_items")
+      .select("supplier_id, supplier_sku, ean, name, normalized_data")
+      .eq("id", itemId)
+      .single();
+
+    if (!item) return [];
+
+    const results: BindingInfo[] = [];
+
+    if (item.supplier_id && item.supplier_sku) {
+      const { data } = await sb
+        .from("matching_bindings")
+        .select(BINDING_SELECT)
+        .eq("binding_type", "supplier_sku")
+        .eq("supplier_id", item.supplier_id)
+        .eq("supplier_sku", item.supplier_sku)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (data) results.push(...data.map(mapBinding));
+    }
+
+    if (item.ean) {
+      const eanClean = item.ean.replace(/[\s\-./]/g, "");
+      if (/^\d{8,14}$/.test(eanClean)) {
+        const { data } = await sb
+          .from("matching_bindings")
+          .select(BINDING_SELECT)
+          .eq("binding_type", "ean")
+          .eq("ean_clean", eanClean)
+          .is("revoked_at", null)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        if (data) results.push(...data.map(mapBinding));
+      }
+    }
+
+    if (item.name && item.supplier_id) {
+      const nd = item.normalized_data as { name_normalized?: string } | null;
+      const nameStr = nd?.name_normalized ?? (item.name as string);
+      const nameKey = canonicalNameKey(nameStr);
+      if (nameKey.length > 0) {
+        const { data } = await sb
+          .from("matching_bindings")
+          .select(BINDING_SELECT)
+          .eq("binding_type", "normalized_name")
+          .eq("supplier_id", item.supplier_id)
+          .eq("normalized_name", nameKey)
+          .is("revoked_at", null)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        if (data) results.push(...data.map(mapBinding));
+      }
+    }
+
+    const seen = new Set<string>();
+    return results.filter((b) => {
+      if (seen.has(b.id)) return false;
+      seen.add(b.id);
+      return true;
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function revokeBinding(bindingId: string, reason?: string): Promise<ActionResult> {
+  if (!bindingId) return { error: "Vínculo inválido." };
+
+  return run(async (sb) => {
+    const { data, error } = await sb.rpc("revoke_matching_binding", {
+      p_binding_id: bindingId,
+      p_reason: reason || null,
+    });
+
+    if (error) return { error: error.message };
+
+    const result = data as { ok?: boolean; error?: string };
+    if (result?.error) return { error: result.error };
+    return { ok: "Vínculo revogado com sucesso." };
   });
 }

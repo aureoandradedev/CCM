@@ -225,7 +225,13 @@ export function PendenciasClient({ items, matchCount, exceptionCount, suppliers,
                   <div className="mt-3 border-t border-brand-line pt-3">
                     <NoMasterActions
                       reviewMode={isReview}
-                      item={m.item}
+                      item={{
+                        ...m.item,
+                        supplier_id: m.supplier_id,
+                        supplier_sku: m.supplier_sku,
+                      }}
+                      masterProductEan={m.master_product_ean}
+                      matchConfidence={m.match_confidence}
                     />
                   </div>
                   <details className="mt-2">

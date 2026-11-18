@@ -29,6 +29,7 @@ export async function comprasDashboard() {
     { count: matchSugerido },
     { count: revisaoManual },
     { count: aprovado },
+    { count: ignorado },
     { count: rejeitado },
     { data: rawOffers },
     { count: totalSelections },
@@ -40,6 +41,7 @@ export async function comprasDashboard() {
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "match_sugerido"),
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "revisao_manual"),
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "aprovado"),
+    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "ignorado"),
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "rejeitado"),
     sb.from("supplier_offers")
       .select("id, master_product_id, supplier_id, cost_centavos, stock, lead_time_days, status")
@@ -61,6 +63,7 @@ export async function comprasDashboard() {
       match_sugerido: matchSugerido ?? 0,
       revisao_manual: revisaoManual ?? 0,
       aprovado: aprovado ?? 0,
+      ignorado: ignorado ?? 0,
       rejeitado: rejeitado ?? 0,
     },
     offers: {
@@ -265,11 +268,13 @@ export async function matchingStatusCounts() {
     { count: revisao },
     { count: semMaster },
     { count: aprovado },
+    { count: ignorado },
     { count: rejeitado },
   ] = await Promise.all([
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).in("match_status", ["match_sugerido", "revisao_manual"]),
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "normalizado"),
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "aprovado"),
+    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "ignorado"),
     sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "rejeitado"),
   ]);
 
@@ -277,6 +282,7 @@ export async function matchingStatusCounts() {
     revisao: revisao ?? 0,
     sem_master: semMaster ?? 0,
     aprovado: aprovado ?? 0,
+    ignorado: ignorado ?? 0,
     rejeitado: rejeitado ?? 0,
   };
 }

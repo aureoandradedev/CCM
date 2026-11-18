@@ -14,11 +14,13 @@ const MATCH_LABEL: Record<string, string> = {
   match_sugerido: "Match sugerido",
   revisao_manual: "Revisao manual",
   aprovado: "Aprovado",
+  ignorado: "Ignorado",
   rejeitado: "Rejeitado",
 };
 
 function matchCls(s: string) {
   if (s === "aprovado") return "bg-green-100 text-green-800";
+  if (s === "ignorado") return "bg-yellow-100 text-yellow-700";
   if (s === "rejeitado") return "bg-red-100 text-red-800";
   if (s === "match_sugerido") return "bg-blue-100 text-blue-800";
   if (s === "revisao_manual") return "bg-amber-100 text-amber-800";

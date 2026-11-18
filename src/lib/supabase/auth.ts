@@ -3,13 +3,25 @@ import { cache } from "react";
 import { createClient } from "./server";
 import { isSupabaseConfigured } from "./env";
 
-export type UserRole = "customer" | "admin";
+export type UserRole = "customer" | "admin" | "compras" | "recebedor" | "operacao" | "entregador";
+
+export const OPERATIONAL_ROLES: UserRole[] = ["compras", "recebedor", "operacao", "entregador"];
+
+export const ROLE_HOME: Record<UserRole, string> = {
+  admin: "/admin",
+  compras: "/compras",
+  recebedor: "/recebedor",
+  operacao: "/separador",
+  entregador: "/entregador",
+  customer: "/conta",
+};
 
 export interface CurrentUser {
   id: string;
   email: string;
   fullName: string;
   role: UserRole;
+  isActive: boolean;
   document: string | null;
   phone: string | null;
   personType: "pf" | "pj";
@@ -29,7 +41,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, document, phone, person_type")
+    .select("full_name, role, document, phone, person_type, is_active")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -38,6 +50,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     email: user.email ?? "",
     fullName: profile?.full_name || (user.user_metadata?.full_name as string) || "",
     role: (profile?.role as UserRole) ?? "customer",
+    isActive: profile?.is_active ?? true,
     document: profile?.document ?? null,
     phone: profile?.phone ?? null,
     personType: (profile?.person_type as "pf" | "pj") ?? "pf",

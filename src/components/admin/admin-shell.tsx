@@ -23,6 +23,7 @@ import {
   ShoppingBag,
   Tag,
   Truck,
+  UserCog,
   Users,
   Wallpaper,
   X,
@@ -49,6 +50,7 @@ const NAV = [
   { href: "/admin/clientes", label: "Clientes e leads", icon: Users },
   { href: "/admin/bi", label: "BI · Faturamento", icon: BarChart3 },
   { href: "/admin/caixa", label: "Fechamento de caixa", icon: Calculator },
+  { href: "/admin/colaboradores", label: "Colaboradores", icon: UserCog },
   { href: "/admin/integracoes", label: "Integrações", icon: Plug },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];

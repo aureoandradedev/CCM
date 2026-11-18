@@ -1,7 +1,7 @@
 import { Chip, Empty, NotConfigured, PageTitle, Pagination, Table, Td, Th } from "@/components/admin/ui";
 import { configured } from "@/lib/admin/data";
 import { matchingQueueByStatus, matchingStatusCounts } from "@/lib/admin/compras-data";
-import { NoMasterActions } from "../_components";
+import { NoMasterActions, UndoApprovalButton, RestoreIgnoredButton } from "../_components";
 
 type SP = Record<string, string | undefined>;
 
@@ -9,6 +9,7 @@ const TABS = [
   { key: "revisao", label: "Revisao" },
   { key: "sem_master", label: "Baixa confianca" },
   { key: "aprovado", label: "Aprovados" },
+  { key: "ignorado", label: "Ignorados" },
   { key: "rejeitado", label: "Rejeitados" },
 ] as const;
 
@@ -17,6 +18,7 @@ const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
   revisao_manual: { label: "Manual", cls: "bg-amber-100 text-amber-800" },
   normalizado: { label: "Normalizado", cls: "bg-pink-100 text-pink-800" },
   aprovado: { label: "Aprovado", cls: "bg-green-100 text-green-800" },
+  ignorado: { label: "Ignorado", cls: "bg-yellow-100 text-yellow-700" },
   rejeitado: { label: "Rejeitado", cls: "bg-gray-100 text-gray-600" },
 };
 
@@ -34,6 +36,9 @@ export default async function MatchingPage({ searchParams }: { searchParams: Pro
 
   const isSemMaster = tab === "sem_master";
   const isReview = tab === "revisao";
+  const isAprovado = tab === "aprovado";
+  const isIgnorado = tab === "ignorado";
+  const hasActions = isReview || isSemMaster || isAprovado || isIgnorado;
 
   return (
     <>
@@ -53,7 +58,7 @@ export default async function MatchingPage({ searchParams }: { searchParams: Pro
             ? "Nenhum item normalizado sem produto mestre."
             : isReview
               ? "Nenhum item aguardando revisao."
-              : `Nenhum item ${tab === "aprovado" ? "aprovado" : "rejeitado"}.`}
+              : `Nenhum item ${tab === "aprovado" ? "aprovado" : tab === "ignorado" ? "ignorado" : "rejeitado"}.`}
         </Empty>
       ) : (
         <>
@@ -66,7 +71,7 @@ export default async function MatchingPage({ searchParams }: { searchParams: Pro
                 <Th>Status</Th>
                 <Th className="text-right">Confianca</Th>
                 <Th>Sugestao</Th>
-                {(isReview || isSemMaster) && <Th>Acoes</Th>}
+                {hasActions && <Th>Acoes</Th>}
               </tr>
             </thead>
             <tbody>
@@ -104,7 +109,11 @@ export default async function MatchingPage({ searchParams }: { searchParams: Pro
                             normalized_data: i.normalized_data,
                             master_product_id: i.master_product_id,
                             master_product_name: i.master_product_name,
+                            supplier_id: i.supplier_id,
+                            supplier_sku: i.supplier_sku,
                           }}
+                          masterProductEan={i.master_product_ean}
+                          matchConfidence={i.match_confidence}
                         />
                       </Td>
                     )}
@@ -121,7 +130,26 @@ export default async function MatchingPage({ searchParams }: { searchParams: Pro
                             normalized_data: i.normalized_data,
                             master_product_id: i.master_product_id,
                             master_product_name: i.master_product_name,
+                            supplier_id: i.supplier_id,
+                            supplier_sku: i.supplier_sku,
                           }}
+                        />
+                      </Td>
+                    )}
+                    {isAprovado && (
+                      <Td>
+                        <UndoApprovalButton
+                          itemId={i.id}
+                          itemName={i.name}
+                          masterProductName={i.master_product_name}
+                        />
+                      </Td>
+                    )}
+                    {isIgnorado && (
+                      <Td>
+                        <RestoreIgnoredButton
+                          itemId={i.id}
+                          itemName={i.name}
                         />
                       </Td>
                     )}

@@ -22,8 +22,8 @@ export async function usuarioDoBearer(req) {
   if (!m) return null;
   const { data, error } = await db().auth.getUser(m[1]);
   if (error || !data?.user) return null;
-  const { data: profile } = await db().from("profiles").select("id, role, full_name, email").eq("id", data.user.id).maybeSingle();
-  return { id: data.user.id, email: data.user.email, role: profile?.role ?? "customer", fullName: profile?.full_name ?? "" };
+  const { data: profile } = await db().from("profiles").select("id, role, full_name, email, is_active").eq("id", data.user.id).maybeSingle();
+  return { id: data.user.id, email: data.user.email, role: profile?.role ?? "customer", fullName: profile?.full_name ?? "", isActive: profile?.is_active ?? true };
 }
 
 /** Middleware: exige usuário logado (qualquer papel). */
@@ -49,6 +49,26 @@ export async function exigirAdmin(req, res, next) {
   } catch (e) {
     res.status(500).json({ ok: false, erro: e.message });
   }
+}
+
+/**
+ * Middleware: exige uma das roles operacionais listadas. Admin sempre passa.
+ * Verifica is_active para roles não-admin.
+ */
+export function exigirRole(...roles) {
+  return async (req, res, next) => {
+    try {
+      const u = await usuarioDoBearer(req);
+      if (!u) return res.status(401).json({ ok: false, erro: "Token ausente ou inválido." });
+      const allowed = u.role === "admin" || roles.includes(u.role);
+      if (!allowed) return res.status(403).json({ ok: false, erro: "Acesso negado para esta função." });
+      if (u.role !== "admin" && !u.isActive) return res.status(403).json({ ok: false, erro: "Sua conta está desativada." });
+      req.usuario = u;
+      next();
+    } catch (e) {
+      res.status(500).json({ ok: false, erro: e.message });
+    }
+  };
 }
 
 /** Registra um evento no histórico do pedido (auditoria). Nunca lança. */

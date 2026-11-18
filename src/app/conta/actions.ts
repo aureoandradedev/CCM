@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { ROLE_HOME, type UserRole } from "@/lib/supabase/auth";
 import { isValidCNPJ, isValidCPF, isValidEmail, maskPhone, onlyDigits } from "@/lib/utils/masks";
 
 export interface ActionState {
@@ -40,7 +41,19 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
     if (/not confirmed/i.test(error.message)) return { error: "Confirme seu e-mail antes de entrar. Veja a caixa de entrada." };
     return { error: error.message };
   }
-  redirect(safeNext(formData.get("next")));
+
+  const explicitNext = formData.get("next");
+  if (explicitNext && String(explicitNext) !== "/conta" && String(explicitNext).startsWith("/")) {
+    redirect(safeNext(explicitNext));
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", (await supabase.auth.getUser()).data.user!.id)
+    .maybeSingle();
+  const role = (profile?.role as UserRole) ?? "customer";
+  redirect(ROLE_HOME[role] ?? "/conta");
 }
 
 /** Criar conta (PF ou PJ). O perfil é criado pelo trigger `handle_new_user`. */

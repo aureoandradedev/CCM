@@ -3,6 +3,23 @@ import { createServerClient } from "@supabase/ssr";
 
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "@/lib/supabase/env";
 
+const OPERATIONAL_ROUTES: Record<string, string[]> = {
+  "/admin": ["admin"],
+  "/compras": ["compras", "admin"],
+  "/recebedor": ["recebedor", "admin"],
+  "/separador": ["operacao", "admin"],
+  "/entregador": ["entregador", "admin"],
+};
+
+const ROLE_HOME: Record<string, string> = {
+  admin: "/admin",
+  compras: "/compras",
+  recebedor: "/recebedor",
+  operacao: "/separador",
+  entregador: "/entregador",
+  customer: "/conta",
+};
+
 /**
  * Renova a sessão do Supabase a cada request (padrão @supabase/ssr).
  * Sem `.env.local` preenchido, passa direto.
@@ -31,12 +48,54 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname, search } = request.nextUrl;
-  const protegida = pathname.startsWith("/admin") || /^\/conta\/(pedidos\/|dados|senha|privacidade)/.test(pathname);
+
+  // Rotas que exigem login
+  const protegida = pathname.startsWith("/admin")
+    || pathname.startsWith("/compras")
+    || pathname.startsWith("/recebedor")
+    || pathname.startsWith("/separador")
+    || pathname.startsWith("/entregador")
+    || /^\/conta\/(pedidos\/|dados|senha|privacidade)/.test(pathname);
+
   if (!user && protegida) {
     const url = request.nextUrl.clone();
     url.pathname = "/conta";
     url.search = `?next=${encodeURIComponent(pathname + search)}`;
     return NextResponse.redirect(url);
+  }
+
+  // Role-based route protection (checked via profile in layout, but proxy catches early)
+  if (user) {
+    for (const [prefix, allowedRoles] of Object.entries(OPERATIONAL_ROUTES)) {
+      if (pathname.startsWith(prefix) && prefix !== "/admin") {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, is_active")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const role = profile?.role ?? "customer";
+        const isActive = profile?.is_active ?? true;
+        const allowed = allowedRoles.includes(role);
+
+        if (!allowed) {
+          const home = ROLE_HOME[role] ?? "/conta";
+          const url = request.nextUrl.clone();
+          url.pathname = home;
+          url.search = "?erro=permissao";
+          return NextResponse.redirect(url);
+        }
+
+        if (role !== "admin" && !isActive) {
+          const url = request.nextUrl.clone();
+          url.pathname = "/conta";
+          url.search = "?erro=inativo";
+          return NextResponse.redirect(url);
+        }
+
+        break;
+      }
+    }
   }
 
   return response;
