@@ -351,6 +351,25 @@ export interface ExceptionLinkRow {
   purchase_order_id: string | null;
 }
 
+export type FiscalStatus = "pending" | "sending" | "created" | "invoiced" | "cancelled" | "error";
+
+export interface FiscalDocumentRow {
+  id: string;
+  order_id: string;
+  shipment_id: string | null;
+  provider: string;
+  provider_reference: string | null;
+  codigo_ecommerce: string;
+  status: FiscalStatus;
+  attempt_count: number;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  sent_at: string | null;
+  invoiced_at: string | null;
+  cancelled_at: string | null;
+}
+
 export const DEFAULT_SETTINGS: SiteSettings = {
   frete: { freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS, flatCentavos: STANDARD_SHIPPING_CENTAVOS, pickupEnabled: true },
   entrega_bloqueio: { ativo: false, data: null, mensagem: "" },

@@ -16,6 +16,7 @@ import {
   type AdminSupplier,
   type CcmConfig,
   type CcmConfigHistory,
+  type FiscalDocumentRow,
   type HolidayCalendarRow,
   type InventorySummary,
   type LinkedProfile,
@@ -345,15 +346,16 @@ export async function adminOrderCounts(): Promise<Record<string, number>> {
   return out;
 }
 
-export async function adminGetOrder(code: string): Promise<{ order: OrderRow; items: OrderItemRow[]; events: OrderEvent[]; shipments: OrderShipmentRow[]; occurrences: ShipmentOccurrenceRow[] } | null> {
+export async function adminGetOrder(code: string): Promise<{ order: OrderRow; items: OrderItemRow[]; events: OrderEvent[]; shipments: OrderShipmentRow[]; occurrences: ShipmentOccurrenceRow[]; fiscalDocs: FiscalDocumentRow[] } | null> {
   if (!configured()) return null;
   const sb = await createClient();
   const { data: order } = await sb.from("orders").select(ORDER_COLUMNS).eq("code", code.toUpperCase()).maybeSingle();
   if (!order) return null;
-  const [{ data: items }, { data: events }, { data: shipments }] = await Promise.all([
+  const [{ data: items }, { data: events }, { data: shipments }, { data: fiscalDocs }] = await Promise.all([
     sb.from("order_items").select("*").eq("order_id", order.id).order("name"),
     sb.from("order_events").select("id, type, data, actor_kind, shipment_id, created_at").eq("order_id", order.id).order("created_at", { ascending: false }),
     sb.from("order_shipments").select("*").eq("order_id", order.id).order("sequence"),
+    sb.from("fiscal_documents").select("id, order_id, shipment_id, provider, provider_reference, codigo_ecommerce, status, attempt_count, last_error, created_at, updated_at, sent_at, invoiced_at, cancelled_at").eq("order_id", order.id).order("created_at", { ascending: false }),
   ]);
   const shipmentIds = (shipments ?? []).map((s: { id: string }) => s.id);
   const { data: occurrences } = shipmentIds.length
@@ -365,6 +367,7 @@ export async function adminGetOrder(code: string): Promise<{ order: OrderRow; it
     events: (events as OrderEvent[] | null) ?? [],
     shipments: (shipments as OrderShipmentRow[] | null) ?? [],
     occurrences: (occurrences as ShipmentOccurrenceRow[] | null) ?? [],
+    fiscalDocs: (fiscalDocs as FiscalDocumentRow[] | null) ?? [],
   };
 }
 

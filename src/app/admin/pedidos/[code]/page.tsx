@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { OrderDetail } from "@/components/account/order-detail";
+import { FiscalStatusPanel } from "@/components/admin/fiscal-status-panel";
 import { OrderActions } from "@/components/admin/order-actions";
 import { ShipmentActionsPanel } from "@/components/admin/shipment-actions";
 import { Card, NotConfigured, PageTitle } from "@/components/admin/ui";
@@ -27,6 +28,14 @@ const EVENT_LABEL: Record<string, string> = {
   shipment_status_changed: "Status de entrega alterado",
   shipment_tracking_set: "Rastreio atualizado",
   shipment_occurrence: "Ocorrência de entrega",
+  fiscal_doc_created: "Doc fiscal criado",
+  fiscal_doc_found_idempotent: "Doc fiscal (já existia)",
+  fiscal_doc_status_changed: "Status fiscal alterado",
+  fiscal_doc_invoiced: "DAV faturado",
+  fiscal_doc_cancelled: "Doc fiscal cancelado",
+  fiscal_doc_send_failed: "Falha envio fiscal",
+  fiscal_doc_sync_started: "Sincronização fiscal",
+  fiscal_doc_sync_completed: "Sincronização fiscal concluída",
 };
 
 export default async function AdminOrder({ params }: { params: Promise<{ code: string }> }) {
@@ -34,7 +43,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
   if (!configured()) return <NotConfigured />;
   const found = await adminGetOrder(code);
   if (!found) notFound();
-  const { order, items, events, shipments, occurrences } = found;
+  const { order, items, events, shipments, occurrences, fiscalDocs } = found;
 
   return (
     <>
@@ -61,6 +70,8 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
             </div>
           </Card>
         ) : null}
+
+        <FiscalStatusPanel docs={fiscalDocs} />
 
         <Card title="Pagamento (detalhes)">
           <dl className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">

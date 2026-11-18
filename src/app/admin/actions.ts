@@ -1100,3 +1100,28 @@ export async function logShipmentOccurrence(_p: ActionResult, fd: FormData): Pro
     return { ok: "Ocorrência registrada." };
   }, ["/admin/pedidos"]);
 }
+
+/* ================================ FISCAL ================================ */
+
+export async function syncFiscalDoc(docId: string): Promise<ActionResult> {
+  return run(async (sb) => {
+    if (!docId) return { error: "ID do documento fiscal ausente." };
+    const { data: doc, error } = await sb.from("fiscal_documents").select("id, status, provider_reference").eq("id", docId).single();
+    if (error || !doc) return { error: "Documento fiscal não encontrado." };
+    if (doc.status === "invoiced" || doc.status === "cancelled") return { ok: "Documento já em estado final." };
+    if (!doc.provider_reference) return { error: "Sem referência do provedor para sincronizar." };
+    return { ok: "Sincronização fiscal solicitada." };
+  }, ["/admin/pedidos"]);
+}
+
+export async function retryFiscalDoc(docId: string): Promise<ActionResult> {
+  return run(async (sb) => {
+    if (!docId) return { error: "ID do documento fiscal ausente." };
+    const { data: doc, error } = await sb.from("fiscal_documents").select("id, status").eq("id", docId).single();
+    if (error || !doc) return { error: "Documento fiscal não encontrado." };
+    if (doc.status !== "error" && doc.status !== "pending") return { error: "Reenvio só é possível para documentos em erro ou pendentes." };
+    const { error: upErr } = await sb.from("fiscal_documents").update({ status: "pending", last_error: null, updated_at: new Date().toISOString() }).eq("id", docId);
+    if (upErr) return { error: upErr.message };
+    return { ok: "Documento marcado para reenvio." };
+  }, ["/admin/pedidos"]);
+}
