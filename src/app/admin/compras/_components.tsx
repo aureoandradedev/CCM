@@ -324,13 +324,20 @@ interface ItemData {
   supplier_sku?: string | null;
 }
 
-export function CreateMasterForm({ item }: { item: ItemData }) {
+export function CreateMasterForm({ item, onCancel }: { item: ItemData; onCancel?: () => void }) {
   const [state, action, pending] = useActionState(createMasterFromItem, {});
   const nd = item.normalized_data ?? {};
 
   return (
     <form action={action} className="space-y-3 rounded-lg border border-brand-line bg-white p-4">
-      <h3 className="text-sm font-semibold text-brand-fg">Criar novo produto</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-brand-fg">Criar novo produto</h3>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="text-xs text-brand-fg/50 hover:text-brand-fg hover:underline">
+            ← Voltar
+          </button>
+        )}
+      </div>
       <input type="hidden" name="itemId" value={item.id} />
       <div className="grid grid-cols-2 gap-3 text-xs">
         <label className="col-span-2 block">
@@ -377,12 +384,14 @@ export function CreateMasterForm({ item }: { item: ItemData }) {
 
 // ─── Associar a master existente ──────────────────────────────────────────
 
-export function AssociateMasterForm({ itemId, itemName, supplierName, supplierSku, itemEan }: {
+export function AssociateMasterForm({ itemId, itemName, supplierName, supplierSku, itemEan, onCancel, onCreateNew }: {
   itemId: string;
   itemName?: string;
   supplierName?: string;
   supplierSku?: string | null;
   itemEan?: string | null;
+  onCancel?: () => void;
+  onCreateNew?: () => void;
 }) {
   const [state, action, pending] = useActionState(associateToMaster, {});
   const [results, setResults] = useState<{ id: string; name: string; brand_slug: string | null; model: string | null; ean: string | null }[]>([]);
@@ -390,19 +399,28 @@ export function AssociateMasterForm({ itemId, itemName, supplierName, supplierSk
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [searching, startSearch] = useTransition();
   const [query, setQuery] = useState("");
+  const [searched, setSearched] = useState(false);
 
   function handleSearch(q: string) {
     setQuery(q);
-    if (q.trim().length < 2) { setResults([]); return; }
+    if (q.trim().length < 2) { setResults([]); setSearched(false); return; }
     startSearch(async () => {
       const r = await searchMasters(q);
       setResults(r);
+      setSearched(true);
     });
   }
 
   return (
     <div className="space-y-2 rounded-lg border border-brand-line bg-white p-4">
-      <h3 className="text-sm font-semibold text-brand-fg">Escolher produto existente</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-brand-fg">Escolher produto existente</h3>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="text-xs text-brand-fg/50 hover:text-brand-fg hover:underline">
+            ← Voltar
+          </button>
+        )}
+      </div>
       <input
         type="text"
         placeholder="Buscar por nome, marca, modelo ou EAN…"
@@ -428,6 +446,16 @@ export function AssociateMasterForm({ itemId, itemName, supplierName, supplierSk
             </li>
           ))}
         </ul>
+      )}
+      {searched && !searching && results.length === 0 && (
+        <div className="space-y-1 rounded bg-gray-50 p-3 text-xs text-brand-fg/70">
+          <p>Nenhum produto encontrado.</p>
+          {onCreateNew && (
+            <button type="button" onClick={onCreateNew} className="font-medium text-green-700 hover:underline">
+              Criar este item como novo produto
+            </button>
+          )}
+        </div>
       )}
       {selected && (
         <>
@@ -749,8 +777,8 @@ export function NoMasterActions({ item, reviewMode, masterProductEan, matchConfi
     setConfirmAction(null);
   }
 
-  if (mode === "create") return <CreateMasterForm item={item} />;
-  if (mode === "associate") return <AssociateMasterForm itemId={item.id} itemName={item.name} supplierSku={item.supplier_sku} itemEan={item.ean} />;
+  if (mode === "create") return <CreateMasterForm item={item} onCancel={() => setMode("idle")} />;
+  if (mode === "associate") return <AssociateMasterForm itemId={item.id} itemName={item.name} supplierSku={item.supplier_sku} itemEan={item.ean} onCancel={() => setMode("idle")} onCreateNew={() => setMode("create")} />;
 
   return (
     <>
@@ -765,13 +793,11 @@ export function NoMasterActions({ item, reviewMode, masterProductEan, matchConfi
             {approvePending ? "…" : "Confirmar produto"}
           </button>
         )}
-        {!item.master_product_id && (
-          <button type="button" onClick={() => setMode("create")} disabled={pending} className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
-            Criar novo produto
-          </button>
-        )}
         <button type="button" onClick={() => setMode("associate")} disabled={pending} className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
           Escolher outro produto
+        </button>
+        <button type="button" onClick={() => setMode("create")} disabled={pending} className="rounded border border-green-600 bg-white px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-50 disabled:opacity-50">
+          Criar novo produto
         </button>
         <button
           type="button"
