@@ -223,8 +223,7 @@ export function calcularTotais({ itens, paymentMethod, deliveryMethod, settings,
 
 export function statusIniciais(paymentMethod) {
   if (!METODOS.has(paymentMethod)) throw new ErroPedido(400, "Forma de pagamento inválida.");
-  if (paymentMethod === "na-entrega") return { order_status: "em-separacao", payment_status: "pendente" };
-  return { order_status: "aguardando-pagamento", payment_status: "pendente" };
+  return { order_status: "aguardando-confirmacao", payment_status: "pendente" };
 }
 
 /* ---------------- criação ---------------- */

@@ -1,6 +1,7 @@
 /** Rótulos e helpers de pedido compartilhados entre conta do cliente e admin. */
 
 export const ORDER_STATUS = {
+  "aguardando-confirmacao": { label: "Aguardando confirmação", tone: "orange" },
   "aguardando-pagamento": { label: "Aguardando pagamento", tone: "yellow" },
   "em-separacao": { label: "Em separação", tone: "blue" },
   separados: { label: "Separado / em entrega", tone: "navy" },

@@ -210,6 +210,7 @@ export async function applyOffers(items: { id: string; price: number }[]): Promi
 /* ================================= PEDIDOS ================================ */
 
 const FLUXO: Record<string, string[]> = {
+  "aguardando-confirmacao": ["aguardando-pagamento", "cancelado"],
   "aguardando-pagamento": ["em-separacao", "cancelado"],
   "em-separacao": ["separados", "aguardando-pagamento", "cancelado"],
   separados: ["pagos", "pagamento-pendente", "em-separacao"],
@@ -224,7 +225,13 @@ export async function moveOrder(orderId: string, to: string): Promise<ActionResu
     const { data: o } = await sb.from("orders").select("order_status, payment_status").eq("id", orderId).maybeSingle();
     if (!o) return { error: "Pedido não encontrado." };
     if (!FLUXO[o.order_status]?.includes(to)) return { error: `Não dá para ir de "${o.order_status}" para "${to}".` };
-    if (to === "cancelado") await sb.rpc("release_order_stock", { p_order_id: orderId });
+    if (to === "cancelado") {
+      const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: orderId });
+      if (cancelErr) return { error: cancelErr.message };
+      if (cancelData?.error) return { error: cancelData.error as string };
+      await logEvent(sb, orderId, "status", { de: o.order_status, para: to }, adminId);
+      return { ok: "Status atualizado." };
+    }
     const patch: Record<string, unknown> = { order_status: to };
     if (to === "pagos" && o.payment_status !== "pago") patch.cash_pending = true;
     if (to === "arquivados") patch.archived_at = new Date().toISOString();
@@ -241,6 +248,7 @@ export async function confirmPayment(orderId: string, metodo?: string): Promise<
     const { data: o } = await sb.from("orders").select("order_status, payment_status, payment_method").eq("id", orderId).maybeSingle();
     if (!o) return { error: "Pedido não encontrado." };
     if (o.payment_status === "pago") return { ok: "Já estava pago." };
+    if (o.order_status === "aguardando-confirmacao") return { error: "Pedido ainda aguarda confirmação comercial. Use o fluxo de confirmação antes de registrar pagamento." };
     const patch: Record<string, unknown> = { payment_status: "pago", paid_at: new Date().toISOString(), cash_pending: false, cash_confirmed_at: new Date().toISOString(), payment_provider: "manual" };
     if (metodo) patch.payment_method = metodo;
     if (o.order_status === "aguardando-pagamento") patch.order_status = "em-separacao";
@@ -273,7 +281,7 @@ export async function reopenOrder(orderId: string): Promise<ActionResult> {
         return { error: "Falha ao re-reservar estoque para este pedido." };
       }
     }
-    const to = o.payment_status === "pago" ? "em-separacao" : "aguardando-pagamento";
+    const to = o.payment_status === "pago" ? "em-separacao" : "aguardando-confirmacao";
     const { error } = await sb.from("orders").update({ order_status: to, archived_at: null }).eq("id", orderId);
     if (error) return { error: error.message };
     await logEvent(sb, orderId, "reaberto", { para: to }, adminId);
@@ -283,13 +291,10 @@ export async function reopenOrder(orderId: string): Promise<ActionResult> {
 
 export async function cancelOrder(orderId: string, motivo: string): Promise<ActionResult> {
   return run(async (sb, adminId) => {
-    const { data: o } = await sb.from("orders").select("payment_status").eq("id", orderId).maybeSingle();
-    if (!o) return { error: "Pedido não encontrado." };
-    if (o.payment_status === "pago") return { error: "Pedido pago: estorne primeiro, depois cancele." };
-    await sb.rpc("release_order_stock", { p_order_id: orderId });
-    const { error } = await sb.from("orders").update({ order_status: "cancelado" }).eq("id", orderId);
+    const { data, error } = await sb.rpc("cancel_order_full", { p_order_id: orderId });
     if (error) return { error: error.message };
-    await logEvent(sb, orderId, "cancelado", { motivo }, adminId);
+    if (data?.error) return { error: data.error as string };
+    await logEvent(sb, orderId, "cancelado", { motivo, shipments_cancelled: data.shipments_cancelled, requirements_removed: data.requirements_removed }, adminId);
     return { ok: "Pedido cancelado." };
   }, ["/admin/pedidos"]);
 }
@@ -322,9 +327,9 @@ export async function cleanupOrders(): Promise<ActionResult> {
     const limite = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
     const { data: expirados } = await sb.from("orders").select("id").eq("order_status", "aguardando-pagamento").eq("payment_status", "pendente").lt("created_at", limite);
     for (const o of expirados ?? []) {
-      await sb.rpc("release_order_stock", { p_order_id: o.id });
-      await sb.from("orders").update({ order_status: "cancelado" }).eq("id", o.id);
-      await logEvent(sb, o.id, "cancelado", { motivo: "expirado sem pagamento (limpeza)" }, adminId);
+      const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: o.id });
+      if (cancelErr || cancelData?.error) continue;
+      await logEvent(sb, o.id, "cancelado", { motivo: "expirado sem pagamento (limpeza)", shipments_cancelled: cancelData.shipments_cancelled, requirements_removed: cancelData.requirements_removed }, adminId);
     }
     const { data: pagos } = await sb.from("orders").select("id").eq("order_status", "pagos").lt("updated_at", limite);
     for (const o of pagos ?? []) {

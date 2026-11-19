@@ -3,6 +3,7 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  CheckSquare,
   ClipboardList,
   Package,
   Scale,
@@ -10,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { NotConfigured, PageTitle } from "@/components/admin/ui";
-import { adminPurchaseOrders, adminSuppliers, configured } from "@/lib/admin/data";
+import { adminOrdersAwaitingConfirmation, adminPurchaseOrders, adminSuppliers, configured } from "@/lib/admin/data";
 import { comprasDashboard } from "@/lib/admin/compras-data";
 import { exceptionStats } from "@/lib/admin/orchestrator";
 import { createClient } from "@/lib/supabase/server";
@@ -18,12 +19,13 @@ import { createClient } from "@/lib/supabase/server";
 export default async function ComprasDashboardPage() {
   if (!configured()) return <NotConfigured />;
   const sb = await createClient();
-  const [d, stats, orders, suppliers] = await Promise.all([
+  const [d, stats, orders, suppliers, awaitingConfirmation] = await Promise.all([
     comprasDashboard(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     exceptionStats(sb as any),
     adminPurchaseOrders({ limit: 100 }),
     adminSuppliers(),
+    adminOrdersAwaitingConfirmation(),
   ]);
 
   const pendenciaTotal =
@@ -117,6 +119,35 @@ export default async function ComprasDashboardPage() {
         Operação de Compras
       </h2>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Link
+          href="/compras/confirmacoes"
+          className="group flex flex-col rounded-2xl border border-brand-line bg-card p-4 transition hover:shadow"
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <CheckSquare className="size-5 text-brand-navy" />
+            <span className="text-sm font-bold text-brand-ink">
+              Confirmação de pedidos
+            </span>
+          </div>
+          <p className="text-sm text-brand-ink-soft">
+            {awaitingConfirmation.length > 0 ? (
+              <>
+                <span className="text-lg font-extrabold text-amber-600">
+                  {awaitingConfirmation.length}
+                </span>{" "}
+                {awaitingConfirmation.length === 1
+                  ? "pedido aguardando"
+                  : "pedidos aguardando"}
+              </>
+            ) : (
+              <span className="text-brand-ink-soft">Nenhum pedido pendente</span>
+            )}
+          </p>
+          <span className="mt-auto pt-2 text-xs font-semibold text-brand-navy opacity-0 transition-opacity group-hover:opacity-100">
+            Ver confirmações →
+          </span>
+        </Link>
+
         <Link
           href="/compras/pedidos"
           className="group flex flex-col rounded-2xl border border-brand-line bg-card p-4 transition hover:shadow"

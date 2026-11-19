@@ -13,6 +13,7 @@ import { ORDER_STATUS, type OrderRow } from "@/lib/orders";
 import { formatBRL } from "@/lib/utils/format";
 
 const PROXIMO: Record<string, { to: string; label: string }[]> = {
+  "aguardando-confirmacao": [{ to: "aguardando-pagamento", label: "Confirmar pedido" }],
   "aguardando-pagamento": [{ to: "em-separacao", label: "Mover para separação" }],
   "em-separacao": [
     { to: "separados", label: "Marcar separado / em entrega" },

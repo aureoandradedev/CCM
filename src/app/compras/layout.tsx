@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-async function pendenciaCount(): Promise<number> {
+async function counts(): Promise<{ pendencia: number; confirmacao: number }> {
   const sb = await createClient();
-  const [{ count: matchCount }, { count: exceptionCount }] = await Promise.all([
+  const [{ count: matchCount }, { count: exceptionCount }, { count: confirmacaoCount }] = await Promise.all([
     sb
       .from("supplier_catalog_items")
       .select("*", { count: "exact", head: true })
@@ -23,8 +23,15 @@ async function pendenciaCount(): Promise<number> {
       .from("operational_exceptions")
       .select("*", { count: "exact", head: true })
       .eq("status", "open"),
+    sb
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .eq("order_status", "aguardando-confirmacao"),
   ]);
-  return (matchCount ?? 0) + (exceptionCount ?? 0);
+  return {
+    pendencia: (matchCount ?? 0) + (exceptionCount ?? 0),
+    confirmacao: confirmacaoCount ?? 0,
+  };
 }
 
 export default async function ComprasLayout({
@@ -33,10 +40,10 @@ export default async function ComprasLayout({
   children: React.ReactNode;
 }) {
   const user = await requireRole(["compras"], "/compras");
-  const count = await pendenciaCount();
+  const c = await counts();
 
   return (
-    <ComprasShell userName={firstName(user)} pendenciaCount={count}>
+    <ComprasShell userName={firstName(user)} pendenciaCount={c.pendencia} confirmacaoCount={c.confirmacao}>
       {children}
     </ComprasShell>
   );

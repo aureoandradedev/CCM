@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Boxes,
+  CheckSquare,
   ClipboardList,
   ExternalLink,
   Layers,
@@ -22,8 +23,9 @@ import { useState } from "react";
 import { signOut } from "@/app/conta/actions";
 import { cn } from "@/lib/utils";
 
-const NAV: readonly { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }[] = [
+const NAV: readonly { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; badgeKey?: string }[] = [
   { href: "/compras", label: "Painel", icon: LayoutDashboard, exact: true },
+  { href: "/compras/confirmacoes", label: "Confirmações", icon: CheckSquare, badgeKey: "confirmacao" },
   { href: "/compras/pendencias", label: "Pendências", icon: Layers },
   { href: "/compras/matching", label: "Identificação", icon: Scale },
   { href: "/compras/catalogos", label: "Catálogos", icon: ClipboardList },
@@ -36,19 +38,21 @@ export function ComprasShell({
   children,
   userName,
   pendenciaCount = 0,
+  confirmacaoCount = 0,
 }: {
   children: React.ReactNode;
   userName: string;
   pendenciaCount?: number;
+  confirmacaoCount?: number;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const nav = (
     <nav className="flex flex-col gap-0.5 p-3" aria-label="Compras">
-      {NAV.map(({ href, label, icon: I, exact }) => {
+      {NAV.map(({ href, label, icon: I, exact, badgeKey }) => {
         const active = exact ? pathname === href : pathname.startsWith(href);
-        const badge = href === "/compras/pendencias" ? pendenciaCount : 0;
+        const badge = href === "/compras/pendencias" ? pendenciaCount : badgeKey === "confirmacao" ? confirmacaoCount : 0;
         return (
           <Link
             key={href}

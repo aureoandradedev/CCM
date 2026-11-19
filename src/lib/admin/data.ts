@@ -337,6 +337,17 @@ export async function adminListOrders(f: OrderFilters = {}): Promise<{ items: Or
   return { items: (data as OrderRow[] | null) ?? [], total: count ?? 0 };
 }
 
+export async function adminOrdersAwaitingConfirmation(): Promise<OrderRow[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb
+    .from("orders")
+    .select(ORDER_COLUMNS)
+    .eq("order_status", "aguardando-confirmacao")
+    .order("created_at", { ascending: true });
+  return (data as OrderRow[] | null) ?? [];
+}
+
 export async function adminOrderCounts(): Promise<Record<string, number>> {
   if (!configured()) return {};
   const sb = await createClient();
