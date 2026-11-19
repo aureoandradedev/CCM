@@ -642,7 +642,7 @@ export async function processCatalogScoped(
       .eq("match_status", "rejeitado");
 
     const processed = (totalCount ?? 0) - (pendingCount ?? 0);
-    const newStatus = (pendingCount ?? 0) === 0 ? "analisado" : catalog.status;
+    const newStatus = (pendingCount ?? 0) === 0 ? "concluido" : catalog.status;
 
     await sb
       .from("supplier_catalogs")
