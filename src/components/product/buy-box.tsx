@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import type { Product } from "@/types/catalog";
+import { CutoffHint } from "@/components/product/cutoff-hint";
 import { PriceBlock } from "@/components/product/price-block";
 import { QtyStepper } from "@/components/product/qty-stepper";
 import { SaleModeInfo } from "@/components/product/sale-mode-info";
@@ -94,6 +95,8 @@ export function BuyBox({ product }: { product: Product }) {
       </div>
 
       <SaleModeInfo product={product} />
+
+      <CutoffHint expectedAvailabilityDate={product.expectedAvailabilityDate} />
 
       <ShippingEstimate
         expectedAvailabilityDate={product.expectedAvailabilityDate}

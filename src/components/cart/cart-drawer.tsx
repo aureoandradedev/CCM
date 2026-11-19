@@ -6,9 +6,11 @@ import { useShallow } from "zustand/react/shallow";
 import { ArrowRight, PackageOpen, ShieldCheck } from "lucide-react";
 
 import { CartLineItem } from "@/components/cart/cart-line-item";
+import { FreeShippingBar } from "@/components/cart/free-shipping-bar";
+import { PriceChangeAlert } from "@/components/cart/price-change-alert";
 import { Button } from "@/components/ui/button";
 import { useShippingConfig } from "@/lib/shipping-context";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { selectLines, selectTotals, useCartStore } from "@/lib/cart/store";
 import { formatBRL } from "@/lib/utils/format";
@@ -31,17 +33,12 @@ export function CartDrawer() {
           <SheetTitle className="font-heading text-xl font-extrabold text-brand-navy dark:text-foreground">
             Seu carrinho{totals.count ? ` (${totals.count})` : ""}
           </SheetTitle>
-          <SheetDescription>
-            {lines.length
-              ? totals.subtotal >= freeShippingFrom
-                ? "Você ganhou frete grátis!"
-                : `Faltam ${formatBRL(freeShippingFrom - totals.subtotal)} para frete grátis.`
-              : "Adicione produtos para aproveitar o frete grátis."}
-          </SheetDescription>
         </SheetHeader>
 
         {lines.length ? (
           <>
+            <FreeShippingBar />
+            <div className="px-3"><PriceChangeAlert /></div>
             <ul className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
               {lines.map((line) => (
                 <CartLineItem key={line.productId} line={line} highlight={line.productId === lastAddedId} />

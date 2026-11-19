@@ -21,12 +21,15 @@ import { groupCartLinesForEstimate } from "@/lib/delivery-promise";
 import { formatDate } from "@/lib/orders";
 import { pixPrice, round2 } from "@/lib/pricing";
 import { formatBRL } from "@/lib/utils/format";
+import type { CdPickupInfo } from "@/lib/data/catalog";
 import { isValidCNPJ, isValidCPF, isValidEmail, maskCEP, maskDocument, maskPhone, onlyDigits } from "@/lib/utils/masks";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
   nome: z.string().trim().min(3, "Digite seu nome completo."),
   documento: z.string().refine((v) => isValidCPF(v) || isValidCNPJ(v), "CPF ou CNPJ inválido."),
+  ie: z.string().optional(),
+  isento: z.boolean().optional(),
   telefone: z.string().refine((v) => onlyDigits(v).length >= 10, "Telefone com DDD."),
   email: z.string().refine(isValidEmail, "E-mail inválido."),
   entrega: z.enum(["delivery", "pickup"]),
@@ -79,7 +82,7 @@ export interface BloqueioEntrega {
  * Ao confirmar, o pedido é criado no backend (que recalcula tudo) e a etapa
  * de pagamento (Pix / cartão) aparece no lugar do formulário.
  */
-export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; bloqueio?: BloqueioEntrega | null }) {
+export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | null; bloqueio?: BloqueioEntrega | null; cdInfo?: CdPickupInfo | null }) {
   const { freeShippingFrom, standardShipping } = useShippingConfig();
   const router = useRouter();
   const hydrated = useHydrated();
@@ -113,6 +116,9 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
 
   const pagamento = watch("pagamento");
   const entrega = watch("entrega");
+  const documento = watch("documento");
+  const isento = watch("isento");
+  const isCnpj = onlyDigits(documento ?? "").length === 14 && isValidCNPJ(documento ?? "");
 
   const shipping = entrega === "pickup" ? 0 : totals.subtotal >= freeShippingFrom ? 0 : standardShipping;
   const desconto = pagamento === "pix" ? round2(totals.subtotal - pixPrice(totals.subtotal)) : 0;
@@ -164,7 +170,13 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
       const r = await apiFetch<PedidoCriado & { ok: boolean }>("/pagamentos/criar-pedido", {
         body: {
           items,
-          customer: { name: v.nome, document: onlyDigits(v.documento), phone: onlyDigits(v.telefone), email: v.email },
+          customer: {
+            name: v.nome,
+            document: onlyDigits(v.documento),
+            phone: onlyDigits(v.telefone),
+            email: v.email,
+            ...(isCnpj ? { ie: v.isento ? "ISENTO" : (v.ie?.trim() || undefined) } : {}),
+          },
           deliveryMethod: v.entrega,
           address:
             v.entrega === "delivery"
@@ -245,6 +257,17 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
                 <Field label="E-mail" error={errors.email?.message} className="sm:col-span-2">
                   <input className={input} type="email" autoComplete="email" aria-invalid={!!errors.email} {...register("email")} />
                 </Field>
+                {isCnpj ? (
+                  <>
+                    <Field label="Inscrição Estadual (IE)" className="sm:col-span-1">
+                      <input className={cn(input, isento && "opacity-50")} disabled={!!isento} placeholder="Número da IE" {...register("ie")} />
+                    </Field>
+                    <label className="flex items-center gap-2 self-end pb-2.5 sm:col-span-1">
+                      <input type="checkbox" className="size-4 accent-[var(--ccm-navy)]" {...register("isento")} />
+                      <span className="text-sm font-medium text-brand-ink">Isento de IE</span>
+                    </label>
+                  </>
+                ) : null}
               </div>
             </Section>
 
@@ -277,6 +300,16 @@ export function CheckoutForm({ perfil, bloqueio }: { perfil?: Perfil | null; blo
                 ))}
               </fieldset>
 
+              {entrega === "pickup" && (cdInfo?.address || cdInfo?.hours) ? (
+                <div className="mt-4 flex items-start gap-3 rounded-2xl border border-brand-line bg-muted/50 p-4">
+                  <Store className="mt-0.5 size-5 shrink-0 text-brand-navy" />
+                  <div className="text-sm">
+                    <p className="font-heading font-bold text-brand-navy">CD da Multigiro Central de Compras</p>
+                    {cdInfo.address ? <p className="mt-0.5 text-brand-ink-soft">{cdInfo.address}{cdInfo.city ? ` — ${cdInfo.city}` : ""}{cdInfo.state ? `/${cdInfo.state}` : ""}</p> : null}
+                    {cdInfo.hours ? <p className="mt-1 text-xs font-medium text-brand-ink-soft">Funcionamento: {cdInfo.hours}</p> : null}
+                  </div>
+                </div>
+              ) : null}
               {entrega === "delivery" ? (
                 <div className="mt-4 grid gap-4 sm:grid-cols-6">
                   <Field label="CEP" className="sm:col-span-2">

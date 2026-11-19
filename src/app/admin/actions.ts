@@ -321,22 +321,37 @@ export async function saveOrderNotes(orderId: string, notes: string): Promise<Ac
   }, ["/admin/pedidos"]);
 }
 
-/** Limpeza: cancela aguardando-pagamento sem pagar há > 24 h e arquiva finalizados há > 24 h. */
+/** Limpeza: cancela aguardando-pagamento sem pagar há > 24 h, cancela aguardando-confirmacao expirados, e arquiva finalizados há > 24 h. */
 export async function cleanupOrders(): Promise<ActionResult> {
   return run(async (sb, adminId) => {
-    const limite = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-    const { data: expirados } = await sb.from("orders").select("id").eq("order_status", "aguardando-pagamento").eq("payment_status", "pendente").lt("created_at", limite);
+    const limite24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+
+    // 1. aguardando-pagamento > 24h → cancela
+    const { data: expirados } = await sb.from("orders").select("id").eq("order_status", "aguardando-pagamento").eq("payment_status", "pendente").lt("created_at", limite24h);
     for (const o of expirados ?? []) {
       const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: o.id });
       if (cancelErr || cancelData?.error) continue;
       await logEvent(sb, o.id, "cancelado", { motivo: "expirado sem pagamento (limpeza)", shipments_cancelled: cancelData.shipments_cancelled, requirements_removed: cancelData.requirements_removed }, adminId);
     }
-    const { data: pagos } = await sb.from("orders").select("id").eq("order_status", "pagos").lt("updated_at", limite);
+
+    // 2. aguardando-confirmacao > timeout configurável → cancela
+    const { data: timeoutCfg } = await sb.from("ccm_configs").select("value").eq("key", "order_confirmation_timeout_hours").eq("scope", "global").limit(1).single();
+    const timeoutHours = timeoutCfg?.value ? Number(timeoutCfg.value) : 48;
+    const limiteConfirmacao = new Date(Date.now() - timeoutHours * 3600 * 1000).toISOString();
+    const { data: confirmExpirados } = await sb.from("orders").select("id").eq("order_status", "aguardando-confirmacao").lt("created_at", limiteConfirmacao);
+    for (const o of confirmExpirados ?? []) {
+      const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: o.id });
+      if (cancelErr || cancelData?.error) continue;
+      await logEvent(sb, o.id, "cancelado", { motivo: `expirado sem confirmação em ${timeoutHours}h (limpeza)`, shipments_cancelled: cancelData.shipments_cancelled, requirements_removed: cancelData.requirements_removed }, adminId);
+    }
+
+    // 3. finalizados > 24h → arquiva
+    const { data: pagos } = await sb.from("orders").select("id").eq("order_status", "pagos").lt("updated_at", limite24h);
     for (const o of pagos ?? []) {
       await sb.from("orders").update({ order_status: "arquivados", archived_at: new Date().toISOString() }).eq("id", o.id);
     }
-    return { ok: `${expirados?.length ?? 0} expirado(s) cancelado(s), ${pagos?.length ?? 0} finalizado(s) arquivado(s).` };
-  }, ["/admin/pedidos"]);
+    return { ok: `${expirados?.length ?? 0} pagamento(s) expirado(s), ${confirmExpirados?.length ?? 0} confirmação(ões) expirada(s), ${pagos?.length ?? 0} finalizado(s) arquivado(s).` };
+  }, ["/admin/pedidos", "/compras"]);
 }
 
 /* ============================ CONTEÚDO / SETTINGS ========================= */
@@ -949,6 +964,8 @@ export async function saveCdConfig(_p: ActionResult, fd: FormData): Promise<Acti
   return run(async (sb, adminId) => {
     const city = str(fd, "cd_city") || null;
     const state = str(fd, "cd_state") || null;
+    const address = str(fd, "cd_address") || null;
+    const hours = str(fd, "cd_hours") || null;
 
     const upsert = async (key: string, value: string | null) => {
       const jsonValue = value ? JSON.stringify(value) : "null";
@@ -964,8 +981,87 @@ export async function saveCdConfig(_p: ActionResult, fd: FormData): Promise<Acti
 
     await upsert("cd_city", city);
     await upsert("cd_state", state);
+    await upsert("cd_address", address);
+    await upsert("cd_hours", hours);
     return { ok: "Configuração do CD atualizada." };
   }, ["/admin/configuracoes"]);
+}
+
+/* ======================== AUTO-PROMOTE PER SUPPLIER ====================== */
+
+export async function toggleAutoPromote(supplierId: string, enabled: boolean): Promise<ActionResult> {
+  try {
+    const admin = await assertAdmin();
+    const sb = await createClient();
+    const scope = `supplier:${supplierId}`;
+    const { error } = await sb.from("ccm_configs")
+      .update({ value: enabled, updated_by: admin.id })
+      .eq("key", "auto_promote")
+      .eq("scope", scope);
+    if (error) {
+      await sb.from("ccm_configs").insert({
+        key: "auto_promote",
+        scope,
+        value: enabled,
+        updated_by: admin.id,
+      });
+    }
+    revalidatePath(`/admin/fornecedores/${supplierId}`, "layout");
+    revalidatePath("/admin/configuracoes", "layout");
+    return { ok: enabled ? "Promoção automática ativada." : "Promoção automática desativada." };
+  } catch (e) {
+    return { error: (e as Error).message || "Erro inesperado." };
+  }
+}
+
+/* ============================== PROMOTIONS =============================== */
+
+export async function saveSupplierPromotion(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const supplierId = str(fd, "supplier_id");
+    const discountPct = Number(str(fd, "discount_pct")) || 0;
+    const minMarginPct = Number(str(fd, "min_margin_pct")) || 10;
+    const validFrom = str(fd, "valid_from") || null;
+    const validTo = str(fd, "valid_to") || null;
+    const active = str(fd, "active") === "true";
+    const promoId = str(fd, "promo_id") || null;
+
+    if (!supplierId) return { error: "Fornecedor obrigatório." };
+    if (discountPct <= 0 || discountPct > 50) return { error: "Desconto deve ser entre 0,01% e 50%." };
+
+    if (promoId) {
+      const { error } = await sb.from("supplier_promotions").update({
+        discount_pct: discountPct,
+        min_margin_pct: minMarginPct,
+        valid_from: validFrom,
+        valid_to: validTo,
+        active,
+        updated_by: adminId,
+      }).eq("id", promoId);
+      if (error) return { error: error.message };
+    } else {
+      const { error } = await sb.from("supplier_promotions").insert({
+        supplier_id: supplierId,
+        discount_pct: discountPct,
+        min_margin_pct: minMarginPct,
+        valid_from: validFrom,
+        valid_to: validTo,
+        active,
+        created_by: adminId,
+        updated_by: adminId,
+      });
+      if (error) return { error: error.message };
+    }
+    return { ok: "Promoção salva." };
+  }, ["/admin/fornecedores"]);
+}
+
+export async function deleteSupplierPromotion(promoId: string): Promise<ActionResult> {
+  return run(async (sb) => {
+    const { error } = await sb.from("supplier_promotions").delete().eq("id", promoId);
+    if (error) return { error: error.message };
+    return { ok: "Promoção removida." };
+  }, ["/admin/fornecedores"]);
 }
 
 /* ================================== ADMINS ================================ */

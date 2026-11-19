@@ -106,6 +106,10 @@ export interface OrderItemRow {
   supplier_cost_centavos?: number | null;
   supplier_offer_id?: string | null;
   master_product_id?: string | null;
+  qty_confirmed?: number | null;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  removal_reason?: string | null;
 }
 
 export type ShipmentStatus =

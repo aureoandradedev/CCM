@@ -15,6 +15,8 @@ const CONFIG_LABELS: Record<string, string> = {
   package_discount_pct: "Desconto caixa fechada (%)",
   horario_corte_ciclo: "Horário de corte do ciclo (HH:MM)",
   feriados: "Feriados (array JSON de datas YYYY-MM-DD)",
+  order_confirmation_timeout_hours: "Timeout confirmação de pedido (horas)",
+  auto_promote: "Promoção automática por fornecedor",
 };
 
 function formatValue(v: unknown): string {
@@ -65,6 +67,7 @@ export function CcmConfigsPanel({ configs }: { configs: CcmConfig[] }) {
               <option value="package_discount_pct">Desconto caixa fechada (%)</option>
               <option value="horario_corte_ciclo">Horário de corte do ciclo (HH:MM)</option>
               <option value="feriados">Feriados (array JSON de datas)</option>
+              <option value="order_confirmation_timeout_hours">Timeout confirmação de pedido (horas)</option>
             </select>
           </Field>
           <Field label="Escopo">

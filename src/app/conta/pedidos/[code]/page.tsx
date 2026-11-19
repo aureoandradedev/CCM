@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import { CancelOrderButton } from "@/components/account/cancel-order-button";
 import { OrderDetail } from "@/components/account/order-detail";
 import { PayNow } from "@/components/account/pay-now";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
   if (!found) notFound();
   const { order, items, shipments } = found;
   const podePagar = order.payment_status !== "pago" && order.order_status === "aguardando-pagamento" && ["pix", "cartao-pendente", "cartao-credito", "cartao-debito"].includes(order.payment_method);
+  const podeCancelar = order.payment_status !== "pago" && ["aguardando-confirmacao", "aguardando-pagamento"].includes(order.order_status);
 
   return (
     <div>
@@ -30,6 +32,12 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
       {podePagar ? (
         <div className="mt-4">
           <PayNow orderId={order.id} orderCode={order.code} totalCentavos={order.total_centavos} pricingVersion={order.pricing_version} metodo={order.payment_method === "pix" ? "pix" : "cartao"} />
+        </div>
+      ) : null}
+
+      {podeCancelar ? (
+        <div className="mt-4">
+          <CancelOrderButton orderId={order.id} />
         </div>
       ) : null}
 

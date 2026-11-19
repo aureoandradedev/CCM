@@ -55,12 +55,13 @@ interface PricingSimulation {
 async function readFlag(
   sb: SupabaseClient,
   key: string,
+  scope = "global",
 ): Promise<boolean> {
   const { data } = await sb
     .from("ccm_configs")
     .select("value")
     .eq("key", key)
-    .eq("scope", "global")
+    .eq("scope", scope)
     .limit(1)
     .single();
   if (!data) return false;
@@ -382,6 +383,33 @@ export async function autoSourceProduct(
     pricingAction = "no_change";
   } else {
     pricingAction = "not_published";
+  }
+
+  // Fase K: auto-promote on price drop (per-supplier, OFF by default)
+  if (
+    pricingAction === "auto_applied" &&
+    pricing.changePct != null &&
+    pricing.changePct < 0 &&
+    pricing.productId &&
+    pricing.oldPriceCentavos
+  ) {
+    const supplierId = result.new_supplier_id ?? recommendedOffer.supplier_id;
+    const autoPromote = await readFlag(sb, "auto_promote", `supplier:${supplierId}`);
+    if (autoPromote) {
+      const oldRetail = pricing.oldPriceCentavos / 100;
+      const { data: prod } = await sb
+        .from("products")
+        .select("list_price, badges")
+        .eq("id", pricing.productId)
+        .single();
+      if (prod) {
+        const badges = Array.from(new Set([...((prod.badges as string[]) ?? []), "oferta"]));
+        await sb
+          .from("products")
+          .update({ list_price: prod.list_price ?? oldRetail, badges })
+          .eq("id", pricing.productId);
+      }
+    }
   }
 
   return {

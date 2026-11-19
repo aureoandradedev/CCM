@@ -27,6 +27,7 @@ import {
   type ReceivingSessionRow,
   type ShipmentOccurrenceRow,
   type SiteSettings,
+  type SupplierPromotionRow,
 } from "./types";
 
 /**
@@ -348,6 +349,29 @@ export async function adminOrdersAwaitingConfirmation(): Promise<OrderRow[]> {
   return (data as OrderRow[] | null) ?? [];
 }
 
+export async function adminOrderWithItemsForConfirmation(
+  orderId: string,
+): Promise<{ order: OrderRow; items: OrderItemRow[] } | null> {
+  if (!configured()) return null;
+  const sb = await createClient();
+  const { data: order } = await sb
+    .from("orders")
+    .select(ORDER_COLUMNS)
+    .eq("id", orderId)
+    .eq("order_status", "aguardando-confirmacao")
+    .maybeSingle();
+  if (!order) return null;
+  const { data: items } = await sb
+    .from("order_items")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("name");
+  return {
+    order: order as OrderRow,
+    items: (items as OrderItemRow[] | null) ?? [],
+  };
+}
+
 export async function adminOrderCounts(): Promise<Record<string, number>> {
   if (!configured()) return {};
   const sb = await createClient();
@@ -586,6 +610,20 @@ export async function adminConfigHistory(configId: string): Promise<CcmConfigHis
   return (data as CcmConfigHistory[] | null) ?? [];
 }
 
+export async function adminAutoPromoteEnabled(supplierId: string): Promise<boolean> {
+  if (!configured()) return false;
+  const sb = await createClient();
+  const { data } = await sb
+    .from("ccm_configs")
+    .select("value")
+    .eq("key", "auto_promote")
+    .eq("scope", `supplier:${supplierId}`)
+    .limit(1)
+    .single();
+  if (!data) return false;
+  return data.value === true || data.value === "true";
+}
+
 /* ------------------------------- estoque CCM (Fase 13) ----------------------- */
 
 export async function adminInventorySummary(): Promise<InventorySummary[]> {
@@ -679,20 +717,28 @@ export async function readHolidayCalendars(): Promise<HolidayCalendarRow[]> {
   return (data as HolidayCalendarRow[] | null) ?? [];
 }
 
-export async function readCdConfig(): Promise<{ city: string | null; state: string | null }> {
-  if (!configured()) return { city: null, state: null };
+export async function readCdConfig(): Promise<{ city: string | null; state: string | null; address: string | null; hours: string | null }> {
+  if (!configured()) return { city: null, state: null, address: null, hours: null };
   const sb = await createClient();
-  const [cityRes, stateRes] = await Promise.all([
+  const [cityRes, stateRes, addressRes, hoursRes] = await Promise.all([
     sb.from("ccm_configs").select("value")
       .eq("key", "cd_city").eq("scope", "global").limit(1).single(),
     sb.from("ccm_configs").select("value")
       .eq("key", "cd_state").eq("scope", "global").limit(1).single(),
+    sb.from("ccm_configs").select("value")
+      .eq("key", "cd_address").eq("scope", "global").limit(1).single(),
+    sb.from("ccm_configs").select("value")
+      .eq("key", "cd_hours").eq("scope", "global").limit(1).single(),
   ]);
   const city = cityRes.data?.value;
   const state = stateRes.data?.value;
+  const address = addressRes.data?.value;
+  const hours = hoursRes.data?.value;
   return {
     city: typeof city === "string" ? city : null,
     state: typeof state === "string" ? state : null,
+    address: typeof address === "string" ? address : null,
+    hours: typeof hours === "string" ? hours : null,
   };
 }
 
@@ -744,4 +790,17 @@ export async function readOperationalExceptions(status?: string): Promise<Operat
   if (status) query = query.eq("resolution_status", status);
   const { data } = await query;
   return (data as OperationalExceptionRow[] | null) ?? [];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Supplier Promotions
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function readSupplierPromotions(supplierId?: string): Promise<SupplierPromotionRow[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  let query = sb.from("supplier_promotions").select("*").order("created_at", { ascending: false });
+  if (supplierId) query = query.eq("supplier_id", supplierId);
+  const { data } = await query;
+  return (data as SupplierPromotionRow[] | null) ?? [];
 }

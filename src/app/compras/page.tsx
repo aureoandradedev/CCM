@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CheckSquare,
   ClipboardList,
+  Clock,
   Package,
   Scale,
   Truck,
@@ -138,6 +139,7 @@ export default async function ComprasDashboardPage() {
                 {awaitingConfirmation.length === 1
                   ? "pedido aguardando"
                   : "pedidos aguardando"}
+                <OldestAge orders={awaitingConfirmation} />
               </>
             ) : (
               <span className="text-brand-ink-soft">Nenhum pedido pendente</span>
@@ -275,5 +277,19 @@ export default async function ComprasDashboardPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function OldestAge({ orders }: { orders: { created_at: string }[] }) {
+  if (orders.length === 0) return null;
+  const oldest = orders.reduce((a, b) => (a.created_at < b.created_at ? a : b));
+  const mins = Math.floor((Date.now() - new Date(oldest.created_at).getTime()) / 60_000);
+  if (mins < 1) return null;
+  const label = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}min`;
+  const tone = mins < 10 ? "text-brand-green" : mins < 30 ? "text-amber-600" : "text-brand-red";
+  return (
+    <span className={`mt-1 flex items-center gap-1 text-xs font-medium ${tone}`}>
+      <Clock className="size-3" /> mais antigo: {label}
+    </span>
   );
 }

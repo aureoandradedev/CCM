@@ -370,6 +370,20 @@ export interface FiscalDocumentRow {
   cancelled_at: string | null;
 }
 
+export interface SupplierPromotionRow {
+  id: string;
+  supplier_id: string;
+  discount_pct: number;
+  min_margin_pct: number;
+  valid_from: string | null;
+  valid_to: string | null;
+  active: boolean;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const DEFAULT_SETTINGS: SiteSettings = {
   frete: { freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS, flatCentavos: STANDARD_SHIPPING_CENTAVOS, pickupEnabled: true },
   entrega_bloqueio: { ativo: false, data: null, mensagem: "" },

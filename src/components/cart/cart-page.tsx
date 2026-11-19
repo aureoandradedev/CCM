@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useShallow } from "zustand/react/shallow";
 import Image from "next/image";
-import { ArrowLeft, ArrowRight, Package, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Package, ShieldCheck } from "lucide-react";
 
+import { fetchCurrentPrices, type CurrentPrice } from "@/app/carrinho/actions";
 import { CartLineItem } from "@/components/cart/cart-line-item";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,27 @@ export function CartPage() {
   const clear = useCartStore((s) => s.clear);
 
   const missingForFree = Math.max(0, freeShippingFrom - totals.subtotal);
+
+  const [priceChanges, setPriceChanges] = useState<Record<string, { old: number; current: number }>>({});
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!hydrated || lines.length === 0) return;
+    const ids = lines.map((l) => l.productId);
+    startTransition(async () => {
+      const current = await fetchCurrentPrices(ids);
+      const changes: Record<string, { old: number; current: number }> = {};
+      for (const line of lines) {
+        const cp = current[line.productId];
+        if (cp && cp.retailPrice !== line.retailPrice) {
+          changes[line.productId] = { old: line.retailPrice, current: cp.retailPrice };
+        }
+      }
+      setPriceChanges(changes);
+    });
+  }, [hydrated, lines]);
+
+  const changedCount = Object.keys(priceChanges).length;
 
   return (
     <div className="container-ccm pt-4 md:pt-6">
@@ -62,6 +84,17 @@ export function CartPage() {
       ) : (
         <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-6">
+            {changedCount > 0 ? (
+              <div className="flex items-start gap-2 rounded-xl border border-brand-orange/30 bg-brand-orange/5 p-3 text-sm text-brand-orange">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <p>
+                  {changedCount === 1
+                    ? "1 produto teve o preço alterado desde que foi adicionado."
+                    : `${changedCount} produtos tiveram o preço alterado desde que foram adicionados.`}
+                  {" "}Os preços são revalidados na confirmação do pedido.
+                </p>
+              </div>
+            ) : null}
             {deliveryGroups.length > 1 ? (
               <p className="text-sm text-brand-ink-soft">
                 Seu pedido pode chegar em entregas separadas.
@@ -87,7 +120,7 @@ export function CartPage() {
                     </div>
                     <ul className="space-y-3">
                       {groupLines.map((l) => (
-                        <CartLineItem key={l.productId} line={l} variant="page" />
+                        <CartLineItem key={l.productId} line={l} variant="page" priceChange={priceChanges[l.productId]} />
                       ))}
                     </ul>
                   </div>
@@ -96,7 +129,7 @@ export function CartPage() {
             ) : (
               <ul className="space-y-3">
                 {lines.map((l) => (
-                  <CartLineItem key={l.productId} line={l} variant="page" />
+                  <CartLineItem key={l.productId} line={l} variant="page" priceChange={priceChanges[l.productId]} />
                 ))}
               </ul>
             )}
@@ -138,7 +171,11 @@ export function CartPage() {
                     <div className="h-full rounded-full bg-brand-yellow-2 transition-[width] duration-300" style={{ width: `${Math.min(100, (totals.subtotal / freeShippingFrom) * 100)}%` }} />
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-4 rounded-xl bg-brand-green/10 p-3 text-xs font-semibold text-brand-green">
+                  Parabéns! Você ganhou frete grátis na entrega.
+                </div>
+              )}
 
               <Button variant="brand" size="xl" className="mt-5 w-full" render={<Link href="/checkout" />}>
                 Finalizar compra

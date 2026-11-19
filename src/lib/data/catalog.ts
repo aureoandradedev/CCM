@@ -299,6 +299,7 @@ export interface SiteSettings {
   bloqueio: { ativo: boolean; data: string | null; mensagem: string };
   frete: { freeShippingFromCentavos: number; flatCentavos: number; pickupEnabled: boolean };
   pixPct: number;
+  cd: { address: string; hours: string };
 }
 
 const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -307,6 +308,7 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
   bloqueio: { ativo: false, data: null, mensagem: "" },
   frete: { freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS, flatCentavos: STANDARD_SHIPPING_CENTAVOS, pickupEnabled: true },
   pixPct: 5,
+  cd: { address: "Cachoeiro de Itapemirim, ES", hours: "Seg. a sex. 7h às 18h · Sáb. 7h às 13h" },
 };
 
 /** Configurações editadas no admin (site_settings). Sem banco: padrões. */
@@ -328,6 +330,30 @@ export async function getSiteSettings(): Promise<SiteSettings> {
       pickupEnabled: frete.pickupEnabled !== false,
     },
     pixPct: Number(descontos.pixPct ?? 5),
+    cd: {
+      address: String((map.get("cd_info") ?? {}).address ?? DEFAULT_SITE_SETTINGS.cd.address),
+      hours: String((map.get("cd_info") ?? {}).hours ?? DEFAULT_SITE_SETTINGS.cd.hours),
+    },
+  };
+}
+
+export interface CdPickupInfo {
+  address: string | null;
+  hours: string | null;
+  city: string | null;
+  state: string | null;
+}
+
+export async function getCdPickupInfo(): Promise<CdPickupInfo> {
+  const sb = createPublicClient();
+  if (!sb) return { address: null, hours: null, city: null, state: null };
+  const { data } = await sb.from("ccm_configs").select("key, value").in("key", ["cd_address", "cd_hours", "cd_city", "cd_state"]).eq("scope", "global");
+  const map = new Map((data ?? []).map((r) => [r.key as string, r.value as string | null]));
+  return {
+    address: map.get("cd_address") ?? null,
+    hours: map.get("cd_hours") ?? null,
+    city: map.get("cd_city") ?? null,
+    state: map.get("cd_state") ?? null,
   };
 }
 

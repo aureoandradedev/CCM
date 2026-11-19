@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import type { Product } from "@/types/catalog";
 import { AddToCartButton } from "@/components/product/add-to-cart-button";
 import { ProductBadges } from "@/components/product/badges";
+import { DeliveryHint } from "@/components/product/delivery-hint";
 import { ImagePlaceholder } from "@/components/product/image-placeholder";
 import { PriceBlock } from "@/components/product/price-block";
 import { Rating } from "@/components/product/rating";
@@ -80,6 +81,7 @@ export function ProductCard({ product, className, priority = false, sizes = "(mi
           </h3>
           {product.packInfo ? <p className="mt-0.5 text-xs text-brand-ink-soft">{product.packInfo}</p> : null}
           <Rating value={product.rating} count={product.reviewCount} className="mt-1" />
+          <DeliveryHint expectedAvailabilityDate={product.expectedAvailabilityDate} stockStatus={product.stockStatus} />
         </div>
 
         <PriceBlock

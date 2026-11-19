@@ -4,7 +4,7 @@ import Image from "next/image";
 
 import { ImagePlaceholder } from "@/components/product/image-placeholder";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 
 import { QtyStepper } from "@/components/product/qty-stepper";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,10 @@ interface CartLineItemProps {
   /** layout "drawer" (compacto) ou "page" (carrinho completo) */
   variant?: "drawer" | "page";
   highlight?: boolean;
+  priceChange?: { old: number; current: number };
 }
 
-export function CartLineItem({ line, variant = "drawer", highlight = false }: CartLineItemProps) {
+export function CartLineItem({ line, variant = "drawer", highlight = false, priceChange }: CartLineItemProps) {
   const setQty = useCartStore((s) => s.setQty);
   const remove = useCartStore((s) => s.remove);
   const unit = unitPriceFor(line, line.qty);
@@ -56,6 +57,12 @@ export function CartLineItem({ line, variant = "drawer", highlight = false }: Ca
           <span className="text-brand-ink-soft">
             {formatBRL(unit)}/{formatUnit(line.unit)}
           </span>
+          {priceChange ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-brand-orange/10 px-1.5 py-0.5 text-[0.68rem] font-semibold text-brand-orange">
+              <AlertTriangle className="size-3" />
+              {priceChange.current > priceChange.old ? "subiu" : "baixou"} para {formatBRL(priceChange.current)}
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-between gap-2">

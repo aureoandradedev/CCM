@@ -212,3 +212,15 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
   if (error) return { error: error.message };
   return { ok: "Dados salvos." };
 }
+
+export async function cancelMyOrder(orderId: string): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Faça login para cancelar." };
+
+  const { data, error } = await supabase.rpc("customer_cancel_order", { p_order_id: orderId });
+  if (error) return { error: error.message };
+  if (data?.error) return { error: data.error as string };
+  return { ok: "Pedido cancelado com sucesso." };
+}

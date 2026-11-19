@@ -1,9 +1,10 @@
 "use client";
 
 import { MapPin, Truck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { getSavedCep, saveCep } from "@/lib/cep-store";
 import { computeItemEstimate } from "@/lib/delivery-promise";
 import { formatDate } from "@/lib/orders";
 import { useShippingConfig } from "@/lib/shipping-context";
@@ -23,6 +24,14 @@ export function ShippingEstimate({ expectedAvailabilityDate, stockStatus, subtot
   const [showResult, setShowResult] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const saved = getSavedCep();
+    if (saved) {
+      setCep(maskCEP(saved));
+      setShowResult(true);
+    }
+  }, []);
+
   const estimate = useMemo(
     () => computeItemEstimate({ expectedAvailabilityDate, stockStatus }),
     [expectedAvailabilityDate, stockStatus],
@@ -38,6 +47,7 @@ export function ShippingEstimate({ expectedAvailabilityDate, stockStatus, subtot
     setError(null);
     setLoading(true);
     await new Promise((r) => setTimeout(r, 300));
+    saveCep(d);
     setShowResult(true);
     setLoading(false);
   };

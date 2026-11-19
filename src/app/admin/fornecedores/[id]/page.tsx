@@ -6,7 +6,8 @@ import { PageTitle, NotConfigured } from "@/components/admin/ui";
 import { CommercialTermsAdmin } from "@/components/admin/commercial-terms-admin";
 import { SupplierBusinessHours } from "@/components/admin/supplier-business-hours";
 import { SupplierForm } from "@/components/admin/settings-forms";
-import { adminSupplierById, adminSupplierCommercialTerms, adminSupplierCatalogs, configured } from "@/lib/admin/data";
+import { AutoPromoteToggle } from "@/components/admin/auto-promote-toggle";
+import { adminSupplierById, adminSupplierCommercialTerms, adminSupplierCatalogs, adminAutoPromoteEnabled, readSupplierPromotions, configured } from "@/lib/admin/data";
 import { maskCNPJ } from "@/lib/utils/masks";
 import {
   getSupplierKpis,
@@ -23,6 +24,7 @@ import {
 import { aggregateOperationalKpis, type PerformanceEventType } from "@/lib/supplier-performance";
 import { fetchOperationalKpis } from "@/app/admin/actions";
 import { SupplierKpiPanel } from "@/components/admin/supplier-kpi-panel";
+import { SupplierPromoPanel } from "@/components/admin/supplier-promo-panel";
 import {
   TabNav,
   PeriodSelector,
@@ -221,11 +223,15 @@ async function HistoryTab({ supplierId }: { supplierId: string }) {
 // ─── Tab: Dados e condições ─────────────────────────────────────────────────
 
 async function DadosTab({ supplierId }: { supplierId: string }) {
-  const [supplier, terms] = await Promise.all([
+  const [supplier, terms, promos, autoPromote] = await Promise.all([
     adminSupplierById(supplierId),
     adminSupplierCommercialTerms(supplierId),
+    readSupplierPromotions(supplierId),
+    adminAutoPromoteEnabled(supplierId),
   ]);
   if (!supplier) return null;
+
+  const activePromo = promos.length > 0 ? promos[0] : null;
 
   return (
     <div className="space-y-8">
@@ -249,6 +255,12 @@ async function DadosTab({ supplierId }: { supplierId: string }) {
           leadTimeMinutes={terms.lead_time_minutes}
         />
       )}
+
+      <AutoPromoteToggle supplierId={supplierId} initialEnabled={autoPromote} />
+
+      <div className="rounded-2xl border border-brand-line bg-card p-4">
+        <SupplierPromoPanel supplierId={supplierId} promo={activePromo} />
+      </div>
     </div>
   );
 }

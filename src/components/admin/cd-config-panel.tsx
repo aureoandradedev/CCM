@@ -8,10 +8,12 @@ import { Feedback, Field, inputCls } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function CdConfigPanel({ city, state }: { city: string | null; state: string | null }) {
+export function CdConfigPanel({ city, state, address, hours }: { city: string | null; state: string | null; address: string | null; hours: string | null }) {
   const [result, action, pending] = useActionState<ActionResult, FormData>(saveCdConfig, {});
   const [cdCity, setCdCity] = useState(city ?? "");
   const [cdState, setCdState] = useState(state ?? "");
+  const [cdAddress, setCdAddress] = useState(address ?? "");
+  const [cdHours, setCdHours] = useState(hours ?? "");
 
   const configured = Boolean(city && state);
 
@@ -48,6 +50,24 @@ export function CdConfigPanel({ city, state }: { city: string | null; state: str
             value={cdCity}
             onChange={(e) => setCdCity(e.target.value)}
             placeholder="Goiânia"
+          />
+        </Field>
+        <Field label="Endereço completo" hint="Ex: Av. Goiás Norte 1234, Setor Santa Genoveva">
+          <input
+            name="cd_address"
+            className={inputCls}
+            value={cdAddress}
+            onChange={(e) => setCdAddress(e.target.value)}
+            placeholder="Rua, número, bairro"
+          />
+        </Field>
+        <Field label="Horário de funcionamento" hint="Ex: Seg a Sex 7h-17h, Sáb 7h-12h">
+          <input
+            name="cd_hours"
+            className={inputCls}
+            value={cdHours}
+            onChange={(e) => setCdHours(e.target.value)}
+            placeholder="Seg a Sex 7h-17h"
           />
         </Field>
         <div className="sm:col-span-2">

@@ -190,15 +190,29 @@ describe("confirmPayment blocks aguardando-confirmacao", () => {
 });
 
 // ============================================================================
-// 6. Cleanup should NOT touch aguardando-confirmacao
+// 6. Cleanup targets both aguardando-pagamento (24h) and aguardando-confirmacao (configurable timeout)
 // ============================================================================
 describe("cleanupOrders filter", () => {
-  it("only targets aguardando-pagamento, not aguardando-confirmacao", () => {
+  it("targets aguardando-pagamento with 24h fixed timeout", () => {
     const statuses = ["aguardando-confirmacao", "aguardando-pagamento", "em-separacao", "cancelado"];
-    const cleanupFilter = (s: string) => s === "aguardando-pagamento";
-    const targeted = statuses.filter(cleanupFilter);
+    const paymentCleanupFilter = (s: string) => s === "aguardando-pagamento";
+    const targeted = statuses.filter(paymentCleanupFilter);
     expect(targeted).toEqual(["aguardando-pagamento"]);
-    expect(targeted).not.toContain("aguardando-confirmacao");
+  });
+
+  it("targets aguardando-confirmacao with configurable timeout (default 48h)", () => {
+    const statuses = ["aguardando-confirmacao", "aguardando-pagamento", "em-separacao", "cancelado"];
+    const confirmCleanupFilter = (s: string) => s === "aguardando-confirmacao";
+    const targeted = statuses.filter(confirmCleanupFilter);
+    expect(targeted).toEqual(["aguardando-confirmacao"]);
+  });
+
+  it("does not touch em-separacao or cancelado", () => {
+    const statuses = ["aguardando-confirmacao", "aguardando-pagamento", "em-separacao", "cancelado"];
+    const cleanupFilter = (s: string) => s === "aguardando-pagamento" || s === "aguardando-confirmacao";
+    const targeted = statuses.filter(cleanupFilter);
+    expect(targeted).not.toContain("em-separacao");
+    expect(targeted).not.toContain("cancelado");
   });
 });
 

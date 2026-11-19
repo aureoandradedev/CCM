@@ -4,10 +4,16 @@ import { cn } from "@/lib/utils";
 
 /** Pedaços de UI do admin (server-safe): título, cartões, tabela, campos. */
 
-export function PageTitle({ title, subtitle, children }: { title: string; subtitle?: string; children?: React.ReactNode }) {
+export function PageTitle({ title, subtitle, back, children }: { title: string; subtitle?: string; back?: string; children?: React.ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
+        {back ? (
+          <Link href={back} className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-brand-ink-soft hover:text-brand-navy">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5"><path fillRule="evenodd" d="M9.78 4.22a.75.75 0 0 1 0 1.06L7.06 8l2.72 2.72a.75.75 0 1 1-1.06 1.06L5.22 8.53a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 0z" clipRule="evenodd" /></svg>
+            Voltar
+          </Link>
+        ) : null}
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-brand-navy md:text-3xl">{title}</h1>
         {subtitle ? <p className="mt-1 text-sm text-brand-ink-soft">{subtitle}</p> : null}
       </div>

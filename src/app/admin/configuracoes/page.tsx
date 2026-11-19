@@ -32,7 +32,7 @@ export default async function AdminSettingsPage() {
           <HolidayCalendarPanel holidays={holidays} />
         </Card>
         <Card title="Centro de Distribuição">
-          <CdConfigPanel city={cdConfig.city} state={cdConfig.state} />
+          <CdConfigPanel city={cdConfig.city} state={cdConfig.state} address={cdConfig.address} hours={cdConfig.hours} />
         </Card>
       </div>
 
