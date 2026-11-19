@@ -11,9 +11,8 @@ import { toast } from "sonner";
 import {
   markShipped, markDelivered,
   logEntregadorOccurrence,
-  ENTREGADOR_OCCURRENCE_TYPES,
-  type ActionResult,
 } from "@/app/entregador/actions";
+import { ENTREGADOR_OCCURRENCE_TYPES, type ActionResult } from "@/app/entregador/constants";
 import { Button } from "@/components/ui/button";
 import { formatDate, shipmentStatusLabel, TONE_CLASS } from "@/lib/orders";
 import { SHIPMENT_STATUS_LABEL, OCCURRENCE_LABELS } from "@/lib/shipment-lifecycle";
@@ -289,6 +288,7 @@ export function EntregadorWorkflow({ detail }: { detail: EntregadorShipmentDetai
               </Button>
               <form
                 action={showConfirm === "enviado" ? shipAction.formAction : deliverAction.formAction}
+                onSubmit={() => setShowConfirm(null)}
                 className="flex-1"
               >
                 <input type="hidden" name="shipmentId" value={detail.id} />

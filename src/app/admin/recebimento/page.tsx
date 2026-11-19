@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, ClipboardCheck, AlertTriangle } from "lucide-react";
 
 import { Card, Empty, Kpi, NotConfigured, PageTitle, Table, Td, Th } from "@/components/admin/ui";
-import { configured, readPendingPurchaseOrders, readReceivingSessions, readOperationalExceptions } from "@/lib/admin/data";
+import { configured, readPendingPurchaseOrders, readReceivingSessions, readOperationalExceptions, readPendingAllocations } from "@/lib/admin/data";
 
 const STATUS_LABELS: Record<string, string> = {
   in_progress: "Em andamento",
@@ -33,10 +33,11 @@ function formatBRL(centavos: number) {
 export default async function RecebimentoPage() {
   if (!configured()) return <NotConfigured />;
 
-  const [pendingPOs, sessions, exceptions] = await Promise.all([
+  const [pendingPOs, sessions, exceptions, pendingAllocations] = await Promise.all([
     readPendingPurchaseOrders(),
     readReceivingSessions(),
     readOperationalExceptions("open"),
+    readPendingAllocations(),
   ]);
 
   return (
@@ -48,12 +49,49 @@ export default async function RecebimentoPage() {
       </PageTitle>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Kpi label="POs aguardando" value={String(pendingPOs.length)} tone="navy" />
+        <Kpi label="Alocações pendentes" value={String(pendingAllocations.length)} tone={pendingAllocations.length > 0 ? "yellow" : "slate"} />
         <Kpi label="Sessões ativas" value={String(sessions.filter((s) => s.status === "in_progress").length)} tone="yellow" />
         <Kpi label="Concluídas" value={String(sessions.filter((s) => s.status === "completed").length)} tone="green" />
         <Kpi label="Exceções abertas" value={String(exceptions.length)} tone={exceptions.length > 0 ? "red" : "slate"} />
       </div>
+
+      {/* Alocações pendentes de confirmação */}
+      {pendingAllocations.length > 0 && (
+        <Card title="Alocações pendentes de confirmação" className="mt-6">
+          <p className="mb-3 text-sm text-brand-ink-soft">
+            Recebimentos concluídos aguardando revisão e confirmação de alocação pelo admin.
+          </p>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Fornecedor</Th>
+                <Th>Data ciclo</Th>
+                <Th>Concluído em</Th>
+                <Th />
+              </tr>
+            </thead>
+            <tbody>
+              {pendingAllocations.map((s) => (
+                <tr key={s.id} className="border-t border-border">
+                  <Td>{s.supplier_purchase_orders?.suppliers?.name ?? "—"}</Td>
+                  <Td>{s.supplier_purchase_orders?.cycle_date ?? "—"}</Td>
+                  <Td>{s.completed_at ? new Date(s.completed_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</Td>
+                  <Td>
+                    <Link
+                      href={`/admin/recebimento/alocacao/${s.id}`}
+                      className="inline-flex items-center gap-1 rounded bg-brand-orange px-3 py-1 text-xs font-medium text-white hover:bg-brand-orange/90"
+                    >
+                      <ClipboardCheck className="h-3.5 w-3.5" /> Revisar alocação
+                    </Link>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
 
       {/* POs aguardando conferência */}
       <Card title="Pedidos de compra aguardando conferência" className="mt-6">

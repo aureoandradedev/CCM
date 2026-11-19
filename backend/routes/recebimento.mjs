@@ -4,6 +4,7 @@ import {
   startReceiving,
   recordItem,
   completeReceiving,
+  getSessionAllocationPlan,
   confirmAllocation,
   ReceivingError,
 } from "../lib/receiving.mjs";
@@ -42,6 +43,17 @@ router.post("/complete", exigirRole("recebedor"), async (req, res) => {
     const { sessionId } = req.body;
     if (!sessionId) return res.status(400).json({ ok: false, erro: "sessionId obrigatório." });
     const result = await completeReceiving(sessionId);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    handleErr(res, e);
+  }
+});
+
+router.post("/allocation-plan", exigirAdmin, async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    if (!sessionId) return res.status(400).json({ ok: false, erro: "sessionId obrigatório." });
+    const result = await getSessionAllocationPlan(sessionId);
     res.json({ ok: true, ...result });
   } catch (e) {
     handleErr(res, e);

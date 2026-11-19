@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { logShipmentOccurrence, setShipmentTracking, updateShipmentStatus, type ActionResult } from "@/app/admin/actions";
+import { DriverAssignSection, type DriverOption } from "@/components/admin/driver-assign-section";
 import { inputCls, textareaCls } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDateTime, shipmentStatusLabel, TONE_CLASS, type OrderShipmentRow, type ShipmentStatus } from "@/lib/orders";
@@ -22,10 +23,12 @@ export function ShipmentActionsPanel({
   shipment,
   events,
   occurrences,
+  drivers,
 }: {
   shipment: OrderShipmentRow;
   events: OrderEvent[];
   occurrences: ShipmentOccurrenceRow[];
+  drivers: DriverOption[];
 }) {
   const [pending, start] = useTransition();
   const [showTracking, setShowTracking] = useState(false);
@@ -86,6 +89,10 @@ export function ShipmentActionsPanel({
             </dd>
           </div>
         </dl>
+
+        {shipment.delivery_method === "delivery" && ["pronto_para_envio", "preparando"].includes(status) ? (
+          <DriverAssignSection shipmentId={shipment.id} currentDriverId={shipment.assigned_to} drivers={drivers} />
+        ) : null}
 
         {transitions.length > 0 ? (
           <div className="flex flex-wrap gap-2">

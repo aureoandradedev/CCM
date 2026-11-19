@@ -6,25 +6,14 @@ import { assertRole } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
 import type { ShipmentStatus } from "@/lib/orders";
 import { canTransition } from "@/lib/shipment-lifecycle";
+import { SEPARADOR_OCCURRENCE_TYPES, type ActionResult } from "./constants";
 
-export interface ActionResult {
-  ok?: string;
-  error?: string;
-}
+export type { ActionResult } from "./constants";
 
-/**
- * Transitions allowed for operacao role — a strict SUBSET of the full state machine.
- * operacao can: start preparation, finish as pronto_para_envio or pronto_para_retirada.
- * operacao CANNOT: cancel, mark enviado, mark entregue, set tracking.
- */
 const OPERACAO_ALLOWED_TRANSITIONS: Record<string, ShipmentStatus[]> = {
   aguardando_disponibilidade: ["preparando"],
   preparando: ["pronto_para_envio", "pronto_para_retirada"],
 };
-
-/** Occurrence types the separador role may use. */
-export const SEPARADOR_OCCURRENCE_TYPES = ["damage", "note"] as const;
-export type SeparadorOccurrenceType = (typeof SEPARADOR_OCCURRENCE_TYPES)[number];
 
 function isOperacaoTransitionAllowed(from: ShipmentStatus, to: ShipmentStatus): boolean {
   return OPERACAO_ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;

@@ -62,12 +62,24 @@ const MAX_PHOTOS_PER_ITEM = 10;
 export async function recordItem(sessionId, data) {
   const { data: session } = await db()
     .from("receiving_sessions")
-    .select("id, status")
+    .select("id, status, purchase_order_id")
     .eq("id", sessionId)
     .eq("status", "in_progress")
     .maybeSingle();
 
   if (!session) throw new ReceivingError(404, "Sessão não encontrada ou já finalizada.");
+
+  // Derive expected_qty server-side from purchase_order_items
+  const { data: poItem } = await db()
+    .from("purchase_order_items")
+    .select("quantity_units")
+    .eq("id", data.purchaseOrderItemId)
+    .eq("purchase_order_id", session.purchase_order_id)
+    .maybeSingle();
+
+  if (!poItem) throw new ReceivingError(404, "Item não pertence a esta PO.");
+
+  const expectedQty = poItem.quantity_units;
 
   if (data.acceptedQty + data.damagedQty > data.receivedQty) {
     throw new ReceivingError(400, "accepted + damaged não pode exceder received.");
@@ -85,7 +97,7 @@ export async function recordItem(sessionId, data) {
         receiving_session_id: sessionId,
         purchase_order_item_id: data.purchaseOrderItemId,
         master_product_id: data.masterProductId,
-        expected_qty: data.expectedQty,
+        expected_qty: expectedQty,
         received_qty: data.receivedQty,
         accepted_qty: data.acceptedQty,
         damaged_qty: data.damagedQty,
@@ -156,28 +168,31 @@ export async function completeReceiving(sessionId) {
 
   // Fetch pending shipments that need these products
   const productIds = [...new Set(items.map((i) => i.master_product_id))];
-  const { data: pendingItems } = await db()
+  const { data: pendingItems, error: pendErr } = await db()
     .from("order_items")
     .select(`
       id,
       shipment_id,
       order_id,
       master_product_id,
-      quantity,
-      orders!inner(payment_confirmed_at),
+      qty,
+      orders(created_at),
       order_shipments!inner(promised_to, status)
     `)
     .in("master_product_id", productIds)
     .in("order_shipments.status", ["aguardando_disponibilidade", "preparando"])
     .not("shipment_id", "is", null);
 
-  const pending = (pendingItems || []).map((p) => ({
+  if (pendErr) throw new ReceivingError(500, `Erro ao buscar pedidos pendentes: ${pendErr.message}`);
+
+  const pending = (pendingItems ?? []).map((p) => ({
+    orderItemId: p.id,
     shipmentId: p.shipment_id,
     orderId: p.order_id,
     masterProductId: p.master_product_id,
-    quantity: p.quantity,
+    quantity: p.qty,
     promisedTo: p.order_shipments?.promised_to || null,
-    paymentConfirmedAt: p.orders?.payment_confirmed_at || null,
+    createdAt: p.orders?.created_at || null,
   }));
 
   // Compute shortages for exceptions
@@ -229,6 +244,69 @@ export async function completeReceiving(sessionId) {
     damages,
     summary,
   };
+}
+
+export async function getSessionAllocationPlan(sessionId) {
+  const { data: session } = await db()
+    .from("receiving_sessions")
+    .select("id, status, purchase_order_id, allocation_confirmed_at")
+    .eq("id", sessionId)
+    .eq("status", "completed")
+    .maybeSingle();
+
+  if (!session) throw new ReceivingError(404, "Sessão não encontrada ou não está completada.");
+  if (session.allocation_confirmed_at) throw new ReceivingError(409, "Alocação já confirmada.");
+
+  const { data: items } = await db()
+    .from("receiving_items")
+    .select("*")
+    .eq("receiving_session_id", sessionId);
+
+  if (!items || items.length === 0) {
+    throw new ReceivingError(400, "Nenhum item conferido nesta sessão.");
+  }
+
+  const received = items.map((i) => ({
+    masterProductId: i.master_product_id,
+    acceptedQty: i.accepted_qty,
+  }));
+
+  const productIds = [...new Set(items.map((i) => i.master_product_id))];
+  const { data: pendingItems, error: pendErr } = await db()
+    .from("order_items")
+    .select(`
+      id,
+      shipment_id,
+      order_id,
+      master_product_id,
+      qty,
+      orders(created_at),
+      order_shipments!inner(promised_to, status)
+    `)
+    .in("master_product_id", productIds)
+    .in("order_shipments.status", ["aguardando_disponibilidade", "preparando"])
+    .not("shipment_id", "is", null);
+
+  if (pendErr) throw new ReceivingError(500, `Erro ao buscar pedidos pendentes: ${pendErr.message}`);
+
+  const pending = (pendingItems ?? []).map((p) => ({
+    orderItemId: p.id,
+    shipmentId: p.shipment_id,
+    orderId: p.order_id,
+    masterProductId: p.master_product_id,
+    quantity: p.qty,
+    promisedTo: p.order_shipments?.promised_to || null,
+    createdAt: p.orders?.created_at || null,
+  }));
+
+  const summary = {
+    totalExpected: items.reduce((s, i) => s + i.expected_qty, 0),
+    totalReceived: items.reduce((s, i) => s + i.received_qty, 0),
+    totalAccepted: items.reduce((s, i) => s + i.accepted_qty, 0),
+    totalDamaged: items.reduce((s, i) => s + i.damaged_qty, 0),
+  };
+
+  return { sessionId, received, pending, items, summary };
 }
 
 export async function confirmAllocation(sessionId, allocations, actorId) {

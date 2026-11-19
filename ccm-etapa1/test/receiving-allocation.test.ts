@@ -109,20 +109,22 @@ test("D7: summarizeReceiving with empty list", () => {
 // TEST E: allocateStock
 // ═══════════════════════════════════════════════════════════════════════════
 
+let orderItemSeq = 0;
 const makeShipmentItem = (
   shipmentId: string,
   orderId: string,
   productId: string,
   qty: number,
   promisedTo: string | null,
-  paymentConfirmedAt: string | null,
+  createdAt: string | null,
 ): PendingShipmentItem => ({
+  orderItemId: `oi-${++orderItemSeq}`,
   shipmentId,
   orderId,
   masterProductId: productId,
   quantity: qty,
   promisedTo,
-  paymentConfirmedAt,
+  createdAt,
 });
 
 test("E1: oldest promised_to gets priority", () => {
@@ -154,7 +156,7 @@ test("E2: maximize complete orders — skips partial to fulfill another fully", 
   assert.ok(plan.partiallyAllocatedShipments.includes("s-big"));
 });
 
-test("E3: earliest payment wins when promised_to is equal", () => {
+test("E3: earliest createdAt wins when promised_to is equal", () => {
   const received: ReceivedProduct[] = [{ masterProductId: "p1", acceptedQty: 5 }];
   const pending: PendingShipmentItem[] = [
     makeShipmentItem("s-late-pay", "o1", "p1", 5, "2026-12-10", "2026-11-05T10:00:00Z"),
@@ -342,7 +344,7 @@ test("G4: allocation with many shipments same product — respects priority chai
     makeShipmentItem("s-no-prom", "o4", "p1", 5, null, "2026-11-01T00:00:00Z"),
   ];
   const plan = allocateStock(received, pending);
-  // Priority: promisedTo oldest first → among ties, paymentConfirmedAt oldest
+  // Priority: promisedTo oldest first → among ties, createdAt oldest
   // s-prom-old-pay-old: 2026-12-05 / 2026-11-01 → 1st
   // s-prom-old-pay-new: 2026-12-05 / 2026-11-10 → 2nd
   // s-prom-new: 2026-12-15 → 3rd

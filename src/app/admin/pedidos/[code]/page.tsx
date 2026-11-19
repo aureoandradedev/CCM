@@ -8,6 +8,7 @@ import { OrderActions } from "@/components/admin/order-actions";
 import { ShipmentActionsPanel } from "@/components/admin/shipment-actions";
 import { Card, NotConfigured, PageTitle } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
+import { listActiveDrivers } from "@/app/admin/actions";
 import { adminGetOrder, configured } from "@/lib/admin/data";
 import { formatDateTime } from "@/lib/orders";
 
@@ -44,6 +45,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
   const found = await adminGetOrder(code);
   if (!found) notFound();
   const { order, items, events, shipments, occurrences, fiscalDocs } = found;
+  const drivers = await listActiveDrivers();
 
   return (
     <>
@@ -65,6 +67,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
                   shipment={s}
                   events={events}
                   occurrences={occurrences.filter((o) => o.shipment_id === s.id)}
+                  drivers={drivers}
                 />
               ))}
             </div>

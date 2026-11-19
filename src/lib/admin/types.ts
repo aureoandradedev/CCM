@@ -297,6 +297,7 @@ export interface ReceivingSessionRow {
   status: "in_progress" | "completed" | "cancelled";
   started_at: string;
   completed_at: string | null;
+  allocation_confirmed_at: string | null;
   notes: string | null;
   created_at: string;
   supplier_purchase_orders?: {

@@ -6,21 +6,12 @@ import { assertRole } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
 import type { ShipmentStatus } from "@/lib/orders";
 import { canTransition } from "@/lib/shipment-lifecycle";
-import type { OccurrenceType } from "@/lib/shipment-lifecycle";
-
-export interface ActionResult {
-  ok?: string;
-  error?: string;
-}
+import { ENTREGADOR_OCCURRENCE_TYPES, type ActionResult } from "./constants";
 
 const ENTREGADOR_ALLOWED_TRANSITIONS: Record<string, ShipmentStatus[]> = {
   pronto_para_envio: ["enviado"],
   enviado: ["entregue"],
 };
-
-export const ENTREGADOR_OCCURRENCE_TYPES: OccurrenceType[] = [
-  "attempt", "delay", "damage", "return", "note",
-];
 
 function isEntregadorTransitionAllowed(from: ShipmentStatus, to: ShipmentStatus): boolean {
   return ENTREGADOR_ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;

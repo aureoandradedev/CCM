@@ -9,9 +9,11 @@ import { toast } from "sonner";
 import {
   startPreparation, finishForShipping, finishForPickup,
   logSeparadorOccurrence, markItemPicked,
+} from "@/app/separador/actions";
+import {
   SEPARADOR_OCCURRENCE_TYPES,
   type ActionResult, type SeparadorOccurrenceType,
-} from "@/app/separador/actions";
+} from "@/app/separador/constants";
 import { Button } from "@/components/ui/button";
 import { formatDate, shipmentStatusLabel, TONE_CLASS } from "@/lib/orders";
 import { SHIPMENT_STATUS_LABEL, OCCURRENCE_LABELS } from "@/lib/shipment-lifecycle";
@@ -266,7 +268,7 @@ export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail 
               <Button variant="outline" className="flex-1" onClick={() => setShowConfirm(null)}>
                 Cancelar
               </Button>
-              <form action={showConfirm === "envio" ? finishShipAction.formAction : finishPickupAction.formAction} className="flex-1">
+              <form action={showConfirm === "envio" ? finishShipAction.formAction : finishPickupAction.formAction} className="flex-1" onSubmit={() => setShowConfirm(null)}>
                 <input type="hidden" name="shipmentId" value={detail.id} />
                 <Button
                   type="submit"

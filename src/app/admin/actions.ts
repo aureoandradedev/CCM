@@ -1240,3 +1240,31 @@ export async function retryFiscalDoc(docId: string): Promise<ActionResult> {
     return { ok: "Documento marcado para reenvio." };
   }, ["/admin/pedidos"]);
 }
+
+export async function assignShipmentDriver(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb) => {
+    const shipmentId = String(fd.get("shipmentId") ?? "").trim();
+    const driverId = String(fd.get("driverId") ?? "").trim();
+    if (!shipmentId) return { error: "ID da entrega é obrigatório." };
+    if (!driverId) return { error: "Selecione um entregador." };
+    const { error } = await sb.rpc("assign_shipment_driver", {
+      p_shipment_id: shipmentId,
+      p_driver_id: driverId,
+    });
+    if (error) return { error: error.message };
+    return { ok: "Entregador atribuído." };
+  }, ["/admin/pedidos"]);
+}
+
+export async function listActiveDrivers() {
+  await assertAdmin();
+  const sb = await createClient();
+  const { data, error } = await sb
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("role", "entregador")
+    .eq("is_active", true)
+    .order("full_name");
+  if (error) return [];
+  return data ?? [];
+}

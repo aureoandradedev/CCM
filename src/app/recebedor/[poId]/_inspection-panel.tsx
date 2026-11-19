@@ -121,6 +121,7 @@ export function InspectionPanel({
           sessionId,
           purchaseOrderItemId: item.purchaseOrderItemId,
           masterProductId: item.masterProductId,
+          expectedQty: expectedItems.find((e) => e.id === poiId)?.expectedQty ?? 0,
           receivedQty: item.receivedQty,
           acceptedQty: item.acceptedQty,
           damagedQty: item.damagedQty,

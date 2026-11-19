@@ -145,6 +145,7 @@ export interface OrderShipmentRow {
   carrier: string | null;
   shipped_at: string | null;
   delivered_at: string | null;
+  assigned_to: string | null;
   created_at: string;
   updated_at: string;
 }

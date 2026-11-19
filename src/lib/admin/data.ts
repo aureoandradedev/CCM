@@ -768,6 +768,28 @@ export async function readReceivingSession(id: string): Promise<ReceivingSession
   return data as ReceivingSessionRow | null;
 }
 
+export async function readPendingAllocations(): Promise<ReceivingSessionRow[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb
+    .from("receiving_sessions")
+    .select("*, supplier_purchase_orders(supplier_id, cycle_date, status, suppliers(name))")
+    .eq("status", "completed")
+    .is("allocation_confirmed_at", null)
+    .order("completed_at", { ascending: false });
+  return (data as ReceivingSessionRow[] | null) ?? [];
+}
+
+export async function readReceivingItems(sessionId: string) {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data } = await sb
+    .from("receiving_items")
+    .select("*, master_products(name)")
+    .eq("receiving_session_id", sessionId);
+  return data ?? [];
+}
+
 export async function readPendingPurchaseOrders() {
   if (!configured()) return [];
   const sb = await createClient();

@@ -60,3 +60,20 @@ export const OCCURRENCE_LABELS: Record<OccurrenceType, string> = {
   return: "Devolução",
   note: "Observação",
 };
+
+/**
+ * Given all shipment statuses for an order and the order's payment status,
+ * derives the order status when all shipments are terminal.
+ * Returns null if order status should NOT change (shipments still in progress).
+ */
+export function deriveOrderStatusFromShipments(
+  shipmentStatuses: ShipmentStatus[],
+  paymentStatus: string,
+): "pagos" | "pagamento-pendente" | null {
+  if (shipmentStatuses.length === 0) return null;
+  const allTerminal = shipmentStatuses.every((s) => TERMINAL_STATUSES.has(s));
+  if (!allTerminal) return null;
+  const hasEntregue = shipmentStatuses.some((s) => s === "entregue");
+  if (!hasEntregue) return null;
+  return paymentStatus === "pago" ? "pagos" : "pagamento-pendente";
+}

@@ -4,7 +4,7 @@
  * Prioridade:
  *   1. promised_to mais antigo (pedidos com prazo mais apertado)
  *   2. maximizar pedidos completos (não dividir estoque em parciais)
- *   3. payment_confirmed_at mais antigo (quem pagou primeiro)
+ *   3. created_at mais antigo (pedido mais antigo primeiro)
  *
  * allocateStock retorna um PLANO — NÃO persiste nada.
  * O admin revisa e confirma via confirmAllocation.
@@ -16,15 +16,17 @@ export interface ReceivedProduct {
 }
 
 export interface PendingShipmentItem {
+  orderItemId: string;
   shipmentId: string;
   orderId: string;
   masterProductId: string;
   quantity: number;
   promisedTo: string | null;
-  paymentConfirmedAt: string | null;
+  createdAt: string | null;
 }
 
 export interface AllocationEntry {
+  orderItemId: string;
   shipmentId: string;
   orderId: string;
   masterProductId: string;
@@ -50,8 +52,8 @@ interface ShipmentGroup {
   shipmentId: string;
   orderId: string;
   promisedTo: string | null;
-  paymentConfirmedAt: string | null;
-  items: { masterProductId: string; quantity: number }[];
+  createdAt: string | null;
+  items: { orderItemId: string; masterProductId: string; quantity: number }[];
 }
 
 function groupByShipment(items: PendingShipmentItem[]): ShipmentGroup[] {
@@ -63,12 +65,13 @@ function groupByShipment(items: PendingShipmentItem[]): ShipmentGroup[] {
         shipmentId: item.shipmentId,
         orderId: item.orderId,
         promisedTo: item.promisedTo,
-        paymentConfirmedAt: item.paymentConfirmedAt,
+        createdAt: item.createdAt,
         items: [],
       };
       map.set(item.shipmentId, group);
     }
     group.items.push({
+      orderItemId: item.orderItemId,
       masterProductId: item.masterProductId,
       quantity: item.quantity,
     });
@@ -82,9 +85,9 @@ function sortShipments(groups: ShipmentGroup[]): ShipmentGroup[] {
     const bDate = b.promisedTo ?? "9999-12-31";
     if (aDate !== bDate) return aDate < bDate ? -1 : 1;
 
-    const aPay = a.paymentConfirmedAt ?? "9999-12-31T23:59:59Z";
-    const bPay = b.paymentConfirmedAt ?? "9999-12-31T23:59:59Z";
-    if (aPay !== bPay) return aPay < bPay ? -1 : 1;
+    const aCreated = a.createdAt ?? "9999-12-31T23:59:59Z";
+    const bCreated = b.createdAt ?? "9999-12-31T23:59:59Z";
+    if (aCreated !== bCreated) return aCreated < bCreated ? -1 : 1;
 
     return 0;
   });
@@ -124,6 +127,7 @@ export function allocateStock(
         const current = stock.get(item.masterProductId)!;
         stock.set(item.masterProductId, current - item.quantity);
         allocations.push({
+          orderItemId: item.orderItemId,
           shipmentId: group.shipmentId,
           orderId: group.orderId,
           masterProductId: item.masterProductId,
@@ -145,6 +149,7 @@ export function allocateStock(
       const qty = Math.min(available, item.quantity);
       stock.set(item.masterProductId, available - qty);
       allocations.push({
+        orderItemId: item.orderItemId,
         shipmentId: group.shipmentId,
         orderId: group.orderId,
         masterProductId: item.masterProductId,
