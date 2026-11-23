@@ -124,7 +124,7 @@ test("K9: backend recorder uses ignoreDuplicates for idempotency", () => {
 });
 
 test("K10: decidePurchaseOrder records performance events via upsert", () => {
-  const actionsPath = path.join(PROJECT_ROOT, "src", "app", "admin", "actions.ts");
+  const actionsPath = path.join(PROJECT_ROOT, "src", "app", "(store)", "admin", "actions.ts");
   const content = fs.readFileSync(actionsPath, "utf-8");
   assert.ok(
     content.includes("supplier_performance_events") && content.includes("ignoreDuplicates"),

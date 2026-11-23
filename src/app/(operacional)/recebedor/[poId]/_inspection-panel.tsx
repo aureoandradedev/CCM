@@ -10,13 +10,12 @@ import {
   ChevronRight,
   Loader2,
   Package,
-  X,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
 import { uploadReceivingPhoto, getSignedPhotoUrl } from "../actions";
+import { OpProgress, OpKpi } from "@/components/operational/operational-ui";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -91,7 +90,6 @@ export function InspectionPanel({
     });
   }
 
-  /* ---- Start session ---- */
   async function handleStart() {
     setBusy(true);
     setError(null);
@@ -109,7 +107,6 @@ export function InspectionPanel({
     }
   }
 
-  /* ---- Save one item ---- */
   async function handleSaveItem(poiId: string) {
     const item = getItem(poiId);
     if (!sessionId) return;
@@ -141,7 +138,6 @@ export function InspectionPanel({
     }
   }
 
-  /* ---- Photo upload ---- */
   async function handlePhotoUpload(poiId: string, file: File) {
     if (!sessionId) return;
     const item = getItem(poiId);
@@ -170,12 +166,10 @@ export function InspectionPanel({
     }
   }
 
-  /* ---- Pre-finalize confirmation ---- */
   function handleShowConfirm() {
     setPhase("confirm");
   }
 
-  /* ---- Complete session ---- */
   async function handleComplete() {
     if (!sessionId) return;
     setBusy(true);
@@ -202,16 +196,23 @@ export function InspectionPanel({
   /* ================================================================ */
   if (phase === "idle") {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-xl border border-brand-line bg-card py-10 text-center">
-        <Package className="size-12 text-brand-navy" />
+      <div className="flex flex-col items-center gap-5 rounded-2xl bg-white py-12 text-center shadow-sm ring-1 ring-black/[0.04]">
+        <div className="flex size-16 items-center justify-center rounded-2xl bg-brand-navy/10">
+          <Package className="size-8 text-brand-navy" />
+        </div>
         <div>
-          <p className="text-sm font-medium text-brand-ink">Pronto para iniciar a conferência?</p>
-          <p className="mt-1 text-xs text-brand-ink-soft">{expectedItems.length} itens esperados neste pedido.</p>
+          <p className="text-sm font-semibold text-gray-800">Pronto para iniciar a conferência?</p>
+          <p className="mt-1 text-xs text-gray-500">{expectedItems.length} itens esperados neste pedido.</p>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button size="lg" onClick={handleStart} disabled={busy} className="min-h-12 min-w-48 text-base">
-          {busy ? <Loader2 className="size-5 animate-spin" /> : "Iniciar conferência"}
-        </Button>
+        <button
+          type="button"
+          onClick={handleStart}
+          disabled={busy}
+          className="min-h-12 min-w-52 rounded-xl bg-brand-navy px-6 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="mx-auto size-5 animate-spin" /> : "Iniciar conferência"}
+        </button>
       </div>
     );
   }
@@ -221,16 +222,22 @@ export function InspectionPanel({
   /* ================================================================ */
   if (phase === "error") {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-xl border border-red-200 bg-red-50 py-10 text-center">
+      <div className="flex flex-col items-center gap-5 rounded-2xl bg-red-50 py-12 text-center ring-1 ring-red-200">
         <AlertTriangle className="size-10 text-red-500" />
         <p className="text-sm text-red-700">{error}</p>
-        <Button onClick={() => setPhase("idle")}>Tentar novamente</Button>
+        <button
+          type="button"
+          onClick={() => setPhase("idle")}
+          className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-gray-700 ring-1 ring-black/[0.08]"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
 
   /* ================================================================ */
-  /*  Render: Inspecting (item by item)                                */
+  /*  Render: Inspecting                                               */
   /* ================================================================ */
   if (phase === "inspecting") {
     const current = expectedItems[currentIdx];
@@ -239,18 +246,8 @@ export function InspectionPanel({
 
     return (
       <div className="space-y-4">
-        {/* Progress bar */}
-        <div className="flex items-center gap-2">
-          <div className="h-2 flex-1 rounded-full bg-muted">
-            <div
-              className="h-2 rounded-full bg-brand-navy transition-all"
-              style={{ width: `${(savedCount / expectedItems.length) * 100}%` }}
-            />
-          </div>
-          <span className="shrink-0 text-xs font-medium text-brand-ink-soft">
-            {savedCount}/{expectedItems.length}
-          </span>
-        </div>
+        {/* Progress */}
+        <OpProgress current={savedCount} total={expectedItems.length} />
 
         {/* Item navigation */}
         <div className="flex items-center justify-between">
@@ -258,57 +255,42 @@ export function InspectionPanel({
             type="button"
             disabled={currentIdx === 0}
             onClick={() => setCurrentIdx((i) => i - 1)}
-            className="inline-flex size-10 items-center justify-center rounded-lg text-brand-ink-soft disabled:opacity-30"
+            className="inline-flex size-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 disabled:opacity-30"
           >
             <ChevronLeft className="size-5" />
           </button>
-          <span className="text-sm font-semibold text-brand-navy">
+          <span className="text-sm font-bold text-brand-navy">
             Item {currentIdx + 1} de {expectedItems.length}
           </span>
           <button
             type="button"
             disabled={currentIdx === expectedItems.length - 1}
             onClick={() => setCurrentIdx((i) => i + 1)}
-            className="inline-flex size-10 items-center justify-center rounded-lg text-brand-ink-soft disabled:opacity-30"
+            className="inline-flex size-10 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 disabled:opacity-30"
           >
             <ChevronRight className="size-5" />
           </button>
         </div>
 
         {/* Item card */}
-        <div className="rounded-xl border border-brand-line bg-card p-4 space-y-4">
+        <div className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="font-heading text-sm font-bold text-brand-ink">{current.name}</p>
-              <p className="mt-0.5 text-xs text-brand-ink-soft">Esperado: {current.expectedQty} un.</p>
+              <p className="font-heading text-sm font-bold text-gray-900">{current.name}</p>
+              <p className="mt-0.5 text-xs text-gray-500">Esperado: {current.expectedQty} un.</p>
             </div>
             {item.saved && (
-              <span className="flex items-center gap-1 rounded-full bg-brand-green/10 px-2 py-0.5 text-[0.65rem] font-semibold text-brand-green">
+              <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[0.65rem] font-semibold text-emerald-700">
                 <Check className="size-3" /> Salvo
               </span>
             )}
           </div>
 
-          {/* Quantity inputs — large touch targets */}
+          {/* Quantity inputs */}
           <div className="grid grid-cols-3 gap-3">
-            <QuantityInput
-              label="Recebido"
-              value={item.receivedQty}
-              onChange={(v) => updateField(current.id, "receivedQty", v)}
-            />
-            <QuantityInput
-              label="Aceito"
-              value={item.acceptedQty}
-              onChange={(v) => updateField(current.id, "acceptedQty", v)}
-              max={item.receivedQty}
-            />
-            <QuantityInput
-              label="Avariado"
-              value={item.damagedQty}
-              onChange={(v) => updateField(current.id, "damagedQty", v)}
-              max={item.receivedQty - item.acceptedQty}
-              warn
-            />
+            <QuantityInput label="Recebido" value={item.receivedQty} onChange={(v) => updateField(current.id, "receivedQty", v)} />
+            <QuantityInput label="Aceito" value={item.acceptedQty} onChange={(v) => updateField(current.id, "acceptedQty", v)} max={item.receivedQty} />
+            <QuantityInput label="Avariado" value={item.damagedQty} onChange={(v) => updateField(current.id, "damagedQty", v)} max={item.receivedQty - item.acceptedQty} warn />
           </div>
 
           {/* Validation feedback */}
@@ -320,17 +302,17 @@ export function InspectionPanel({
           {item.receivedQty > 0 && (
             <div className="flex flex-wrap gap-2">
               {item.receivedQty < current.expectedQty && (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[0.65rem] font-medium text-red-700">
+                <span className="rounded-full bg-red-100 px-2.5 py-1 text-[0.65rem] font-semibold text-red-700">
                   Falta: {current.expectedQty - item.receivedQty}
                 </span>
               )}
               {item.receivedQty > current.expectedQty && (
-                <span className="rounded-full bg-brand-blue/10 px-2 py-0.5 text-[0.65rem] font-medium text-brand-blue">
+                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[0.65rem] font-semibold text-blue-700">
                   Excesso: {item.receivedQty - current.expectedQty}
                 </span>
               )}
               {item.damagedQty > 0 && (
-                <span className="rounded-full bg-brand-orange/10 px-2 py-0.5 text-[0.65rem] font-medium text-brand-orange">
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[0.65rem] font-semibold text-amber-700">
                   Avaria: {item.damagedQty}
                 </span>
               )}
@@ -339,10 +321,10 @@ export function InspectionPanel({
 
           {/* Notes */}
           <div>
-            <label className="text-xs font-medium text-brand-ink-soft">Observações</label>
+            <label className="text-xs font-medium text-gray-500">Observações</label>
             <textarea
               rows={2}
-              className="mt-1 w-full rounded-lg border border-brand-line bg-transparent px-3 py-2 text-sm outline-none focus:border-brand-navy"
+              className="mt-1.5 w-full rounded-xl bg-gray-50 px-3 py-2.5 text-sm outline-none ring-1 ring-black/[0.06] transition-shadow placeholder:text-gray-400 focus:ring-2 focus:ring-brand-navy/30"
               value={item.notes}
               onChange={(e) => updateField(current.id, "notes", e.target.value)}
               placeholder="Ex: embalagem violada, produto trocado..."
@@ -351,22 +333,22 @@ export function InspectionPanel({
 
           {/* Photos */}
           <div>
-            <p className="text-xs font-medium text-brand-ink-soft">Fotos ({item.photos.length}/10)</p>
+            <p className="text-xs font-medium text-gray-500">Fotos ({item.photos.length}/10)</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {item.photos.map((path) => (
-                <div key={path} className="relative size-16 overflow-hidden rounded-lg border border-brand-line bg-muted">
+                <div key={path} className="relative size-16 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-black/[0.06]">
                   {photoUrls.get(path) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={photoUrls.get(path)} alt="" className="size-full object-cover" />
                   ) : (
                     <div className="flex size-full items-center justify-center">
-                      <Camera className="size-5 text-brand-ink-soft/40" />
+                      <Camera className="size-5 text-gray-300" />
                     </div>
                   )}
                 </div>
               ))}
               {item.photos.length < 10 && (
-                <label className="flex size-16 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-brand-line text-brand-ink-soft hover:border-brand-navy hover:text-brand-navy">
+                <label className="flex size-16 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-brand-navy hover:text-brand-navy">
                   <Camera className="size-5" />
                   <input
                     type="file"
@@ -385,19 +367,20 @@ export function InspectionPanel({
           </div>
 
           {/* Save button */}
-          <Button
-            className="min-h-12 w-full text-base"
+          <button
+            type="button"
+            className="min-h-12 w-full rounded-xl bg-brand-navy text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
             disabled={busy || item.receivedQty === 0 || item.acceptedQty + item.damagedQty > item.receivedQty}
             onClick={() => handleSaveItem(current.id)}
           >
-            {busy ? <Loader2 className="size-5 animate-spin" /> : item.saved ? "Atualizar item" : "Salvar item"}
-          </Button>
+            {busy ? <Loader2 className="mx-auto size-5 animate-spin" /> : item.saved ? "Atualizar item" : "Salvar item"}
+          </button>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        {/* Quick jump list */}
-        <div className="flex flex-wrap gap-1">
+        {/* Quick jump */}
+        <div className="flex flex-wrap gap-1.5">
           {expectedItems.map((ei, idx) => {
             const it = items.get(ei.id);
             return (
@@ -406,12 +389,12 @@ export function InspectionPanel({
                 type="button"
                 onClick={() => setCurrentIdx(idx)}
                 className={cn(
-                  "size-8 rounded-lg text-xs font-semibold transition-colors",
+                  "size-9 rounded-xl text-xs font-bold transition-colors",
                   idx === currentIdx
-                    ? "bg-brand-navy text-white"
+                    ? "bg-brand-navy text-white shadow-sm"
                     : it?.saved
-                      ? "bg-brand-green/10 text-brand-green"
-                      : "bg-muted text-brand-ink-soft",
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-gray-100 text-gray-400",
                 )}
               >
                 {idx + 1}
@@ -422,20 +405,20 @@ export function InspectionPanel({
 
         {/* Finalize */}
         {allSaved && (
-          <Button
-            variant="outline"
-            className="min-h-12 w-full border-brand-navy text-base font-bold text-brand-navy"
+          <button
+            type="button"
             onClick={handleShowConfirm}
+            className="min-h-12 w-full rounded-xl bg-white text-base font-bold text-brand-navy ring-2 ring-brand-navy transition-colors hover:bg-brand-navy/5"
           >
             Finalizar conferência
-          </Button>
+          </button>
         )}
       </div>
     );
   }
 
   /* ================================================================ */
-  /*  Render: Confirm before finalize                                  */
+  /*  Render: Confirm                                                  */
   /* ================================================================ */
   if (phase === "confirm") {
     const allItems = expectedItems.map((ei) => ({ expected: ei, inspected: getItem(ei.id) }));
@@ -447,34 +430,32 @@ export function InspectionPanel({
     const excess = allItems.filter((i) => i.inspected.receivedQty > i.expected.expectedQty);
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <h2 className="font-heading text-base font-bold text-brand-navy">Confirmar finalização</h2>
-        <p className="text-xs text-brand-ink-soft">
-          Revise os dados abaixo antes de finalizar. Após finalizar, o sistema calculará divergências e exceções automaticamente.
+        <p className="text-xs text-gray-500">
+          Revise os dados abaixo. Após finalizar, o sistema calculará divergências e exceções automaticamente.
         </p>
 
-        {/* Summary KPIs */}
         <div className="grid grid-cols-2 gap-3">
-          <SummaryKpi label="Esperado" value={totalExpected} />
-          <SummaryKpi label="Recebido" value={totalReceived} tone={totalReceived !== totalExpected ? "warn" : undefined} />
-          <SummaryKpi label="Aceito" value={totalAccepted} />
-          <SummaryKpi label="Avariado" value={totalDamaged} tone={totalDamaged > 0 ? "danger" : undefined} />
+          <OpKpi label="Esperado" value={totalExpected} />
+          <OpKpi label="Recebido" value={totalReceived} tone={totalReceived !== totalExpected ? "warn" : "default"} />
+          <OpKpi label="Aceito" value={totalAccepted} />
+          <OpKpi label="Avariado" value={totalDamaged} tone={totalDamaged > 0 ? "danger" : "default"} />
         </div>
 
-        {/* Divergences */}
         {(shortages.length > 0 || excess.length > 0) && (
-          <div className="rounded-xl border border-brand-orange/30 bg-brand-orange/5 p-3 space-y-2">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-orange">
+          <div className="space-y-2 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200/50">
+            <p className="flex items-center gap-1.5 text-xs font-bold text-amber-700">
               <AlertTriangle className="size-3.5" /> Divergências detectadas
             </p>
             {shortages.map((s) => (
-              <p key={s.expected.id} className="text-xs text-brand-ink-soft">
-                <span className="font-medium text-red-700">Falta:</span> {s.expected.name} — esperado {s.expected.expectedQty}, recebido {s.inspected.receivedQty}
+              <p key={s.expected.id} className="text-xs text-gray-600">
+                <span className="font-semibold text-red-700">Falta:</span> {s.expected.name} — esperado {s.expected.expectedQty}, recebido {s.inspected.receivedQty}
               </p>
             ))}
             {excess.map((s) => (
-              <p key={s.expected.id} className="text-xs text-brand-ink-soft">
-                <span className="font-medium text-brand-blue">Excesso:</span> {s.expected.name} — esperado {s.expected.expectedQty}, recebido {s.inspected.receivedQty}
+              <p key={s.expected.id} className="text-xs text-gray-600">
+                <span className="font-semibold text-blue-700">Excesso:</span> {s.expected.name} — esperado {s.expected.expectedQty}, recebido {s.inspected.receivedQty}
               </p>
             ))}
           </div>
@@ -483,12 +464,21 @@ export function InspectionPanel({
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="flex gap-3">
-          <Button variant="outline" className="min-h-12 flex-1" onClick={() => setPhase("inspecting")}>
+          <button
+            type="button"
+            onClick={() => setPhase("inspecting")}
+            className="flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold text-gray-500 ring-1 ring-black/[0.08] transition-colors hover:bg-gray-50"
+          >
             <ChevronLeft className="size-4" /> Voltar
-          </Button>
-          <Button className="min-h-12 flex-1 text-base" disabled={busy} onClick={handleComplete}>
-            {busy ? <Loader2 className="size-5 animate-spin" /> : "Confirmar e finalizar"}
-          </Button>
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleComplete}
+            className="min-h-12 flex-1 rounded-xl bg-brand-navy text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="mx-auto size-5 animate-spin" /> : "Confirmar e finalizar"}
+          </button>
         </div>
       </div>
     );
@@ -499,25 +489,30 @@ export function InspectionPanel({
   /* ================================================================ */
   if (phase === "done") {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-xl border border-brand-green/30 bg-brand-green/5 py-10 text-center">
-        <CheckCircle className="size-12 text-brand-green" />
+      <div className="flex flex-col items-center gap-5 rounded-2xl bg-emerald-50 py-12 text-center ring-1 ring-emerald-200/50">
+        <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100">
+          <CheckCircle className="size-8 text-emerald-600" />
+        </div>
         <div>
-          <p className="font-heading text-base font-bold text-brand-ink">Conferência finalizada</p>
-          <p className="mt-1 text-xs text-brand-ink-soft">
+          <p className="font-heading text-base font-bold text-gray-900">Conferência finalizada</p>
+          <p className="mt-1 text-xs text-gray-500">
             O admin revisará a alocação de estoque. Exceções foram registradas automaticamente.
           </p>
         </div>
 
         {summary && (
-          <div className="grid grid-cols-2 gap-3 px-4">
-            <SummaryKpi label="Esperado" value={summary.totalExpected} />
-            <SummaryKpi label="Recebido" value={summary.totalReceived} />
-            <SummaryKpi label="Aceito" value={summary.totalAccepted} />
-            <SummaryKpi label="Avariado" value={summary.totalDamaged} tone={summary.totalDamaged > 0 ? "danger" : undefined} />
+          <div className="grid grid-cols-2 gap-3 px-6">
+            <OpKpi label="Esperado" value={summary.totalExpected} />
+            <OpKpi label="Recebido" value={summary.totalReceived} />
+            <OpKpi label="Aceito" value={summary.totalAccepted} />
+            <OpKpi label="Avariado" value={summary.totalDamaged} tone={summary.totalDamaged > 0 ? "danger" : "default"} />
           </div>
         )}
 
-        <a href="/recebedor" className="mt-2 text-sm font-semibold text-brand-navy underline">
+        <a
+          href="/recebedor"
+          className="mt-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-brand-navy shadow-sm ring-1 ring-black/[0.04] transition-colors hover:bg-gray-50"
+        >
           Voltar ao painel
         </a>
       </div>
@@ -545,37 +540,21 @@ function QuantityInput({
   warn?: boolean;
 }) {
   return (
-    <label className="space-y-1">
-      <span className={cn("text-[0.65rem] font-medium", warn ? "text-brand-orange" : "text-brand-ink-soft")}>{label}</span>
+    <label className="space-y-1.5">
+      <span className={cn("text-[0.65rem] font-semibold", warn ? "text-amber-600" : "text-gray-500")}>{label}</span>
       <input
         type="number"
         inputMode="numeric"
         min={0}
         max={max}
         className={cn(
-          "h-12 w-full rounded-lg border bg-transparent text-center text-lg font-bold outline-none transition-colors",
-          "focus:border-brand-navy",
-          warn && value > 0 ? "border-brand-orange text-brand-orange" : "border-brand-line text-brand-ink",
+          "h-12 w-full rounded-xl bg-gray-50 text-center text-lg font-bold outline-none ring-1 transition-shadow",
+          "focus:ring-2 focus:ring-brand-navy/30",
+          warn && value > 0 ? "text-amber-600 ring-amber-300" : "text-gray-800 ring-black/[0.06]",
         )}
         value={value || ""}
         onChange={(e) => onChange(parseInt(e.target.value) || 0)}
       />
     </label>
-  );
-}
-
-function SummaryKpi({ label, value, tone }: { label: string; value: number; tone?: "warn" | "danger" }) {
-  return (
-    <div className="rounded-lg border border-brand-line bg-card p-3 text-center">
-      <p
-        className={cn(
-          "text-2xl font-bold",
-          tone === "danger" ? "text-red-600" : tone === "warn" ? "text-brand-orange" : "text-brand-navy",
-        )}
-      >
-        {value}
-      </p>
-      <p className="text-[0.65rem] text-brand-ink-soft">{label}</p>
-    </div>
   );
 }

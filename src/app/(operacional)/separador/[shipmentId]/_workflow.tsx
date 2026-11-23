@@ -14,11 +14,11 @@ import {
   SEPARADOR_OCCURRENCE_TYPES,
   type ActionResult, type SeparadorOccurrenceType,
 } from "@/app/separador/constants";
-import { Button } from "@/components/ui/button";
-import { formatDate, shipmentStatusLabel, TONE_CLASS } from "@/lib/orders";
+import { formatDate } from "@/lib/orders";
 import { SHIPMENT_STATUS_LABEL, OCCURRENCE_LABELS } from "@/lib/shipment-lifecycle";
 import type { SeparadorShipmentDetail } from "@/lib/separador/data";
 import { cn } from "@/lib/utils";
+import { OpStatusBadge, OpProgress, OpConfirmModal, OpLateBadge } from "@/components/operational/operational-ui";
 
 const initial: ActionResult = {};
 
@@ -55,10 +55,10 @@ function ItemPickRow({ item, shipmentId, isPreparing }: {
             type="submit"
             disabled={pickAction.pending}
             className={cn(
-              "flex size-7 items-center justify-center rounded-lg border-2 transition-colors",
+              "flex size-8 items-center justify-center rounded-xl border-2 transition-all",
               isPicked
-                ? "border-brand-green bg-brand-green text-white"
-                : "border-brand-line bg-card text-transparent hover:border-brand-blue/40",
+                ? "border-emerald-500 bg-emerald-500 text-white"
+                : "border-gray-200 bg-white text-transparent hover:border-brand-navy/40",
             )}
             aria-label={isPicked ? `${item.name} conferido` : `Conferir ${item.name}`}
           >
@@ -68,24 +68,24 @@ function ItemPickRow({ item, shipmentId, isPreparing }: {
       )}
 
       {item.image ? (
-        <Image src={item.image} alt="" width={48} height={48} className="size-12 shrink-0 rounded-lg border border-brand-line object-cover" />
+        <Image src={item.image} alt="" width={48} height={48} className="size-12 shrink-0 rounded-xl object-cover ring-1 ring-black/[0.06]" />
       ) : (
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-brand-line bg-muted">
-          <Package className="size-5 text-brand-ink-soft/40" />
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gray-50 ring-1 ring-black/[0.06]">
+          <Package className="size-5 text-gray-300" />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-sm font-medium", isPicked ? "text-brand-green" : "text-brand-ink")}>{item.name}</p>
-        {item.sku && <p className="text-[0.65rem] text-brand-ink-soft">SKU: {item.sku}</p>}
+        <p className={cn("truncate text-sm font-medium", isPicked ? "text-emerald-700" : "text-gray-800")}>{item.name}</p>
+        {item.sku && <p className="text-[0.65rem] text-gray-400">SKU: {item.sku}</p>}
         {isPreparing && item.picked_qty !== null && item.picked_qty > 0 && (
-          <p className="text-[0.65rem] font-medium text-brand-green">
+          <p className="text-[0.65rem] font-semibold text-emerald-600">
             Separado: {item.picked_qty}/{item.qty}
           </p>
         )}
       </div>
       <div className="shrink-0 text-right">
         <p className="font-heading text-sm font-bold text-brand-navy">{item.qty}</p>
-        <p className="text-[0.65rem] text-brand-ink-soft">{item.unit}</p>
+        <p className="text-[0.65rem] text-gray-400">{item.unit}</p>
       </div>
     </li>
   );
@@ -104,7 +104,6 @@ export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail 
 
   const { status, delivery_method } = detail;
   const isPickup = delivery_method === "pickup";
-  const statusInfo = shipmentStatusLabel(status);
   const isTerminal = status === "entregue" || status === "cancelado";
   const isFinished = status === "pronto_para_envio" || status === "pronto_para_retirada";
   const isPreparing = status === "preparando";
@@ -115,42 +114,43 @@ export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail 
   return (
     <div className="space-y-4">
       {/* Back link */}
-      <Link href="/separador" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-blue">
+      <Link href="/separador" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 transition-colors hover:text-brand-navy">
         <ArrowLeft className="size-3.5" /> Voltar à fila
       </Link>
 
       {/* Header */}
-      <div className="rounded-xl border border-brand-line bg-card p-4">
-        <div className="flex items-center gap-2">
-          {isPickup ? <MapPin className="size-5 text-brand-navy" /> : <Truck className="size-5 text-brand-navy" />}
-          <h1 className="font-heading text-base font-bold text-brand-navy">
-            {detail.order_code} · Entrega {detail.sequence}
-          </h1>
+      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]">
+        <div className="flex items-center gap-3">
+          <div className={cn("flex size-10 items-center justify-center rounded-xl", isPickup ? "bg-teal-50" : "bg-brand-navy/10")}>
+            {isPickup ? <MapPin className="size-5 text-teal-600" /> : <Truck className="size-5 text-brand-navy" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate font-heading text-base font-bold text-gray-900">
+              {detail.order_code} · Entrega {detail.sequence}
+            </h1>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <OpStatusBadge status={status} />
+              <span className="text-xs text-gray-500">{isPickup ? "Retirada" : "Entrega"}</span>
+              <OpLateBadge promisedTo={detail.promised_to} />
+            </div>
+          </div>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className={cn("rounded-full px-2 py-0.5 text-[0.65rem] font-semibold", TONE_CLASS[statusInfo.tone])}>
-            {SHIPMENT_STATUS_LABEL[status] ?? statusInfo.label}
-          </span>
-          <span className="text-xs text-brand-ink-soft">
-            {isPickup ? "Retirada" : "Entrega"}
-          </span>
-          {isPreparing && (
-            <span className="text-xs text-brand-ink-soft">
-              · {pickedCount}/{detail.items.length} conferidos
-            </span>
-          )}
-        </div>
+        {isPreparing && (
+          <div className="mt-4">
+            <OpProgress current={pickedCount} total={detail.items.length} />
+          </div>
+        )}
 
-        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
           <div>
-            <dt className="text-brand-ink-soft">Cliente</dt>
-            <dd className="font-medium text-brand-ink">{detail.customer_name}</dd>
+            <dt className="text-gray-400">Cliente</dt>
+            <dd className="font-medium text-gray-800">{detail.customer_name}</dd>
           </div>
           {detail.promised_to && (
             <div>
-              <dt className="text-brand-ink-soft">Prazo</dt>
-              <dd className="font-medium text-brand-ink">
+              <dt className="text-gray-400">Prazo</dt>
+              <dd className="font-medium text-gray-800">
                 {detail.promised_from ? `${formatDate(detail.promised_from)} a ` : ""}
                 {formatDate(detail.promised_to)}
               </dd>
@@ -158,34 +158,34 @@ export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail 
           )}
           {detail.address_district && (
             <div>
-              <dt className="text-brand-ink-soft">Bairro</dt>
-              <dd className="font-medium text-brand-ink">{detail.address_district}</dd>
+              <dt className="text-gray-400">Bairro</dt>
+              <dd className="font-medium text-gray-800">{detail.address_district}</dd>
             </div>
           )}
           {detail.address_reference && (
             <div className="col-span-2">
-              <dt className="text-brand-ink-soft">Referência</dt>
-              <dd className="font-medium text-brand-ink">{detail.address_reference}</dd>
+              <dt className="text-gray-400">Referência</dt>
+              <dd className="font-medium text-gray-800">{detail.address_reference}</dd>
             </div>
           )}
           {detail.notes && (
             <div className="col-span-2">
-              <dt className="text-brand-ink-soft">Obs. do pedido</dt>
-              <dd className="font-medium text-brand-ink">{detail.notes}</dd>
+              <dt className="text-gray-400">Obs. do pedido</dt>
+              <dd className="font-medium text-gray-800">{detail.notes}</dd>
             </div>
           )}
         </dl>
       </div>
 
       {/* Items */}
-      <section className="rounded-xl border border-brand-line bg-card">
-        <div className="border-b border-brand-line px-4 py-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-navy">
+      <section className="rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-brand-navy">
             <Package className="size-4" />
             {detail.items.length} {detail.items.length === 1 ? "item" : "itens"}
           </h2>
         </div>
-        <ul className="divide-y divide-brand-line">
+        <ul className="divide-y divide-gray-100">
           {detail.items.map((item) => (
             <ItemPickRow key={item.id} item={item} shipmentId={detail.id} isPreparing={isPreparing} />
           ))}
@@ -198,86 +198,99 @@ export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail 
           {status === "aguardando_disponibilidade" && (
             <form action={startAction.formAction}>
               <input type="hidden" name="shipmentId" value={detail.id} />
-              <Button type="submit" variant="navy" className="w-full" disabled={startAction.pending}>
-                <ArrowRight /> Iniciar Separação
-              </Button>
+              <button
+                type="submit"
+                disabled={startAction.pending}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-navy text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
+              >
+                <ArrowRight className="size-4" /> Iniciar Separação
+              </button>
             </form>
           )}
 
           {isPreparing && (
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               {isPickup ? (
-                <Button
-                  variant="navy"
-                  className="flex-1"
+                <button
+                  type="button"
+                  className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-navy text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
                   onClick={() => setShowConfirm("retirada")}
                   disabled={finishPickupAction.pending || !allPicked}
                 >
-                  <CheckCircle /> Pronto para retirada
-                </Button>
+                  <CheckCircle className="size-4" /> Pronto para retirada
+                </button>
               ) : (
-                <Button
-                  variant="navy"
-                  className="flex-1"
+                <button
+                  type="button"
+                  className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-navy text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
                   onClick={() => setShowConfirm("envio")}
                   disabled={finishShipAction.pending || !allPicked}
                 >
-                  <CheckCircle /> Pronto para envio
-                </Button>
+                  <CheckCircle className="size-4" /> Pronto para envio
+                </button>
               )}
             </div>
           )}
 
           {isPreparing && !allPicked && (
-            <p className="text-center text-xs text-brand-ink-soft">
+            <p className="text-center text-xs font-medium text-gray-400">
               Confira todos os itens antes de finalizar.
             </p>
           )}
 
-          <Button variant="outline" size="sm" className="w-full" onClick={() => setShowOccurrence(!showOccurrence)}>
-            <Plus /> Registrar ocorrência
-          </Button>
+          <button
+            type="button"
+            className="flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl text-sm font-semibold text-gray-500 ring-1 ring-black/[0.06] transition-colors hover:bg-gray-50"
+            onClick={() => setShowOccurrence(!showOccurrence)}
+          >
+            <Plus className="size-3.5" /> Registrar ocorrência
+          </button>
         </section>
       )}
 
       {/* Finished state */}
       {isFinished && (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-brand-green/20 bg-brand-green/5 py-6 text-center">
-          <CheckCircle className="size-8 text-brand-green" />
-          <p className="font-heading text-sm font-bold text-brand-green">Separação concluída</p>
-          <p className="text-xs text-brand-ink-soft">
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-emerald-50 py-8 text-center ring-1 ring-emerald-200/50">
+          <div className="flex size-14 items-center justify-center rounded-full bg-emerald-100">
+            <CheckCircle className="size-7 text-emerald-600" />
+          </div>
+          <p className="font-heading text-sm font-bold text-emerald-700">Separação concluída</p>
+          <p className="text-xs text-gray-500">
             {status === "pronto_para_retirada" ? "Aguardando retirada pelo cliente." : "Aguardando envio."}
           </p>
         </div>
       )}
 
-      {/* Confirmation dialog */}
+      {/* Confirmation modal */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={() => setShowConfirm(null)}>
-          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-heading text-base font-bold text-brand-navy">Confirmar finalização</h3>
-            <p className="mt-2 text-sm text-brand-ink-soft">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-heading text-lg font-bold text-brand-navy">Confirmar finalização</h3>
+            <p className="mt-2 text-sm text-gray-500">
               {showConfirm === "envio"
                 ? "Marcar esta entrega como pronta para envio? O status não poderá ser revertido."
                 : "Marcar esta entrega como pronta para retirada? O status não poderá ser revertido."}
             </p>
-            <p className="mt-1 text-sm text-brand-ink-soft">
+            <p className="mt-1 text-sm font-medium text-gray-700">
               {detail.order_code} · Entrega {detail.sequence} · {detail.items.length} {detail.items.length === 1 ? "item" : "itens"}
             </p>
-            <div className="mt-4 flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowConfirm(null)}>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(null)}
+                className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-gray-500 ring-1 ring-black/[0.08] transition-colors hover:bg-gray-50"
+              >
                 Cancelar
-              </Button>
+              </button>
               <form action={showConfirm === "envio" ? finishShipAction.formAction : finishPickupAction.formAction} className="flex-1" onSubmit={() => setShowConfirm(null)}>
                 <input type="hidden" name="shipmentId" value={detail.id} />
-                <Button
+                <button
                   type="submit"
-                  variant="navy"
-                  className="w-full"
                   disabled={finishShipAction.pending || finishPickupAction.pending}
+                  className="w-full rounded-xl bg-brand-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
                 >
                   Confirmar
-                </Button>
+                </button>
               </form>
             </div>
           </div>
@@ -286,47 +299,55 @@ export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail 
 
       {/* Occurrence form */}
       {showOccurrence && (
-        <section className="rounded-xl border border-brand-line bg-muted/40 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-brand-ink">Nova ocorrência</h3>
+        <section className="space-y-3 rounded-2xl bg-gray-50 p-5 ring-1 ring-black/[0.04]">
+          <h3 className="text-sm font-bold text-gray-800">Nova ocorrência</h3>
           <form
             action={(fd) => {
               occAction.formAction(fd);
               setOccDesc("");
               setShowOccurrence(false);
             }}
-            className="space-y-2"
+            className="space-y-3"
           >
             <input type="hidden" name="shipmentId" value={detail.id} />
-            <label className="block text-xs font-semibold text-brand-ink">
+            <label className="block text-xs font-semibold text-gray-600">
               Tipo
               <select
                 name="type"
                 value={occType}
                 onChange={(e) => setOccType(e.target.value as SeparadorOccurrenceType)}
-                className="mt-1 block w-full rounded-lg border border-brand-line bg-card px-3 py-2 text-sm"
+                className="mt-1.5 block w-full rounded-xl bg-white px-3 py-2.5 text-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-brand-navy/30"
               >
                 {(Object.entries(SEPARADOR_OCCURRENCE_LABELS) as [SeparadorOccurrenceType, string][]).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
                 ))}
               </select>
             </label>
-            <label className="block text-xs font-semibold text-brand-ink">
+            <label className="block text-xs font-semibold text-gray-600">
               Descrição
               <textarea
                 name="description"
                 value={occDesc}
                 onChange={(e) => setOccDesc(e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-brand-line bg-card px-3 py-2 text-sm min-h-16"
+                className="mt-1.5 block min-h-20 w-full rounded-xl bg-white px-3 py-2.5 text-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-brand-navy/30"
                 required
               />
             </label>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowOccurrence(false)}>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowOccurrence(false)}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-500 ring-1 ring-black/[0.08] transition-colors hover:bg-white"
+              >
                 Cancelar
-              </Button>
-              <Button type="submit" variant="navy" size="sm" disabled={occAction.pending || !occDesc.trim()}>
+              </button>
+              <button
+                type="submit"
+                disabled={occAction.pending || !occDesc.trim()}
+                className="flex-1 rounded-xl bg-brand-navy px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
+              >
                 Registrar
-              </Button>
+              </button>
             </div>
           </form>
         </section>

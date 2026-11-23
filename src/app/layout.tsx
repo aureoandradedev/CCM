@@ -2,15 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Barlow, Inter } from "next/font/google";
 import Script from "next/script";
 
-import { CartDrawer } from "@/components/cart/cart-drawer";
-import { IntroLoader } from "@/components/intro/intro-loader";
-import { BottomNav } from "@/components/layout/bottom-nav";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { Providers } from "@/components/providers";
-import { getSiteSettings } from "@/lib/data/catalog";
 import { INTRO_STORAGE_KEY } from "@/lib/intro";
-import { ShippingProvider } from "@/lib/shipping-context";
 import { site } from "@/lib/site";
 
 import "./globals.css";
@@ -51,31 +44,14 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const settings = await getSiteSettings();
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${inter.variable} ${barlow.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
-        {/* Quem já viu a abertura nesta sessão não a vê de novo, nem por um quadro:
-            injeta um <style> antes da primeira pintura (sem mexer em atributos que
-            o React hidrata, para não gerar aviso de mismatch). */}
         <Script id="intro-seen" strategy="beforeInteractive">
           {`try{if(sessionStorage.getItem(${JSON.stringify(INTRO_STORAGE_KEY)})==="1"){var s=document.createElement("style");s.textContent=".intro-overlay{display:none!important}";document.head.appendChild(s)}}catch(e){}`}
         </Script>
-        <Providers>
-          <ShippingProvider
-            freeShippingFromCentavos={settings.frete.freeShippingFromCentavos}
-            standardShippingCentavos={settings.frete.flatCentavos}
-          >
-            <IntroLoader />
-            <Header />
-            <main className="flex-1 pb-24 lg:pb-0">{children}</main>
-            <Footer frete={settings.frete} />
-            <BottomNav />
-            <CartDrawer />
-          </ShippingProvider>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

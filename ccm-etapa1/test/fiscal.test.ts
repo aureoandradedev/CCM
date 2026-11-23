@@ -409,7 +409,7 @@ test("L29: FiscalStatusPanel exists and order detail uses it", () => {
   assert.ok(content.includes("syncFiscalDoc") || content.includes("handleSync"), "Must have sync action");
   assert.ok(content.includes("retryFiscalDoc") || content.includes("handleRetry"), "Must have retry action");
 
-  const page = fs.readFileSync(path.join(PROJECT_ROOT, "src", "app", "admin", "pedidos", "[code]", "page.tsx"), "utf-8");
+  const page = fs.readFileSync(path.join(PROJECT_ROOT, "src", "app", "(store)", "admin", "pedidos", "[code]", "page.tsx"), "utf-8");
   assert.ok(page.includes("FiscalStatusPanel"), "Order detail must render FiscalStatusPanel");
   assert.ok(page.includes("fiscalDocs"), "Order detail must destructure fiscalDocs");
 });

@@ -20,6 +20,7 @@
       }
     ],
     "paths": {
+      "@/app/*": ["./src/app/(store)/*", "./src/app/(operacional)/*"],
       "@/*": ["./src/*"]
     }
   },
