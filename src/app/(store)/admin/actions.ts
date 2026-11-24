@@ -7,6 +7,7 @@ import { assertAdmin, assertRole } from "@/lib/admin/guard";
 import type { UserRole } from "@/lib/supabase/auth";
 import type { CampaignProduct } from "@/lib/admin/types";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils/format";
 import { onlyDigits } from "@/lib/utils/masks";
 
@@ -294,6 +295,8 @@ export async function cancelOrder(orderId: string, motivo: string): Promise<Acti
     const { data, error } = await sb.rpc("cancel_order_full", { p_order_id: orderId });
     if (error) return { error: error.message };
     if (data?.error) return { error: data.error as string };
+    // G4: Cancel pending supplier_requests (service_role required)
+    try { await createAdminClient().rpc("cancel_order_requests", { p_order_id: orderId }); } catch {}
     await logEvent(sb, orderId, "cancelado", { motivo, shipments_cancelled: data.shipments_cancelled, requirements_removed: data.requirements_removed }, adminId);
     return { ok: "Pedido cancelado." };
   }, ["/admin/pedidos"]);

@@ -1,36 +1,35 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
-export interface SupplierPORow {
+export interface SupplierRequestRow {
   id: string;
+  order_id: string;
   supplier_id: string;
-  cycle_date: string;
   status: string;
-  supplier_confirmation_status: string;
-  supplier_confirmed_at: string | null;
-  subtotal_centavos: number;
-  total_centavos: number;
-  item_count: number;
+  round_number: number;
+  sent_at: string;
+  viewed_at: string | null;
+  responded_at: string | null;
+  expires_at: string | null;
   created_at: string;
-  updated_at: string;
 }
 
-export interface SupplierPOItemRow {
+export interface SupplierRequestLineRow {
   id: string;
-  purchase_order_id: string;
-  master_product_id: string;
+  supplier_request_id: string;
+  order_item_id: string;
+  master_product_id: string | null;
   product_name: string;
-  quantity_units: number;
+  quantity_requested: number;
+  unit: string | null;
   unit_cost_centavos: number;
-  subtotal_centavos: number;
-  unidade_compra: string;
-  qty_supplier_confirmed: number | null;
-  supplier_item_status: string | null;
-  cost_supplier_confirmed_centavos: number | null;
-  supplier_notes: string | null;
+  quantity_confirmed: number | null;
+  status: string | null;
+  cost_confirmed_centavos: number | null;
+  notes: string | null;
 }
 
-export interface SupplierPOMirror {
+export interface SupplierRequestMirror {
   id: string;
   file_path: string;
   file_type: string;
@@ -38,48 +37,47 @@ export interface SupplierPOMirror {
   created_at: string;
 }
 
-const PO_COLUMNS = "id, supplier_id, cycle_date, status, supplier_confirmation_status, supplier_confirmed_at, subtotal_centavos, total_centavos, item_count, created_at, updated_at";
+const REQ_COLUMNS = "id, order_id, supplier_id, status, round_number, sent_at, viewed_at, responded_at, expires_at, created_at";
 
-const PO_ITEM_COLUMNS = "id, purchase_order_id, master_product_id, product_name, quantity_units, unit_cost_centavos, subtotal_centavos, unidade_compra, qty_supplier_confirmed, supplier_item_status, cost_supplier_confirmed_centavos, supplier_notes";
+const LINE_COLUMNS = "id, supplier_request_id, order_item_id, master_product_id, product_name, quantity_requested, unit, unit_cost_centavos, quantity_confirmed, status, cost_confirmed_centavos, notes";
 
-export async function listSupplierPOs(supplierId: string): Promise<SupplierPORow[]> {
+export async function listSupplierRequests(supplierId: string): Promise<SupplierRequestRow[]> {
   if (!isSupabaseConfigured()) return [];
   const sb = await createClient();
   const { data } = await sb
-    .from("supplier_purchase_orders")
-    .select(PO_COLUMNS)
+    .from("supplier_requests")
+    .select(REQ_COLUMNS)
     .eq("supplier_id", supplierId)
-    .in("supplier_confirmation_status", [
-      "aguardando_confirmacao_fornecedor",
-      "confirmado",
-      "confirmado_parcial",
-      "divergencia",
-      "revisao_necessaria",
-    ])
+    .neq("status", "cancelado")
     .order("created_at", { ascending: false })
     .limit(100);
-  return (data as SupplierPORow[] | null) ?? [];
+  return (data as SupplierRequestRow[] | null) ?? [];
 }
 
-export async function getSupplierPO(poId: string, supplierId: string): Promise<{ po: SupplierPORow; items: SupplierPOItemRow[]; mirrors: SupplierPOMirror[] } | null> {
+export async function getSupplierRequest(requestId: string, supplierId: string): Promise<{ request: SupplierRequestRow; lines: SupplierRequestLineRow[]; mirrors: SupplierRequestMirror[] } | null> {
   if (!isSupabaseConfigured()) return null;
   const sb = await createClient();
-  const { data: po } = await sb
-    .from("supplier_purchase_orders")
-    .select(PO_COLUMNS)
-    .eq("id", poId)
+  const { data: request } = await sb
+    .from("supplier_requests")
+    .select(REQ_COLUMNS)
+    .eq("id", requestId)
     .eq("supplier_id", supplierId)
     .maybeSingle();
-  if (!po) return null;
+  if (!request) return null;
 
-  const [itemsRes, mirrorsRes] = await Promise.all([
-    sb.from("purchase_order_items").select(PO_ITEM_COLUMNS).eq("purchase_order_id", poId).order("product_name"),
-    sb.from("po_mirrors").select("id, file_path, file_type, notes, created_at").eq("purchase_order_id", poId).eq("supplier_id", supplierId).order("created_at", { ascending: false }),
+  const [linesRes, mirrorsRes] = await Promise.all([
+    sb.from("supplier_request_lines").select(LINE_COLUMNS).eq("supplier_request_id", requestId).order("product_name"),
+    sb.from("supplier_request_mirrors").select("id, file_path, file_type, notes, created_at").eq("supplier_request_id", requestId).eq("supplier_id", supplierId).order("created_at", { ascending: false }),
   ]);
 
+  // G6: Mark as viewed (idempotent)
+  if (!request.viewed_at) {
+    await sb.rpc("mark_request_viewed", { p_request_id: requestId }).then(() => {});
+  }
+
   return {
-    po: po as SupplierPORow,
-    items: (itemsRes.data as SupplierPOItemRow[] | null) ?? [],
-    mirrors: (mirrorsRes.data as SupplierPOMirror[] | null) ?? [],
+    request: request as SupplierRequestRow,
+    lines: (linesRes.data as SupplierRequestLineRow[] | null) ?? [],
+    mirrors: (mirrorsRes.data as SupplierRequestMirror[] | null) ?? [],
   };
 }

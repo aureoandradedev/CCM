@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { ROLE_HOME, type UserRole } from "@/lib/supabase/auth";
 import { isValidCNPJ, isValidCPF, isValidEmail, maskPhone, onlyDigits } from "@/lib/utils/masks";
 
@@ -222,6 +223,8 @@ export async function cancelMyOrder(orderId: string): Promise<ActionState> {
   const { data, error } = await supabase.rpc("customer_cancel_order", { p_order_id: orderId });
   if (error) return { error: error.message };
   if (data?.error) return { error: data.error as string };
+  // G4: Cancel pending supplier_requests (service_role required)
+  try { await createAdminClient().rpc("cancel_order_requests", { p_order_id: orderId }); } catch {}
   return { ok: "Pedido cancelado com sucesso." };
 }
 

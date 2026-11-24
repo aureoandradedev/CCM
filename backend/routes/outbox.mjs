@@ -64,12 +64,12 @@ outbox.post("/validate-token", async (req, res) => {
   }
 });
 
-/** POST /api/outbox/supplier-gate — check if all supplier parts resolved */
+/** POST /api/outbox/supplier-gate — check if all supplier requests resolved */
 outbox.post("/supplier-gate", exigirLogin, async (req, res) => {
   try {
     const orderId = String(req.body?.orderId || "").trim();
     if (!orderId) throw new ErroPedido(400, "orderId obrigatório.");
-    const { data, error } = await db().rpc("check_order_supplier_gate", { p_order_id: orderId });
+    const { data, error } = await db().rpc("check_order_request_gate", { p_order_id: orderId });
     if (error) throw new ErroPedido(500, error.message);
     res.json(data);
   } catch (e) {

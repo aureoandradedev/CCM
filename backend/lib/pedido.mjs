@@ -329,31 +329,34 @@ export async function criarPedido(body, usuario = null) {
 
   await registrarEvento(criado.id, "criado", { paymentMethod, deliveryMethod, itens: itens.length, total: totais.total_centavos }, usuario ? { kind: "customer", id: usuario.id } : { kind: "system" });
 
-  // Materializar purchase_requirements + criar POs automaticamente
-  let materializeResult = null;
+  // G1/G8: Create supplier_requests transactionally (NOT purchase_requirements)
   if (supplierIds.length > 0) {
     try {
-      const { data: matRes } = await db().rpc("materialize_order_requirements", { p_order_id: criado.id });
-      materializeResult = matRes;
-    } catch (e) {
-      console.error("[materialize_requirements] pos-checkout", criado.id, e?.message ?? e);
-    }
-  }
+      const { data: orderItemRows } = await db()
+        .from("order_items")
+        .select("id, product_id")
+        .eq("order_id", criado.id);
+      const oiMap = new Map((orderItemRows || []).map((r) => [r.product_id, r.id]));
 
-  // Outbox: notificar cada fornecedor envolvido
-  if (supplierIds.length > 0) {
-    const outboxRows = supplierIds.map((sid) => ({
-      order_id: criado.id,
-      event_type: "nova_solicitacao_fornecedor",
-      recipient_type: "supplier",
-      recipient_id: sid,
-      payload: { code: criado.code, supplier_id: sid, item_count: itens.filter((i) => i.supplier_id === sid).length },
-      idempotency_key: `${criado.id}:nova_solicitacao_fornecedor:${sid}`,
-    }));
-    try {
-      await db().from("order_notification_outbox").insert(outboxRows).select("id");
+      const suppliersPayload = supplierIds.map((sid) => ({
+        supplier_id: sid,
+        items: itens
+          .filter((i) => i.supplier_id === sid)
+          .map((i) => ({
+            order_item_id: oiMap.get(i.product_id) ?? null,
+            master_product_id: i.master_product_id ?? null,
+            product_name: i.name,
+            quantity: i.qty,
+            unit: i.unit ?? "un",
+            unit_cost_centavos: i.supplier_cost_centavos ?? i.unit_price_centavos,
+          })),
+      }));
+      await db().rpc("create_supplier_requests_for_order", {
+        p_order_id: criado.id,
+        p_suppliers: suppliersPayload,
+      });
     } catch (e) {
-      if (!/duplicate key|unique/i.test(e?.message ?? "")) console.error("[outbox] insert", criado.id, e?.message ?? e);
+      console.error("[supplier_requests] pos-checkout", criado.id, e?.message ?? e);
     }
   }
 

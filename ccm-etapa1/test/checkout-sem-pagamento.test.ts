@@ -57,11 +57,11 @@ test("M1d: order_access_tokens has RLS enabled", () => {
   );
 });
 
-test("M1e: materialize_order_requirements updated to check aguardando-confirmacao", () => {
+test("M1e: create_supplier_requests_for_order RPC exists", () => {
   const sql = readMigrationFiles();
   assert.ok(
-    /materialize_order_requirements.*aguardando-confirmacao/is.test(sql),
-    "materialize_order_requirements should check for aguardando-confirmacao",
+    /CREATE.*FUNCTION.*create_supplier_requests_for_order/is.test(sql),
+    "create_supplier_requests_for_order RPC not found in migrations",
   );
 });
 
@@ -155,19 +155,19 @@ test("M2d: order_notification_outbox table with idempotency_key", () => {
   );
 });
 
-test("M2e: confirm_supplier_po RPC exists", () => {
+test("M2e: confirm_supplier_request RPC exists", () => {
   const sql = readMigrationFiles();
   assert.ok(
-    /CREATE.*FUNCTION.*confirm_supplier_po/is.test(sql),
-    "confirm_supplier_po RPC not found",
+    /CREATE.*FUNCTION.*confirm_supplier_request/is.test(sql),
+    "confirm_supplier_request RPC not found",
   );
 });
 
-test("M2f: check_order_supplier_gate RPC exists", () => {
+test("M2f: check_order_request_gate RPC exists", () => {
   const sql = readMigrationFiles();
   assert.ok(
-    /CREATE.*FUNCTION.*check_order_supplier_gate/is.test(sql),
-    "check_order_supplier_gate RPC not found",
+    /CREATE.*FUNCTION.*check_order_request_gate/is.test(sql),
+    "check_order_request_gate RPC not found",
   );
 });
 
@@ -199,19 +199,19 @@ test("M3a: criarPedido accepts null paymentMethod", () => {
   );
 });
 
-test("M3b: criarPedido calls materialize_order_requirements", () => {
+test("M3b: criarPedido calls create_supplier_requests_for_order", () => {
   const src = readFile("backend/lib/pedido.mjs");
   assert.ok(
-    src.includes("materialize_order_requirements"),
-    "criarPedido should call materialize_order_requirements",
+    src.includes("create_supplier_requests_for_order"),
+    "criarPedido should call create_supplier_requests_for_order",
   );
 });
 
-test("M3c: criarPedido creates outbox entries", () => {
+test("M3c: criarPedido creates supplier requests (outbox inside RPC)", () => {
   const src = readFile("backend/lib/pedido.mjs");
   assert.ok(
-    src.includes("order_notification_outbox"),
-    "criarPedido should insert into order_notification_outbox",
+    src.includes("create_supplier_requests_for_order"),
+    "criarPedido should call create_supplier_requests_for_order (which inserts outbox transactionally)",
   );
 });
 
@@ -342,8 +342,8 @@ test("M8b: supplier data module exists", () => {
     "src/lib/supplier/data.ts should exist",
   );
   const src = readFile("src/lib/supplier/data.ts");
-  assert.ok(src.includes("listSupplierPOs"), "Should export listSupplierPOs");
-  assert.ok(src.includes("getSupplierPO"), "Should export getSupplierPO");
+  assert.ok(src.includes("listSupplierRequests"), "Should export listSupplierRequests");
+  assert.ok(src.includes("getSupplierRequest"), "Should export getSupplierRequest");
 });
 
 test("M8c: supplier actions module exists", () => {
@@ -353,7 +353,7 @@ test("M8c: supplier actions module exists", () => {
   );
   const src = readFile("src/app/(store)/fornecedores/pedidos/actions.ts");
   assert.ok(src.includes("submitSupplierConfirmation"), "Should export submitSupplierConfirmation");
-  assert.ok(src.includes("uploadMirror"), "Should export uploadMirror");
+  assert.ok(src.includes("uploadRequestMirror"), "Should export uploadRequestMirror");
 });
 
 test("M8d: supplier portal list page exists", () => {

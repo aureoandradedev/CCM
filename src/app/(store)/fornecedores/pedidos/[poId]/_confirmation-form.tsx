@@ -6,8 +6,8 @@ import { CheckCircle2, Upload, FileText, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/utils/format";
-import type { SupplierPOItemRow, SupplierPOMirror } from "@/lib/supplier/data";
-import { submitSupplierConfirmation, uploadMirror, type ConfirmationItem } from "../actions";
+import type { SupplierRequestLineRow, SupplierRequestMirror } from "@/lib/supplier/data";
+import { submitSupplierConfirmation, uploadRequestMirror, type ConfirmationItem } from "../actions";
 
 const STATUS_OPTIONS = [
   { value: "confirmado", label: "Disponível (qtd integral)" },
@@ -29,21 +29,21 @@ interface ItemState {
 const input = "h-10 w-full rounded-lg border border-brand-line bg-card px-3 text-sm text-brand-ink outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const select = "h-10 w-full rounded-lg border border-brand-line bg-card px-2 text-sm text-brand-ink outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }: {
-  poId: string;
-  items: SupplierPOItemRow[];
-  mirrors: SupplierPOMirror[];
+export function ConfirmationForm({ requestId, lines, mirrors, isPending, isResolved }: {
+  requestId: string;
+  lines: SupplierRequestLineRow[];
+  mirrors: SupplierRequestMirror[];
   isPending: boolean;
   isResolved: boolean;
 }) {
   const [states, setStates] = useState<Record<string, ItemState>>(() => {
     const init: Record<string, ItemState> = {};
-    for (const item of items) {
-      init[item.id] = {
-        status: (item.supplier_item_status as ItemStatus) ?? "confirmado",
-        qtyConfirmed: item.qty_supplier_confirmed ?? item.quantity_units,
-        costConfirmedCentavos: item.cost_supplier_confirmed_centavos ?? item.unit_cost_centavos,
-        notes: item.supplier_notes ?? "",
+    for (const line of lines) {
+      init[line.id] = {
+        status: (line.status as ItemStatus) ?? "confirmado",
+        qtyConfirmed: line.quantity_confirmed ?? line.quantity_requested,
+        costConfirmedCentavos: line.cost_confirmed_centavos ?? line.unit_cost_centavos,
+        notes: line.notes ?? "",
       };
     }
     return init;
@@ -65,10 +65,10 @@ export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }
   };
 
   const handleSubmit = () => {
-    const confirmations: ConfirmationItem[] = items.map((item) => {
-      const s = states[item.id];
+    const confirmations: ConfirmationItem[] = lines.map((line) => {
+      const s = states[line.id];
       return {
-        itemId: item.id,
+        lineId: line.id,
         qtyConfirmed: s.qtyConfirmed,
         status: s.status,
         costConfirmedCentavos: s.status === "divergencia_custo" ? s.costConfirmedCentavos : null,
@@ -77,7 +77,7 @@ export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }
     });
 
     startSubmit(async () => {
-      const r = await submitSupplierConfirmation(poId, confirmations);
+      const r = await submitSupplierConfirmation(requestId, confirmations);
       if (r.error) toast.error(r.error);
       else toast.success(r.ok);
     });
@@ -89,7 +89,7 @@ export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }
     const fd = new FormData();
     fd.append("file", file);
     startUpload(async () => {
-      const r = await uploadMirror(poId, fd);
+      const r = await uploadRequestMirror(requestId, fd);
       if (r.error) toast.error(r.error);
       else {
         toast.success(r.ok);
@@ -103,17 +103,17 @@ export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }
       <section>
         <h2 className="font-heading text-lg font-bold text-brand-navy">Itens do pedido</h2>
         <div className="mt-3 space-y-4">
-          {items.map((item) => {
-            const s = states[item.id];
+          {lines.map((line) => {
+            const s = states[line.id];
             const showQty = s.status === "confirmado_parcial" || s.status === "divergencia_quantidade";
             const showCost = s.status === "divergencia_custo";
             return (
-              <div key={item.id} className="rounded-2xl border border-brand-line bg-card p-4">
+              <div key={line.id} className="rounded-2xl border border-brand-line bg-card p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-heading font-bold text-brand-navy">{item.product_name}</p>
+                    <p className="font-heading font-bold text-brand-navy">{line.product_name}</p>
                     <p className="mt-0.5 text-xs text-brand-ink-soft">
-                      {item.quantity_units} {item.unidade_compra} · {formatBRL(item.unit_cost_centavos / 100)}/{item.unidade_compra} · Subtotal {formatBRL(item.subtotal_centavos / 100)}
+                      {line.quantity_requested} {line.unit ?? "un"} · {formatBRL(line.unit_cost_centavos / 100)}/{line.unit ?? "un"} · Subtotal {formatBRL((line.quantity_requested * line.unit_cost_centavos) / 100)}
                     </p>
                   </div>
                 </div>
@@ -125,7 +125,7 @@ export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }
                       <select
                         className={select}
                         value={s.status}
-                        onChange={(e) => handleStatusChange(item.id, e.target.value as ItemStatus, item.quantity_units)}
+                        onChange={(e) => handleStatusChange(line.id, e.target.value as ItemStatus, line.quantity_requested)}
                       >
                         {STATUS_OPTIONS.map((o) => (
                           <option key={o.value} value={o.value}>{o.label}</option>
@@ -140,9 +140,9 @@ export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }
                           type="number"
                           className={input}
                           min={0}
-                          max={item.quantity_units}
+                          max={line.quantity_requested}
                           value={s.qtyConfirmed}
-                          onChange={(e) => updateItem(item.id, { qtyConfirmed: Math.max(0, Number(e.target.value) || 0) })}
+                          onChange={(e) => updateItem(line.id, { qtyConfirmed: Math.max(0, Number(e.target.value) || 0) })}
                         />
                       </div>
                     ) : null}
@@ -156,7 +156,7 @@ export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }
                           min={0}
                           step={0.01}
                           value={s.costConfirmedCentavos != null ? (s.costConfirmedCentavos / 100).toFixed(2) : ""}
-                          onChange={(e) => updateItem(item.id, { costConfirmedCentavos: Math.round(Number(e.target.value || 0) * 100) })}
+                          onChange={(e) => updateItem(line.id, { costConfirmedCentavos: Math.round(Number(e.target.value || 0) * 100) })}
                         />
                       </div>
                     ) : null}
@@ -167,20 +167,20 @@ export function ConfirmationForm({ poId, items, mirrors, isPending, isResolved }
                         className={input}
                         placeholder="Opcional"
                         value={s.notes}
-                        onChange={(e) => updateItem(item.id, { notes: e.target.value })}
+                        onChange={(e) => updateItem(line.id, { notes: e.target.value })}
                       />
                     </div>
                   </div>
                 ) : (
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    {item.supplier_item_status ? (
-                      <span className="rounded-full bg-muted px-2.5 py-0.5 font-medium">{item.supplier_item_status}</span>
+                    {line.status ? (
+                      <span className="rounded-full bg-muted px-2.5 py-0.5 font-medium">{line.status}</span>
                     ) : null}
-                    {item.qty_supplier_confirmed != null ? (
-                      <span className="text-brand-ink-soft">Confirmado: {item.qty_supplier_confirmed} {item.unidade_compra}</span>
+                    {line.quantity_confirmed != null ? (
+                      <span className="text-brand-ink-soft">Confirmado: {line.quantity_confirmed} {line.unit ?? "un"}</span>
                     ) : null}
-                    {item.supplier_notes ? (
-                      <span className="text-brand-ink-soft italic">{item.supplier_notes}</span>
+                    {line.notes ? (
+                      <span className="text-brand-ink-soft italic">{line.notes}</span>
                     ) : null}
                   </div>
                 )}

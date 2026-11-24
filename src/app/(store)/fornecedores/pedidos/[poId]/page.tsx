@@ -5,22 +5,24 @@ import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { assertSupplier } from "@/lib/supplier/guard";
-import { getSupplierPO } from "@/lib/supplier/data";
+import { getSupplierRequest } from "@/lib/supplier/data";
 import { formatBRL } from "@/lib/utils/format";
 import { formatDateTime } from "@/lib/orders";
 import { ConfirmationForm } from "./_confirmation-form";
 
 export const metadata: Metadata = { title: "Confirmar pedido", robots: { index: false } };
 
-export default async function SupplierPODetailPage({ params }: { params: Promise<{ poId: string }> }) {
-  const { poId } = await params;
+export default async function SupplierRequestDetailPage({ params }: { params: Promise<{ poId: string }> }) {
+  const { poId: requestId } = await params;
   const session = await assertSupplier();
-  const result = await getSupplierPO(poId, session.supplierId);
+  const result = await getSupplierRequest(requestId, session.supplierId);
   if (!result) notFound();
-  const { po, items, mirrors } = result;
+  const { request, lines, mirrors } = result;
 
-  const isPending = po.supplier_confirmation_status === "aguardando_confirmacao_fornecedor";
-  const isResolved = ["confirmado", "confirmado_parcial", "divergencia"].includes(po.supplier_confirmation_status);
+  const isPending = request.status === "aguardando_confirmacao";
+  const isResolved = ["confirmado", "confirmado_parcial", "divergencia"].includes(request.status);
+
+  const totalCentavos = lines.reduce((s, l) => s + l.quantity_requested * l.unit_cost_centavos, 0);
 
   return (
     <div className="container-ccm pt-6 pb-16">
@@ -32,8 +34,8 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
         Confirmar disponibilidade
       </h1>
       <p className="mt-1 text-sm text-brand-ink-soft">
-        Ciclo {po.cycle_date} · {items.length} {items.length === 1 ? "item" : "itens"} · Total {formatBRL(po.total_centavos / 100)}
-        {po.supplier_confirmed_at ? ` · Confirmado em ${formatDateTime(po.supplier_confirmed_at)}` : ""}
+        {lines.length} {lines.length === 1 ? "item" : "itens"} · Total {formatBRL(totalCentavos / 100)}
+        {request.responded_at ? ` · Confirmado em ${formatDateTime(request.responded_at)}` : ""}
       </p>
 
       {isResolved ? (
@@ -46,7 +48,7 @@ export default async function SupplierPODetailPage({ params }: { params: Promise
       ) : null}
 
       <div className="mt-6">
-        <ConfirmationForm poId={po.id} items={items} mirrors={mirrors} isPending={isPending} isResolved={isResolved} />
+        <ConfirmationForm requestId={request.id} lines={lines} mirrors={mirrors} isPending={isPending} isResolved={isResolved} />
       </div>
     </div>
   );

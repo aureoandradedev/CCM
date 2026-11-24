@@ -104,11 +104,11 @@ export async function confirmarPedidoPago(orderId, extras = {}, actor = { kind: 
   }
   await registrarEvento(orderId, "pagamento-confirmado", { ...extras, promovido }, actor);
 
-  // R4.1b: materializar purchase_requirements (no-op se já materializado no checkout)
+  // G9: Create official POs from confirmed supplier_requests (idempotent)
   try {
-    await db().rpc("materialize_order_requirements", { p_order_id: orderId });
+    await db().rpc("create_official_pos_from_requests", { p_order_id: orderId });
   } catch (e) {
-    console.error("[materialize_requirements]", orderId, e?.message ?? e);
+    console.error("[create_official_pos]", orderId, e?.message ?? e);
   }
 
   // Revogar tokens de acesso guest após pagamento

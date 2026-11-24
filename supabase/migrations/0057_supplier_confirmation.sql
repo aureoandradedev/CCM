@@ -191,7 +191,7 @@ DO $$ BEGIN
       FOR INSERT TO authenticated
       WITH CHECK (
         bucket_id = 'espelhos'
-        AND public.owns_supplier(storage.foldername(name)[1])
+        AND public.owns_supplier((storage.foldername(name))[1])
       );
   END IF;
 END $$;
@@ -206,7 +206,7 @@ DO $$ BEGIN
       FOR SELECT TO authenticated
       USING (
         bucket_id = 'espelhos'
-        AND public.owns_supplier(storage.foldername(name)[1])
+        AND public.owns_supplier((storage.foldername(name))[1])
       );
   END IF;
 END $$;
