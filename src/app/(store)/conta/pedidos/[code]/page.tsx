@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import { AcceptAdjustments } from "@/components/account/accept-adjustments";
 import { CancelOrderButton } from "@/components/account/cancel-order-button";
+import { ChoosePayment } from "@/components/account/choose-payment";
 import { OrderDetail } from "@/components/account/order-detail";
 import { PayNow } from "@/components/account/pay-now";
 import { Button } from "@/components/ui/button";
@@ -19,7 +21,10 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
   const found = await getOrderByCode(code);
   if (!found) notFound();
   const { order, items, shipments } = found;
-  const podePagar = order.payment_status !== "pago" && order.order_status === "aguardando-pagamento" && ["pix", "cartao-pendente", "cartao-credito", "cartao-debito"].includes(order.payment_method);
+
+  const aguardandoAceite = order.customer_acceptance_required === true && !order.customer_accepted_at && order.order_status === "aguardando-confirmacao";
+  const escolherMetodo = order.order_status === "aguardando-pagamento" && order.payment_method == null;
+  const podePagar = order.payment_status !== "pago" && order.order_status === "aguardando-pagamento" && order.payment_method != null && ["pix", "cartao-pendente", "cartao-credito", "cartao-debito"].includes(order.payment_method);
   const podeCancelar = order.payment_status !== "pago" && ["aguardando-confirmacao", "aguardando-pagamento"].includes(order.order_status);
 
   return (
@@ -28,6 +33,18 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
         <ArrowLeft /> Meus pedidos
       </Button>
       <h1 className="mt-2 font-heading text-[2rem] font-extrabold tracking-tight text-brand-navy">Pedido {order.code}</h1>
+
+      {aguardandoAceite ? (
+        <div className="mt-4">
+          <AcceptAdjustments orderId={order.id} items={items} />
+        </div>
+      ) : null}
+
+      {escolherMetodo ? (
+        <div className="mt-4">
+          <ChoosePayment orderId={order.id} orderCode={order.code} totalCentavos={order.total_centavos} pricingVersion={order.pricing_version} />
+        </div>
+      ) : null}
 
       {podePagar ? (
         <div className="mt-4">

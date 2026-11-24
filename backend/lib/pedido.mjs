@@ -5,7 +5,7 @@
  * O cliente manda só ids + quantidades + dados de contato/entrega. Preços,
  * totais, frete, status e código nascem aqui. Idempotência por creation_key.
  */
-import { createHmac } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 
 import { config } from "./config.mjs";
 import { db, registrarEvento } from "./supabase.mjs";
@@ -222,7 +222,7 @@ export function calcularTotais({ itens, paymentMethod, deliveryMethod, settings,
 }
 
 export function statusIniciais(paymentMethod) {
-  if (!METODOS.has(paymentMethod)) throw new ErroPedido(400, "Forma de pagamento inválida.");
+  if (paymentMethod != null && !METODOS.has(paymentMethod)) throw new ErroPedido(400, "Forma de pagamento inválida.");
   return { order_status: "aguardando-confirmacao", payment_status: "pendente" };
 }
 
@@ -240,7 +240,7 @@ export async function criarPedido(body, usuario = null) {
   if (phone.length < 10) throw new ErroPedido(400, "Telefone com DDD obrigatório.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ErroPedido(400, "E-mail inválido.");
 
-  const paymentMethod = String(b.paymentMethod || "");
+  const paymentMethod = b.paymentMethod ? String(b.paymentMethod) : null;
   const { order_status, payment_status } = statusIniciais(paymentMethod);
   const deliveryMethod = b.deliveryMethod === "pickup" ? "pickup" : "delivery";
 
@@ -274,8 +274,8 @@ export async function criarPedido(body, usuario = null) {
 
   const itens = await montarItens(b.items);
   const primeiraCompra = settings.descontos?.primeiraCompra?.ativo ? await ehPrimeiraCompra(document) : false;
-  const totais = calcularTotais({ itens, paymentMethod, deliveryMethod, settings, primeiraCompra });
-  if (metodoOnline(paymentMethod) && totais.total_centavos < 1) throw new ErroPedido(400, "Valor mínimo para pagamento online é R$ 0,01.");
+  const totais = calcularTotais({ itens, paymentMethod: paymentMethod ?? "", deliveryMethod, settings, primeiraCompra });
+  if (paymentMethod && metodoOnline(paymentMethod) && totais.total_centavos < 1) throw new ErroPedido(400, "Valor mínimo para pagamento online é R$ 0,01.");
 
   // idempotência: mesmo cliente + mesmo requestId + mesmo carrinho = mesmo pedido
   const clientRequestId = String(b.clientRequestId || "");
@@ -298,7 +298,7 @@ export async function criarPedido(body, usuario = null) {
     delivery_window: b.deliveryWindow || null,
     notes: String(b.notes || "").trim().slice(0, 500) || null,
     origin: String(b.origin || "site").slice(0, 30),
-    payment_method: paymentMethod,
+    payment_method: paymentMethod || null,
     payment_status,
     order_status,
     ...totais,
@@ -328,11 +328,57 @@ export async function criarPedido(body, usuario = null) {
   if (criado.reaproveitado) return respostaPedido(criado, true);
 
   await registrarEvento(criado.id, "criado", { paymentMethod, deliveryMethod, itens: itens.length, total: totais.total_centavos }, usuario ? { kind: "customer", id: usuario.id } : { kind: "system" });
-  return respostaPedido(criado, false);
+
+  // Materializar purchase_requirements + criar POs automaticamente
+  let materializeResult = null;
+  if (supplierIds.length > 0) {
+    try {
+      const { data: matRes } = await db().rpc("materialize_order_requirements", { p_order_id: criado.id });
+      materializeResult = matRes;
+    } catch (e) {
+      console.error("[materialize_requirements] pos-checkout", criado.id, e?.message ?? e);
+    }
+  }
+
+  // Outbox: notificar cada fornecedor envolvido
+  if (supplierIds.length > 0) {
+    const outboxRows = supplierIds.map((sid) => ({
+      order_id: criado.id,
+      event_type: "nova_solicitacao_fornecedor",
+      recipient_type: "supplier",
+      recipient_id: sid,
+      payload: { code: criado.code, supplier_id: sid, item_count: itens.filter((i) => i.supplier_id === sid).length },
+      idempotency_key: `${criado.id}:nova_solicitacao_fornecedor:${sid}`,
+    }));
+    try {
+      await db().from("order_notification_outbox").insert(outboxRows).select("id");
+    } catch (e) {
+      if (!/duplicate key|unique/i.test(e?.message ?? "")) console.error("[outbox] insert", criado.id, e?.message ?? e);
+    }
+  }
+
+  // Gerar guest access token (7 dias)
+  let accessToken = null;
+  try {
+    const tokenRaw = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(tokenRaw).digest("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+    const { error: tokenErr } = await db().from("order_access_tokens").insert({
+      order_id: criado.id,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      scope: "read_pay",
+    });
+    if (!tokenErr) accessToken = tokenRaw;
+  } catch (e) {
+    console.error("[access_token] generate", criado.id, e?.message ?? e);
+  }
+
+  return respostaPedido(criado, false, accessToken);
 }
 
-function respostaPedido(o, reaproveitado) {
-  return {
+function respostaPedido(o, reaproveitado, accessToken = null) {
+  const resp = {
     ok: true,
     orderId: o.id,
     orderCode: o.code,
@@ -348,6 +394,8 @@ function respostaPedido(o, reaproveitado) {
     },
     shipments: o.shipments || [],
   };
+  if (accessToken) resp.accessToken = accessToken;
+  return resp;
 }
 
 /** Só para exibir no checkout (o pedido recalcula tudo de novo ao ser criado). */

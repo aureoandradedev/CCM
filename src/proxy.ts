@@ -55,6 +55,7 @@ export async function proxy(request: NextRequest) {
     || pathname.startsWith("/recebedor")
     || pathname.startsWith("/separador")
     || pathname.startsWith("/entregador")
+    || pathname.startsWith("/fornecedores/pedidos")
     || /^\/conta\/(pedidos\/|dados|senha|privacidade)/.test(pathname);
 
   if (!user && protegida) {

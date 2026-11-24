@@ -17,6 +17,7 @@ import { pagamentos } from "./routes/pagamentos.mjs";
 import recebimento from "./routes/recebimento.mjs";
 import shipments from "./routes/shipments.mjs";
 import fiscal from "./routes/fiscal.mjs";
+import outbox from "./routes/outbox.mjs";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -67,6 +68,7 @@ app.use("/api/imagens", imagens);
 app.use("/api/recebimento", recebimento);
 app.use("/api/shipments", shipments);
 app.use("/api/fiscal", fiscal);
+app.use("/api/outbox", outbox);
 
 app.use((_req, res) => res.status(404).json({ ok: false, erro: "rota não encontrada" }));
 app.use((err, _req, res, next) => {

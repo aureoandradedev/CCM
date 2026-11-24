@@ -436,11 +436,12 @@ export async function adminCash(day: string): Promise<CashSummary> {
     s.vendido += o.total_centavos;
     if (o.payment_status === "pago") s.recebido += o.total_centavos;
     else if (o.payment_status === "pendente") s.falta += o.total_centavos;
-    const m = metodo.get(o.payment_method) ?? { qtd: 0, total: 0, recebido: 0 };
+    const mKey = o.payment_method ?? "a-definir";
+    const m = metodo.get(mKey) ?? { qtd: 0, total: 0, recebido: 0 };
     m.qtd += 1;
     m.total += o.total_centavos;
     if (o.payment_status === "pago") m.recebido += o.total_centavos;
-    metodo.set(o.payment_method, m);
+    metodo.set(mKey, m);
   }
   s.porMetodo = [...metodo.entries()].map(([metodo, v]) => ({ metodo, ...v })).sort((a, b) => b.total - a.total);
   // duplicados: mesmo CPF + mesmo total em até 30 min
@@ -654,7 +655,7 @@ export async function adminPurchaseOrders(opts: { supplier_id?: string; status?:
   if (!configured()) return [];
   const sb = await createClient();
   let q = sb.from("supplier_purchase_orders")
-    .select("id, supplier_id, cycle_date, status, total_centavos, item_count, minimum_type, minimum_value, minimum_met, freight_centavos, decision, expected_delivery, created_at");
+    .select("id, supplier_id, cycle_date, status, total_centavos, item_count, minimum_type, minimum_value, minimum_met, freight_centavos, decision, expected_delivery, created_at, supplier_confirmation_status, supplier_confirmed_at");
   if (opts.supplier_id) q = q.eq("supplier_id", opts.supplier_id);
   if (opts.status) q = q.eq("status", opts.status);
   const { data } = await q.order("cycle_date", { ascending: false }).limit(opts.limit ?? 50);

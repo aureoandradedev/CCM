@@ -46,7 +46,8 @@ export function statusLabel(s: string): { label: string; tone: string } {
 export function paymentLabel(s: string): { label: string; tone: string } {
   return (PAYMENT_STATUS as Record<string, { label: string; tone: string }>)[s] ?? { label: s, tone: "slate" };
 }
-export function methodLabel(m: string): string {
+export function methodLabel(m: string | null | undefined): string {
+  if (!m) return "A definir";
   return PAYMENT_METHOD_LABEL[m] ?? m;
 }
 
@@ -65,7 +66,7 @@ export interface OrderRow {
   created_at: string;
   order_status: string;
   payment_status: string;
-  payment_method: string;
+  payment_method: string | null;
   total_centavos: number;
   subtotal_centavos: number;
   discount_centavos: number;
@@ -87,6 +88,9 @@ export interface OrderRow {
   pix_expires_at?: string | null;
   supplier_ids?: string[];
   origin?: string;
+  customer_acceptance_required?: boolean;
+  customer_accepted_at?: string | null;
+  address_id?: string | null;
 }
 
 export interface OrderItemRow {
@@ -155,4 +159,4 @@ export function shipmentStatusLabel(s: string): { label: string; tone: string } 
 }
 
 export const ORDER_COLUMNS =
-  "id, code, created_at, order_status, payment_status, payment_method, total_centavos, subtotal_centavos, discount_centavos, freight_centavos, wholesale_savings_centavos, items_count, delivery_method, customer, address, pricing_version, paid_at, notes, cash_pending, refund_status, revenue_excluded, revenue_excluded_reason, payment_provider, cielo_payment_id, pix_expires_at, supplier_ids, origin";
+  "id, code, created_at, order_status, payment_status, payment_method, total_centavos, subtotal_centavos, discount_centavos, freight_centavos, wholesale_savings_centavos, items_count, delivery_method, customer, address, pricing_version, paid_at, notes, cash_pending, refund_status, revenue_excluded, revenue_excluded_reason, payment_provider, cielo_payment_id, pix_expires_at, supplier_ids, origin, customer_acceptance_required, customer_accepted_at, address_id";

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, CreditCard, Info, Lock, QrCode, Store, Truck } from "lucide-react";
+import { ArrowRight, Info, Lock, Store, Truck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -11,7 +11,6 @@ import { useShallow } from "zustand/react/shallow";
 import { z } from "zod";
 
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
-import { PaymentStep, type PedidoCriado } from "@/components/checkout/payment-step";
 import { useShippingConfig } from "@/lib/shipping-context";
 import { Button } from "@/components/ui/button";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -19,7 +18,7 @@ import { ApiError, apiFetch } from "@/lib/api";
 import { selectLines, selectTotals, useCartStore } from "@/lib/cart/store";
 import { groupCartLinesForEstimate } from "@/lib/delivery-promise";
 import { formatDate } from "@/lib/orders";
-import { pixPrice, round2 } from "@/lib/pricing";
+import { round2 } from "@/lib/pricing";
 import { formatBRL } from "@/lib/utils/format";
 import type { CdPickupInfo } from "@/lib/data/catalog";
 import { isValidCNPJ, isValidCPF, isValidEmail, maskCEP, maskDocument, maskPhone, onlyDigits } from "@/lib/utils/masks";
@@ -42,7 +41,6 @@ const schema = z.object({
   uf: z.string().optional(),
   referencia: z.string().optional(),
   observacoes: z.string().optional(),
-  pagamento: z.enum(["pix", "cartao"]),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -90,8 +88,6 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
   const totals = useCartStore(useShallow(selectTotals));
   const clear = useCartStore((s) => s.clear);
   const [cepLoading, setCepLoading] = useState(false);
-  const [pedido, setPedido] = useState<PedidoCriado | null>(null);
-  const [metodoCriado, setMetodoCriado] = useState<"pix" | "cartao">("pix");
 
   const {
     register,
@@ -103,7 +99,6 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      pagamento: "pix",
       entrega: bloqueio?.ativo ? "pickup" : "delivery",
       uf: "",
       nome: perfil?.fullName ?? "",
@@ -114,19 +109,13 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
     mode: "onBlur",
   });
 
-  const pagamento = watch("pagamento");
   const entrega = watch("entrega");
   const documento = watch("documento");
   const isento = watch("isento");
   const isCnpj = onlyDigits(documento ?? "").length === 14 && isValidCNPJ(documento ?? "");
 
   const shipping = entrega === "pickup" ? 0 : totals.subtotal >= freeShippingFrom ? 0 : standardShipping;
-  const desconto = pagamento === "pix" ? round2(totals.subtotal - pixPrice(totals.subtotal)) : 0;
-  const total = round2(totals.subtotal - desconto + shipping);
-
-  useEffect(() => {
-    if (pedido) window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [pedido]);
+  const total = round2(totals.subtotal + shipping);
 
   const lookupCep = async (raw: string) => {
     const d = onlyDigits(raw);
@@ -167,7 +156,7 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
     const items = lines.map((l) => ({ productId: l.productId, qty: l.qty }));
     const assinatura = onlyDigits(v.documento) + "|" + items.map((i) => `${i.productId}x${i.qty}`).sort().join(",");
     try {
-      const r = await apiFetch<PedidoCriado & { ok: boolean }>("/pagamentos/criar-pedido", {
+      const r = await apiFetch<{ ok: boolean; orderCode: string; accessToken?: string }>("/pagamentos/criar-pedido", {
         body: {
           items,
           customer: {
@@ -183,14 +172,16 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
               ? { cep: onlyDigits(v.cep), street: v.rua, number: v.numero, complement: v.complemento, district: v.bairro, city: v.cidade, state: v.uf, reference: v.referencia }
               : undefined,
           notes: v.observacoes,
-          paymentMethod: v.pagamento === "pix" ? "pix" : "cartao-pendente",
           clientRequestId: clientRequestId(assinatura),
           origin: "site",
         },
       });
       try { sessionStorage.removeItem("ccm_req"); } catch {}
-      setMetodoCriado(v.pagamento);
-      setPedido(r);
+      clear();
+      toast.success("Pedido registrado! Aguarde a confirmação de disponibilidade.");
+      const params = new URLSearchParams({ code: r.orderCode });
+      if (r.accessToken) params.set("token", r.accessToken);
+      router.push(`/checkout/sucesso?${params.toString()}`);
     } catch (e) {
       const err = e as ApiError;
       const itens = err.data?.itens as { nome?: string; erro: string; limite?: number }[] | undefined;
@@ -202,14 +193,7 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
     }
   };
 
-  const onPaid = () => {
-    const code = pedido?.orderCode;
-    clear();
-    toast.success("Pagamento confirmado!");
-    router.push(`/checkout/sucesso?code=${encodeURIComponent(code ?? "")}`);
-  };
-
-  if (hydrated && lines.length === 0 && !pedido) {
+  if (hydrated && lines.length === 0) {
     return (
       <div className="container-ccm pt-6">
         <Breadcrumbs items={[{ href: "/carrinho", label: "Carrinho" }, { label: "Checkout" }]} />
@@ -226,22 +210,10 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
 
   return (
     <div className="container-ccm pt-4 md:pt-6">
-      <Breadcrumbs items={[{ href: "/carrinho", label: "Carrinho" }, { label: pedido ? "Pagamento" : "Finalizar compra" }]} />
-      <h1 className="mt-4 font-heading text-[2rem] font-extrabold tracking-tight text-brand-navy md:mt-6 md:text-[2.6rem]">{pedido ? `Pagar pedido ${pedido.orderCode}` : "Finalizar compra"}</h1>
+      <Breadcrumbs items={[{ href: "/carrinho", label: "Carrinho" }, { label: "Finalizar compra" }]} />
+      <h1 className="mt-4 font-heading text-[2rem] font-extrabold tracking-tight text-brand-navy md:mt-6 md:text-[2.6rem]">Finalizar compra</h1>
 
-      {pedido ? (
-        <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
-          <div>
-            <PaymentStep pedido={pedido} metodo={metodoCriado} onPaid={onPaid} />
-            <p className="mt-4 flex items-start gap-2 text-xs text-brand-ink-soft">
-              <Info className="mt-0.5 size-4 shrink-0 text-brand-blue" />
-              Seu pedido já está registrado. Se sair desta tela, você pode pagar depois em Minha conta › Meus pedidos.
-            </p>
-          </div>
-          <ResumoLateral lines={lines} totals={totals} shipping={pedido.totais.freightCentavos / 100} desconto={pedido.totais.discountCentavos / 100} total={pedido.totais.totalCentavos / 100} hydrated={hydrated} />
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit(onSubmit, () => toast.error("Confira os campos destacados."))} noValidate className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
+      <form onSubmit={handleSubmit(onSubmit, () => toast.error("Confira os campos destacados."))} noValidate className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-6">
             <Section n={1} title="Quem recebe" hint="Usamos o CPF ou CNPJ para emitir a nota fiscal.">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -355,30 +327,16 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
               </Field>
             </Section>
 
-            <Section n={3} title="Pagamento" hint="Pagamento seguro pela Cielo. Você só é cobrado quando o pagamento é aprovado.">
-              <fieldset className="grid gap-2 sm:grid-cols-2">
-                <legend className="sr-only">Forma de pagamento</legend>
-                {(
-                  [
-                    ["pix", "Pix", QrCode, "5% de desconto, aprovação na hora"],
-                    ["cartao", "Cartão de crédito ou débito", CreditCard, "à vista, dados direto na Cielo"],
-                  ] as const
-                ).map(([k, label, I, hint]) => (
-                  <label key={k} className={cn("flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors", pagamento === k ? "border-brand-navy bg-brand-yellow-soft/60" : "border-brand-line bg-card hover:border-brand-navy/30")}>
-                    <input type="radio" value={k} className="mt-1 size-4 accent-[var(--ccm-navy)]" {...register("pagamento")} />
-                    <span className="flex-1">
-                      <span className="flex items-center gap-2 font-heading text-base font-bold text-brand-navy">
-                        <I className="size-4" /> {label}
-                      </span>
-                      <span className="block text-xs text-brand-ink-soft">{hint}</span>
-                    </span>
-                  </label>
-                ))}
-              </fieldset>
-            </Section>
+            <div className="flex items-start gap-3 rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-4">
+              <Info className="mt-0.5 size-5 shrink-0 text-brand-blue" />
+              <div className="text-sm">
+                <p className="font-heading font-bold text-brand-navy">Pagamento só após confirmação</p>
+                <p className="mt-0.5 text-brand-ink-soft">Você não será cobrado agora. Após os fornecedores confirmarem a disponibilidade dos produtos, enviaremos um link para pagamento via Pix ou cartão.</p>
+              </div>
+            </div>
           </div>
 
-          <ResumoLateral lines={lines} totals={totals} shipping={shipping} desconto={desconto} total={total} hydrated={hydrated}>
+          <ResumoLateral lines={lines} totals={totals} shipping={shipping} desconto={0} total={total} hydrated={hydrated}>
             <Button type="submit" variant="brand" size="xl" className="mt-5 w-full" disabled={isSubmitting || !hydrated}>
               <Lock />
               {isSubmitting ? "Registrando..." : "Enviar pedido para confirmação"}
@@ -393,7 +351,6 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
             </p>
           </ResumoLateral>
         </form>
-      )}
     </div>
   );
 }

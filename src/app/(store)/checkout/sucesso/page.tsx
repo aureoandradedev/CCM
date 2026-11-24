@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { CheckCircle2, ClipboardCheck, Package, Truck } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Package, CreditCard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/supabase/auth";
@@ -10,9 +10,9 @@ import { whatsappLink } from "@/lib/site";
 export const metadata: Metadata = { title: "Pedido recebido", robots: { index: false } };
 
 const STEPS = [
-  { icon: ClipboardCheck, title: "Pagamento confirmado", text: "Seu pedido foi registrado e esta sendo preparado." },
-  { icon: Package, title: "Pedido em separacao", text: "A equipe separa os itens para despacho." },
-  { icon: Truck, title: "Entrega pela CCM", text: "Voce acompanha em Meus pedidos e pelo WhatsApp." },
+  { icon: ClipboardCheck, title: "Pedido registrado", text: "Seu pedido foi recebido e enviado aos fornecedores para confirmação de disponibilidade." },
+  { icon: Package, title: "Confirmação de disponibilidade", text: "Os fornecedores confirmam os itens. Você será notificado quando tudo estiver pronto." },
+  { icon: CreditCard, title: "Pagamento liberado", text: "Após a confirmação, você escolhe a forma de pagamento e finaliza." },
 ];
 
 export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
@@ -34,7 +34,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
           </p>
         ) : null}
         <p className="mt-2 text-sm text-brand-ink-soft">
-          {user ? "Acompanhe o andamento em Meus pedidos." : "Guarde o número do pedido: com ele e o seu CPF/CNPJ você acompanha tudo em Acompanhar pedido."}
+          Você <strong className="font-semibold text-brand-navy">não será cobrado agora</strong>. {user ? "Acompanhe o andamento em Meus pedidos." : "Guarde o número do pedido: com ele e o seu CPF/CNPJ você acompanha tudo em Acompanhar pedido."}
         </p>
       </div>
 

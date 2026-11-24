@@ -224,3 +224,16 @@ export async function cancelMyOrder(orderId: string): Promise<ActionState> {
   if (data?.error) return { error: data.error as string };
   return { ok: "Pedido cancelado com sucesso." };
 }
+
+export async function acceptOrderAdjustments(orderId: string): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Faça login para continuar." };
+
+  const { data, error } = await supabase.rpc("accept_order_adjustments", { p_order_id: orderId });
+  if (error) return { error: error.message };
+  const result = data as { ok: boolean; error?: string } | null;
+  if (result && !result.ok) return { error: result.error ?? "Erro ao aceitar ajustes." };
+  return { ok: "Ajustes aceitos. Pagamento liberado!" };
+}

@@ -104,11 +104,18 @@ export async function confirmarPedidoPago(orderId, extras = {}, actor = { kind: 
   }
   await registrarEvento(orderId, "pagamento-confirmado", { ...extras, promovido }, actor);
 
-  // R4.1b: materializar purchase_requirements a partir dos itens vendidos
+  // R4.1b: materializar purchase_requirements (no-op se já materializado no checkout)
   try {
     await db().rpc("materialize_order_requirements", { p_order_id: orderId });
   } catch (e) {
     console.error("[materialize_requirements]", orderId, e?.message ?? e);
+  }
+
+  // Revogar tokens de acesso guest após pagamento
+  try {
+    await db().rpc("revoke_order_tokens", { p_order_id: orderId });
+  } catch (e) {
+    console.error("[revoke_tokens]", orderId, e?.message ?? e);
   }
 
   return { promovido, jaEstavaPago: false };

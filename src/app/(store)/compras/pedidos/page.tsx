@@ -16,6 +16,25 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
+const CONF_LABELS: Record<string, string> = {
+  aguardando_confirmacao_fornecedor: "Aguardando fornecedor",
+  confirmado: "Confirmado",
+  confirmado_parcial: "Parcial",
+  divergencia: "Divergência",
+  revisao_necessaria: "Revisão necessária",
+};
+
+function confCls(status: string | null | undefined) {
+  switch (status) {
+    case "confirmado": return "bg-brand-green/10 text-brand-green";
+    case "confirmado_parcial": return "bg-brand-orange/10 text-brand-orange";
+    case "divergencia": return "bg-brand-red/10 text-brand-red";
+    case "revisao_necessaria": return "bg-brand-red/10 text-brand-red";
+    case "aguardando_confirmacao_fornecedor": return "bg-brand-yellow/10 text-brand-navy";
+    default: return "bg-muted text-brand-ink-soft";
+  }
+}
+
 function formatBRL(centavos: number) {
   return `R$ ${(centavos / 100).toFixed(2).replace(".", ",")}`;
 }
@@ -95,6 +114,7 @@ export default async function PedidosCompraPage() {
                 <Th>Total</Th>
                 <Th>Frete</Th>
                 <Th>Status</Th>
+                <Th>Confirmação</Th>
                 <Th>Ações</Th>
               </tr>
             </thead>
@@ -110,6 +130,15 @@ export default async function PedidosCompraPage() {
                     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${statusCls(po.status)}`}>
                       {STATUS_LABELS[po.status] ?? po.status}
                     </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {po.supplier_confirmation_status ? (
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${confCls(po.supplier_confirmation_status)}`}>
+                        {CONF_LABELS[po.supplier_confirmation_status] ?? po.supplier_confirmation_status}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-brand-ink-soft">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <PurchaseOrderActions poId={po.id} status={po.status} minimumMet={po.minimum_met} />

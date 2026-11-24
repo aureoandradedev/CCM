@@ -137,7 +137,7 @@ export interface PurchaseOrder {
   supplier_id: string;
   supplier_name?: string;
   cycle_date: string;
-  status: "draft" | "sent" | "confirmed" | "partial" | "completed" | "cancelled";
+  status: "draft" | "minimum_not_met" | "ready" | "sent" | "received" | "partial" | "confirmed" | "completed" | "cancelled";
   total_centavos: number;
   item_count: number;
   minimum_type: string | null;
@@ -147,6 +147,8 @@ export interface PurchaseOrder {
   decision: string | null;
   expected_delivery: string | null;
   created_at: string;
+  supplier_confirmation_status?: string | null;
+  supplier_confirmed_at?: string | null;
 }
 
 export interface PurchaseOrderItem {
