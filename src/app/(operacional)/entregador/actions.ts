@@ -34,6 +34,27 @@ export async function markDelivered(_prev: ActionResult, fd: FormData): Promise<
   return runEntregador(fd, "entregue", "enviado");
 }
 
+/** Assign driver to shipment — admin only from entregador view. */
+export async function assignDriverFromDelivery(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  try {
+    await assertRole(["entregador"]);
+    const sb = await createClient();
+    const shipmentId = fd.get("shipmentId") as string | null;
+    const driverId = fd.get("driverId") as string | null;
+    if (!shipmentId) return { error: "ID da entrega é obrigatório." };
+    if (!driverId) return { error: "Selecione um entregador." };
+    const { error } = await sb.rpc("assign_shipment_driver", {
+      p_shipment_id: shipmentId,
+      p_driver_id: driverId,
+    });
+    if (error) return { error: error.message };
+    revalidatePath("/entregador", "layout");
+    return { ok: "Entregador atribuído." };
+  } catch (e) {
+    return { error: (e as Error).message || "Erro inesperado." };
+  }
+}
+
 async function runEntregador(
   fd: FormData,
   targetStatus: ShipmentStatus,

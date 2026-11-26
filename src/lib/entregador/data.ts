@@ -15,8 +15,11 @@ export interface EntregadorShipmentCard {
   promised_from: string | null;
   promised_to: string | null;
   address_district: string | null;
+  address_city: string | null;
   item_count: number;
   updated_at: string;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
 }
 
 export interface EntregadorItem {
@@ -79,8 +82,11 @@ export async function readActiveShipments(): Promise<EntregadorShipmentCard[]> {
     promised_from: r.promised_from as string | null,
     promised_to: r.promised_to as string | null,
     address_district: r.address_district as string | null,
+    address_city: (r.address_city as string | null) ?? null,
     item_count: Number(r.item_count ?? 0),
     updated_at: r.updated_at as string,
+    assigned_to: (r.assigned_to as string | null) ?? null,
+    assigned_to_name: (r.assigned_to_name as string | null) ?? null,
   }));
 }
 
@@ -102,8 +108,11 @@ export async function readRecentShipments(limit = 10): Promise<EntregadorShipmen
     promised_from: r.promised_from as string | null,
     promised_to: r.promised_to as string | null,
     address_district: r.address_district as string | null,
+    address_city: (r.address_city as string | null) ?? null,
     item_count: Number(r.item_count ?? 0),
     updated_at: r.updated_at as string,
+    assigned_to: (r.assigned_to as string | null) ?? null,
+    assigned_to_name: (r.assigned_to_name as string | null) ?? null,
   }));
 }
 

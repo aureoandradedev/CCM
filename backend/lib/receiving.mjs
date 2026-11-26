@@ -81,8 +81,11 @@ export async function recordItem(sessionId, data) {
 
   const expectedQty = poItem.quantity_units;
 
-  if (data.acceptedQty + data.damagedQty > data.receivedQty) {
-    throw new ReceivingError(400, "accepted + damaged não pode exceder received.");
+  if (data.acceptedQty + data.damagedQty !== data.receivedQty) {
+    throw new ReceivingError(
+      400,
+      "A quantidade recebida deve ser totalmente classificada entre aceita e avariada.",
+    );
   }
 
   const photos = data.photos || [];
@@ -132,6 +135,16 @@ export async function completeReceiving(sessionId) {
 
   if (!items || items.length === 0) {
     throw new ReceivingError(400, "Nenhum item conferido nesta sessão.");
+  }
+
+  const unclassified = items.filter(
+    (i) => i.accepted_qty + i.damaged_qty !== i.received_qty,
+  );
+  if (unclassified.length > 0) {
+    throw new ReceivingError(
+      400,
+      "Todos os itens devem ter accepted + damaged = received antes de finalizar.",
+    );
   }
 
   await db()

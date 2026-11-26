@@ -50,6 +50,7 @@ export interface SeparadorShipmentDetail {
   address_district: string | null;
   address_reference: string | null;
   notes: string | null;
+  assigned_to: string | null;
   items: SeparadorItem[];
 }
 
@@ -145,6 +146,7 @@ export async function readShipmentDetail(shipmentId: string): Promise<SeparadorS
     address_district: d.address_district as string | null,
     address_reference: d.address_reference as string | null,
     notes: d.notes as string | null,
+    assigned_to: (d.assigned_to as string | null) ?? null,
     items: items.map((i) => ({
       id: i.id as string,
       name: i.name as string,
@@ -161,6 +163,37 @@ export async function readShipmentDetail(shipmentId: string): Promise<SeparadorS
 /**
  * Shipment occurrences via SECURITY DEFINER RPC.
  */
+export interface DriverOption {
+  id: string;
+  full_name: string | null;
+  email: string;
+}
+
+export async function readActiveDrivers(): Promise<DriverOption[]> {
+  if (!configured()) return [];
+  const sb = await createClient();
+  const { data, error } = await sb
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("role", "entregador")
+    .eq("is_active", true)
+    .order("full_name");
+  if (error || !data) return [];
+  return data as DriverOption[];
+}
+
+export async function readDriverName(driverId: string): Promise<string | null> {
+  if (!configured() || !driverId) return null;
+  const sb = await createClient();
+  const { data } = await sb
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", driverId)
+    .maybeSingle();
+  if (!data) return null;
+  return data.full_name || data.email;
+}
+
 export async function readShipmentOccurrences(shipmentId: string): Promise<SeparadorOccurrence[]> {
   if (!configured()) return [];
   const sb = await createClient();

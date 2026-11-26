@@ -114,6 +114,32 @@ export async function logSeparadorOccurrence(_prev: ActionResult, fd: FormData):
   }
 }
 
+/** Assign a driver to a shipment (after separation). */
+export async function assignDriver(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  try {
+    await assertRole(["operacao"]);
+    const sb = await createClient();
+
+    const shipmentId = fd.get("shipmentId") as string | null;
+    const driverId = fd.get("driverId") as string | null;
+
+    if (!shipmentId) return { error: "ID da entrega é obrigatório." };
+    if (!driverId) return { error: "Selecione um entregador." };
+
+    const { error } = await sb.rpc("assign_shipment_driver", {
+      p_shipment_id: shipmentId,
+      p_driver_id: driverId,
+    });
+
+    if (error) return { error: error.message };
+
+    revalidatePath("/separador", "layout");
+    return { ok: "Entregador atribuído." };
+  } catch (e) {
+    return { error: (e as Error).message || "Erro inesperado." };
+  }
+}
+
 /** Mark an item as picked (item-by-item separation progress). */
 export async function markItemPicked(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
   try {

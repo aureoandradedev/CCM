@@ -34,8 +34,8 @@ export function validateReceivingItem(item: ReceivingItemInput): ReceivingValida
   if (item.receivedQty < 0) errors.push("receivedQty cannot be negative");
   if (item.acceptedQty < 0) errors.push("acceptedQty cannot be negative");
   if (item.damagedQty < 0) errors.push("damagedQty cannot be negative");
-  if (item.acceptedQty + item.damagedQty > item.receivedQty) {
-    errors.push("accepted + damaged cannot exceed received");
+  if (item.acceptedQty + item.damagedQty !== item.receivedQty) {
+    errors.push("accepted + damaged must equal received");
   }
 
   const shortage = Math.max(0, item.expectedQty - item.receivedQty);

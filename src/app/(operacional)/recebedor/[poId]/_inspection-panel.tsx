@@ -85,7 +85,12 @@ export function InspectionPanel({
     setItems((prev) => {
       const next = new Map(prev);
       const item = getItem(poiId);
-      next.set(poiId, { ...item, [field]: value, saved: false });
+      const updated = { ...item, [field]: value, saved: false };
+      if (field === "receivedQty") {
+        updated.acceptedQty = value as number;
+        updated.damagedQty = 0;
+      }
+      next.set(poiId, updated);
       return next;
     });
   }
@@ -294,8 +299,8 @@ export function InspectionPanel({
           </div>
 
           {/* Validation feedback */}
-          {item.receivedQty > 0 && item.acceptedQty + item.damagedQty > item.receivedQty && (
-            <p className="text-xs font-medium text-red-600">Aceito + Avariado não pode ser maior que Recebido.</p>
+          {item.receivedQty > 0 && item.acceptedQty + item.damagedQty !== item.receivedQty && (
+            <p className="text-xs font-medium text-red-600">Aceito + Avariado deve ser igual a Recebido.</p>
           )}
 
           {/* Divergence indicators */}
@@ -370,7 +375,7 @@ export function InspectionPanel({
           <button
             type="button"
             className="min-h-12 w-full rounded-xl bg-brand-navy text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
-            disabled={busy || item.receivedQty === 0 || item.acceptedQty + item.damagedQty > item.receivedQty}
+            disabled={busy || item.receivedQty === 0 || item.acceptedQty + item.damagedQty !== item.receivedQty}
             onClick={() => handleSaveItem(current.id)}
           >
             {busy ? <Loader2 className="mx-auto size-5 animate-spin" /> : item.saved ? "Atualizar item" : "Salvar item"}

@@ -2,13 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Check, CheckCircle, MapPin, Package, Plus, Truck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle, MapPin, Package, Plus, Truck, UserPlus } from "lucide-react";
 import { useActionState, useState } from "react";
 import { toast } from "sonner";
 
 import {
   startPreparation, finishForShipping, finishForPickup,
-  logSeparadorOccurrence, markItemPicked,
+  logSeparadorOccurrence, markItemPicked, assignDriver,
 } from "@/app/separador/actions";
 import {
   SEPARADOR_OCCURRENCE_TYPES,
@@ -16,7 +16,7 @@ import {
 } from "@/app/separador/constants";
 import { formatDate } from "@/lib/orders";
 import { SHIPMENT_STATUS_LABEL, OCCURRENCE_LABELS } from "@/lib/shipment-lifecycle";
-import type { SeparadorShipmentDetail } from "@/lib/separador/data";
+import type { SeparadorShipmentDetail, DriverOption } from "@/lib/separador/data";
 import { cn } from "@/lib/utils";
 import { OpStatusBadge, OpProgress, OpConfirmModal, OpLateBadge } from "@/components/operational/operational-ui";
 
@@ -91,7 +91,11 @@ function ItemPickRow({ item, shipmentId, isPreparing }: {
   );
 }
 
-export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail }) {
+export function SeparadorWorkflow({ detail, drivers, driverName }: {
+  detail: SeparadorShipmentDetail;
+  drivers: DriverOption[];
+  driverName: string | null;
+}) {
   const [showConfirm, setShowConfirm] = useState<"envio" | "retirada" | null>(null);
   const [showOccurrence, setShowOccurrence] = useState(false);
   const [occType, setOccType] = useState<SeparadorOccurrenceType>("note");
@@ -101,6 +105,7 @@ export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail 
   const finishShipAction = useAction(finishForShipping);
   const finishPickupAction = useAction(finishForPickup);
   const occAction = useAction(logSeparadorOccurrence);
+  const driverAction = useAction(assignDriver);
 
   const { status, delivery_method } = detail;
   const isPickup = delivery_method === "pickup";
@@ -259,6 +264,45 @@ export function SeparadorWorkflow({ detail }: { detail: SeparadorShipmentDetail 
             {status === "pronto_para_retirada" ? "Aguardando retirada pelo cliente." : "Aguardando envio."}
           </p>
         </div>
+      )}
+
+      {/* Driver assignment — delivery shipments in preparando or pronto_para_envio */}
+      {!isPickup && (status === "pronto_para_envio" || status === "preparando") && drivers.length > 0 && (
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]">
+          <h3 className="flex items-center gap-1.5 text-sm font-bold text-gray-800">
+            <UserPlus className="size-4 text-brand-navy" /> Atribuir entregador
+          </h3>
+          {driverName && (
+            <p className="text-xs text-gray-500">
+              Atual: <span className="font-semibold text-gray-700">{driverName}</span>
+            </p>
+          )}
+          <form action={driverAction.formAction} className="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="shipmentId" value={detail.id} />
+            <label className="block min-w-0 flex-1 text-xs font-semibold text-gray-600">
+              Entregador
+              <select
+                name="driverId"
+                defaultValue={detail.assigned_to ?? ""}
+                className="mt-1.5 block w-full rounded-xl bg-gray-50 px-3 py-2.5 text-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-brand-navy/30"
+              >
+                <option value="" disabled>Selecione...</option>
+                {drivers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.full_name || d.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              disabled={driverAction.pending}
+              className="rounded-xl bg-brand-navy px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-navy/90 disabled:opacity-50"
+            >
+              {detail.assigned_to ? "Reatribuir" : "Atribuir"}
+            </button>
+          </form>
+        </section>
       )}
 
       {/* Confirmation modal */}

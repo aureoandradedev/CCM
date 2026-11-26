@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import {
-  ArrowLeft, CheckCircle, Clock, MapPin, Navigation, Package,
-  Phone, Plus, Truck,
+  ArrowLeft, CheckCircle, Clock, Copy, MapPin, MapPinned,
+  MessageCircle, Navigation, Package, Phone, Plus, Truck,
 } from "lucide-react";
 import { useActionState, useState } from "react";
 import { toast } from "sonner";
@@ -45,6 +45,104 @@ function formatAddress(d: EntregadorShipmentDetail): string | null {
   if (cityState) parts.push(cityState);
   if (d.address_cep) parts.push(`CEP ${d.address_cep}`);
   return parts.length > 0 ? parts.join("\n") : null;
+}
+
+export function formatAddressOneLine(d: EntregadorShipmentDetail): string | null {
+  const parts: string[] = [];
+  if (d.address_street) {
+    let line = d.address_street;
+    if (d.address_number) line += `, ${d.address_number}`;
+    if (d.address_complement) line += ` - ${d.address_complement}`;
+    parts.push(line);
+  }
+  if (d.address_district) parts.push(d.address_district);
+  const cityState = [d.address_city, d.address_state].filter(Boolean).join(" - ");
+  if (cityState) parts.push(cityState);
+  if (d.address_cep) parts.push(`CEP ${d.address_cep}`);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+export function buildGoogleMapsUrl(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
+export function buildWazeUrl(address: string): string {
+  return `https://www.waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`;
+}
+
+export function normalizePhoneForWhatsApp(phone: string): string | null {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  if (digits.startsWith("55")) return digits;
+  return `55${digits}`;
+}
+
+export function buildWhatsAppUrl(phone: string, orderCode: string): string | null {
+  const normalized = normalizePhoneForWhatsApp(phone);
+  if (!normalized) return null;
+  const msg = `Olá! Sou o entregador da Multigiro. Estou com o pedido ${orderCode} e estou a caminho para realizar a entrega.`;
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(msg)}`;
+}
+
+function AddressNavActions({ detail }: { detail: EntregadorShipmentDetail }) {
+  const [copied, setCopied] = useState(false);
+  const oneLine = formatAddressOneLine(detail);
+
+  if (!oneLine) {
+    return (
+      <p className="mt-3 text-xs font-medium text-amber-600">Endereço incompleto</p>
+    );
+  }
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(oneLine);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = oneLine;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex gap-2">
+      <a
+        href={buildGoogleMapsUrl(oneLine)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-50 text-xs font-semibold text-blue-700 ring-1 ring-blue-200/60 transition-colors active:bg-blue-100"
+      >
+        <MapPinned className="size-4" />
+        Maps
+      </a>
+      <a
+        href={buildWazeUrl(oneLine)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-sky-50 text-xs font-semibold text-sky-700 ring-1 ring-sky-200/60 transition-colors active:bg-sky-100"
+      >
+        <Navigation className="size-4" />
+        Waze
+      </a>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-50 text-xs font-semibold text-gray-600 ring-1 ring-black/[0.06] transition-colors active:bg-gray-100"
+      >
+        <Copy className="size-4" />
+        {copied ? "Copiado!" : "Copiar"}
+      </button>
+    </div>
+  );
 }
 
 function formatPhoneDisplay(phone: string): string {
@@ -151,6 +249,7 @@ export function EntregadorWorkflow({ detail }: { detail: EntregadorShipmentDetai
               {detail.address_reference && (
                 <p className="mt-1 text-xs text-gray-400">Ref: {detail.address_reference}</p>
               )}
+              <AddressNavActions detail={detail} />
             </div>
           </div>
         </div>
@@ -169,12 +268,24 @@ export function EntregadorWorkflow({ detail }: { detail: EntregadorShipmentDetai
                 {formatPhoneDisplay(detail.customer_phone)}
               </p>
             </div>
+          </div>
+          <div className="mt-3 flex gap-2">
             <a
               href={phoneHref(detail.customer_phone)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-navy px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors active:bg-brand-navy/80"
+              className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-navy text-xs font-semibold text-white shadow-sm transition-colors active:bg-brand-navy/80"
             >
               <Phone className="size-3.5" /> Ligar
             </a>
+            {buildWhatsAppUrl(detail.customer_phone, detail.order_code) && (
+              <a
+                href={buildWhatsAppUrl(detail.customer_phone, detail.order_code)!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-xs font-semibold text-white shadow-sm transition-colors active:bg-emerald-700"
+              >
+                <MessageCircle className="size-3.5" /> WhatsApp
+              </a>
+            )}
           </div>
         </div>
       )}
