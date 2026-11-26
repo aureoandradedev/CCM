@@ -1,7 +1,7 @@
 /** Rótulos e helpers de pedido compartilhados entre conta do cliente e admin. */
 
 export const ORDER_STATUS = {
-  "aguardando-confirmacao": { label: "Aguardando confirmação", tone: "orange" },
+  "aguardando-confirmacao": { label: "Aguardando confirmação dos fornecedores", tone: "orange" },
   "aguardando-pagamento": { label: "Aguardando pagamento", tone: "yellow" },
   "em-separacao": { label: "Em separação", tone: "blue" },
   separados: { label: "Separado / em entrega", tone: "navy" },
@@ -156,6 +156,24 @@ export interface OrderShipmentRow {
 
 export function shipmentStatusLabel(s: string): { label: string; tone: string } {
   return (SHIPMENT_STATUS as Record<string, { label: string; tone: string }>)[s] ?? { label: s, tone: "slate" };
+}
+
+// ─── CCM display types (Etapa 6) ─────────────────────────────────────────
+
+export interface CcmOrderDisplay {
+  enabled: boolean;
+  hasCcm: boolean;
+  isCcmOnly: boolean;
+  hasShortfall: boolean;
+  items: CcmItemDisplay[];
+  fetchError?: boolean;
+}
+
+export interface CcmItemDisplay {
+  orderItemId: string;
+  ccmQty: number;
+  supplierQty: number;
+  totalQty: number;
 }
 
 export const ORDER_COLUMNS =

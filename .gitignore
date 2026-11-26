@@ -62,3 +62,11 @@ supabase/.temp/
 
 .vercel
 .env*
+
+# Claude worktrees
+.claude/
+
+# CCM etapa test tooling
+ccm-etapa1/node_modules/
+ccm-etapa1/e2e-*.mjs
+ccm-etapa1/RELATORIO_*.md
