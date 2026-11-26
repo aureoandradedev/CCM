@@ -372,8 +372,9 @@ describe("Per-line loss detection", () => {
   });
 
   it("line is NOT lost when remaining > 0 regardless of claim", () => {
-    expect(5 === 0 && !false).toBe(false);
-    expect(5 === 0 && !true).toBe(false);
+    function isLineLost(r: number, claim: boolean) { return r === 0 && !claim; }
+    expect(isLineLost(5, false)).toBe(false);
+    expect(isLineLost(5, true)).toBe(false);
   });
 });
 

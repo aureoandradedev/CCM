@@ -727,7 +727,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.resolve_escalation_admin(uuid, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.resolve_escalation_admin(uuid, text, text) FROM anon;
-REVOKE ALL ON FUNCTION public.resolve_escalation_admin(uuid, text, text) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_escalation_admin(uuid, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.resolve_escalation_admin(uuid, text, text) TO service_role;
 
 
