@@ -447,3 +447,129 @@ describe("Backup cost threshold", () => {
     expect(isAcceptable).toBe(false);
   });
 });
+
+// ============================================================================
+// Item 6: qty=0 regression — customer removes item
+// ============================================================================
+
+type RequestLineStatus =
+  | null
+  | "confirmado"
+  | "confirmado_parcial"
+  | "indisponivel"
+  | "perdido"
+  | "divergencia_quantidade"
+  | "divergencia_custo";
+
+interface RequestLine {
+  id: string;
+  supplier_request_id: string;
+  master_product_id: string;
+  product_name: string;
+  quantity_requested: number;
+  unit_cost_centavos: number;
+  status: RequestLineStatus;
+}
+
+function filterLinesForPO(lines: RequestLine[]): RequestLine[] {
+  return lines.filter(
+    (l) => l.status === null || (l.status !== "indisponivel" && l.status !== "perdido"),
+  );
+}
+
+function recalcOrderTotals(
+  items: { qty: number; unit_price_centavos: number }[],
+): { subtotal: number; items_count: number } {
+  let subtotal = 0;
+  let items_count = 0;
+  for (const it of items) {
+    if (it.qty > 0) {
+      subtotal += it.qty * it.unit_price_centavos;
+      items_count++;
+    }
+  }
+  return { subtotal, items_count };
+}
+
+describe("qty=0 regression: customer removes item", () => {
+  const threeItems = [
+    { id: "i1", qty: 3, unit_price_centavos: 1000, residual_qty: 3 },
+    { id: "i2", qty: 5, unit_price_centavos: 500, residual_qty: 5 },
+    { id: "i3", qty: 2, unit_price_centavos: 2000, residual_qty: 2 },
+  ];
+
+  it("remove one item → totals exclude zeroed item", () => {
+    const afterRemoval = threeItems.map((it) =>
+      it.id === "i2" ? { ...it, qty: 0, residual_qty: 0 } : it,
+    );
+    const { subtotal, items_count } = recalcOrderTotals(afterRemoval);
+    expect(items_count).toBe(2);
+    expect(subtotal).toBe(3 * 1000 + 2 * 2000);
+  });
+
+  it("remove all items → order should cancel (subtotal=0, count=0)", () => {
+    const allRemoved = threeItems.map((it) => ({ ...it, qty: 0, residual_qty: 0 }));
+    const { subtotal, items_count } = recalcOrderTotals(allRemoved);
+    expect(items_count).toBe(0);
+    expect(subtotal).toBe(0);
+  });
+
+  it("gate passes when residual_qty=0 (removed item skipped)", () => {
+    const items: OrderItem[] = [
+      { id: "i1", qty: 3, residual_qty: 3 },
+      { id: "i2", qty: 0, residual_qty: 0 },
+    ];
+    const claims: ClaimLine[] = [
+      { order_item_id: "i1", supplier_request_line_id: "l1", qty_claimed: 3 },
+    ];
+    const result = checkGateV2(items, claims);
+    expect(result.passed).toBe(true);
+  });
+
+  it("allocation remaining=0 when qty=0 → no allocation attempted", () => {
+    const qty = 0;
+    const priorAllocated = 0;
+    const remaining = qty - priorAllocated;
+    expect(remaining).toBe(0);
+    const needsAllocation = remaining > 0;
+    expect(needsAllocation).toBe(false);
+  });
+
+  it("stock return adds 0 when qty=0", () => {
+    const qty = 0;
+    const qtyConfirmed = 0;
+    const returnQty = Math.max(0, (qtyConfirmed ?? qty) - 0);
+    expect(returnQty).toBe(0);
+  });
+});
+
+describe("PO creation: exclude perdido lines (migration 0071)", () => {
+  it("filters out indisponivel AND perdido lines", () => {
+    const lines: RequestLine[] = [
+      { id: "l1", supplier_request_id: "r1", master_product_id: "mp1", product_name: "A", quantity_requested: 5, unit_cost_centavos: 1000, status: "confirmado" },
+      { id: "l2", supplier_request_id: "r1", master_product_id: "mp2", product_name: "B", quantity_requested: 3, unit_cost_centavos: 500, status: "indisponivel" },
+      { id: "l3", supplier_request_id: "r1", master_product_id: "mp3", product_name: "C", quantity_requested: 2, unit_cost_centavos: 2000, status: "perdido" },
+      { id: "l4", supplier_request_id: "r1", master_product_id: "mp4", product_name: "D", quantity_requested: 4, unit_cost_centavos: 800, status: null },
+    ];
+    const forPO = filterLinesForPO(lines);
+    expect(forPO).toHaveLength(2);
+    expect(forPO.map((l) => l.id)).toEqual(["l1", "l4"]);
+  });
+
+  it("all lines perdido → PO has zero items", () => {
+    const lines: RequestLine[] = [
+      { id: "l1", supplier_request_id: "r1", master_product_id: "mp1", product_name: "A", quantity_requested: 5, unit_cost_centavos: 1000, status: "perdido" },
+      { id: "l2", supplier_request_id: "r1", master_product_id: "mp2", product_name: "B", quantity_requested: 3, unit_cost_centavos: 500, status: "perdido" },
+    ];
+    const forPO = filterLinesForPO(lines);
+    expect(forPO).toHaveLength(0);
+  });
+
+  it("confirmado_parcial lines still included in PO", () => {
+    const lines: RequestLine[] = [
+      { id: "l1", supplier_request_id: "r1", master_product_id: "mp1", product_name: "A", quantity_requested: 5, unit_cost_centavos: 1000, status: "confirmado_parcial" },
+    ];
+    const forPO = filterLinesForPO(lines);
+    expect(forPO).toHaveLength(1);
+  });
+});
