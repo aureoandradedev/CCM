@@ -12,8 +12,8 @@ import { ConfirmationForm } from "./_confirmation-form";
 
 export const metadata: Metadata = { title: "Confirmar pedido", robots: { index: false } };
 
-export default async function SupplierRequestDetailPage({ params }: { params: Promise<{ poId: string }> }) {
-  const { poId: requestId } = await params;
+export default async function SupplierRequestDetailPage({ params }: { params: Promise<{ requestId: string }> }) {
+  const { requestId } = await params;
   const session = await assertSupplier();
   const result = await getSupplierRequest(requestId, session.supplierId);
   if (!result) notFound();
@@ -25,7 +25,7 @@ export default async function SupplierRequestDetailPage({ params }: { params: Pr
   const totalCentavos = lines.reduce((s, l) => s + l.quantity_requested * l.unit_cost_centavos, 0);
 
   return (
-    <div className="container-ccm pt-6 pb-16">
+    <div>
       <Button variant="link" className="px-0 text-brand-navy" render={<Link href="/fornecedores/pedidos" />}>
         <ArrowLeft /> Voltar aos pedidos
       </Button>

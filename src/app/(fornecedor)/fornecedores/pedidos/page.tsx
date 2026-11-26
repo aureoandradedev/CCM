@@ -6,7 +6,7 @@ import { assertSupplier } from "@/lib/supplier/guard";
 import { listSupplierRequests } from "@/lib/supplier/data";
 import { formatDateTime } from "@/lib/orders";
 
-export const metadata: Metadata = { title: "Pedidos para confirmar", robots: { index: false } };
+export const metadata: Metadata = { title: "Solicitações" };
 
 const STATUS_MAP: Record<string, { label: string; icon: typeof Clock; tone: string }> = {
   aguardando_confirmacao: { label: "Aguardando sua confirmação", icon: Clock, tone: "bg-brand-orange-soft text-brand-orange" },
@@ -24,19 +24,19 @@ export default async function SupplierOrdersPage() {
   const resolved = requests.filter((r) => r.status !== "aguardando_confirmacao");
 
   return (
-    <div className="container-ccm pt-6 pb-16">
-      <h1 className="font-heading text-[2rem] font-extrabold tracking-tight text-brand-navy">Pedidos para confirmar</h1>
-      <p className="mt-1 text-sm text-brand-ink-soft">Olá, {session.supplierName}. Confirme a disponibilidade dos itens abaixo.</p>
+    <div>
+      <h1 className="font-heading text-2xl font-extrabold tracking-tight text-brand-navy">Solicitações</h1>
+      <p className="mt-1 text-sm text-brand-ink-soft">Confirme a disponibilidade dos itens solicitados pela equipe de Compras.</p>
 
       {pending.length > 0 ? (
-        <section className="mt-8">
+        <section className="mt-6">
           <h2 className="font-heading text-lg font-bold text-brand-navy">Aguardando sua confirmação ({pending.length})</h2>
           <div className="mt-3 space-y-3">
             {pending.map((req) => <RequestCard key={req.id} req={req} />)}
           </div>
         </section>
       ) : (
-        <div className="mt-8 rounded-2xl border border-dashed border-brand-line bg-card p-8 text-center">
+        <div className="mt-6 rounded-2xl border border-dashed border-brand-line bg-card p-8 text-center">
           <CheckCircle2 className="mx-auto size-10 text-brand-green" />
           <p className="mt-3 font-heading text-lg font-bold text-brand-navy">Tudo confirmado!</p>
           <p className="mt-1 text-sm text-brand-ink-soft">Não há pedidos pendentes de confirmação.</p>
@@ -44,7 +44,7 @@ export default async function SupplierOrdersPage() {
       )}
 
       {resolved.length > 0 ? (
-        <section className="mt-10">
+        <section className="mt-8">
           <h2 className="font-heading text-lg font-bold text-brand-navy">Já confirmados ({resolved.length})</h2>
           <div className="mt-3 space-y-3">
             {resolved.map((req) => <RequestCard key={req.id} req={req} />)}

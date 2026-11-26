@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { InfoPage, InfoSection } from "@/components/layout/info-page";
 import { site, whatsappLink } from "@/lib/site";
+import { getSupplierSession } from "@/lib/supplier/guard";
 
 export const metadata: Metadata = {
   title: "Seja um fornecedor",
   description: "Forneça seus produtos para a Multigiro Central de Compras. Entre em contato com nossa equipe comercial.",
 };
 
-export default function SuppliersPage() {
+export default async function SuppliersPage() {
+  const session = await getSupplierSession();
+  if (session) redirect("/fornecedores/painel");
   return (
     <InfoPage
       crumb="Seja um fornecedor"

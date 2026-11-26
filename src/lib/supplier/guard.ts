@@ -41,6 +41,6 @@ export const getSupplierSession = cache(async (): Promise<SupplierSession | null
 
 export async function assertSupplier(): Promise<SupplierSession> {
   const session = await getSupplierSession();
-  if (!session) redirect("/conta?next=/fornecedores/pedidos&erro=permissao");
+  if (!session) redirect("/conta?next=/fornecedores/painel&erro=permissao");
   return session;
 }
