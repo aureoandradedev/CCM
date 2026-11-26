@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Upload, FileText, Loader2 } from "lucide-react";
+import { CheckCircle2, Upload, FileText, Loader2, PackageCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/utils/format";
@@ -29,12 +29,13 @@ interface ItemState {
 const input = "h-10 w-full rounded-lg border border-brand-line bg-card px-3 text-sm text-brand-ink outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 const select = "h-10 w-full rounded-lg border border-brand-line bg-card px-2 text-sm text-brand-ink outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-export function ConfirmationForm({ requestId, lines, mirrors, isPending, isResolved }: {
+export function ConfirmationForm({ requestId, lines, mirrors, isPending, isResolved, claimsByItem }: {
   requestId: string;
   lines: SupplierRequestLineRow[];
   mirrors: SupplierRequestMirror[];
   isPending: boolean;
   isResolved: boolean;
+  claimsByItem?: Map<string, number>;
 }) {
   const [states, setStates] = useState<Record<string, ItemState>>(() => {
     const init: Record<string, ItemState> = {};
@@ -107,14 +108,26 @@ export function ConfirmationForm({ requestId, lines, mirrors, isPending, isResol
             const s = states[line.id];
             const showQty = s.status === "confirmado_parcial" || s.status === "divergencia_quantidade";
             const showCost = s.status === "divergencia_custo";
+            const claimed = claimsByItem?.get(line.order_item_id) ?? 0;
+            const isFulfilled = claimed >= line.quantity_requested;
             return (
-              <div key={line.id} className="rounded-2xl border border-brand-line bg-card p-4">
+              <div key={line.id} className={`rounded-2xl border p-4 ${isFulfilled ? "border-brand-green/30 bg-brand-green-soft/30" : "border-brand-line bg-card"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-heading font-bold text-brand-navy">{line.product_name}</p>
                     <p className="mt-0.5 text-xs text-brand-ink-soft">
                       {line.quantity_requested} {line.unit ?? "un"} · {formatBRL(line.unit_cost_centavos / 100)}/{line.unit ?? "un"} · Subtotal {formatBRL((line.quantity_requested * line.unit_cost_centavos) / 100)}
                     </p>
+                    {isFulfilled ? (
+                      <p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-green">
+                        <PackageCheck className="size-3.5" />
+                        Item já atendido
+                      </p>
+                    ) : claimed > 0 ? (
+                      <p className="mt-1 text-xs text-brand-ink-soft">
+                        {claimed} de {line.quantity_requested} já atendido(s)
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 

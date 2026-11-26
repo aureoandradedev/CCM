@@ -25,7 +25,7 @@ export async function submitSupplierConfirmation(requestId: string, items: Confi
   if (!session) return { error: "Acesso negado." };
 
   const sb = await createClient();
-  const { data, error } = await sb.rpc("confirm_supplier_request", {
+  const { data, error } = await sb.rpc("confirm_supplier_request_v2", {
     p_request_id: requestId,
     p_supplier_id: session.supplierId,
     p_confirmations: items.map((i) => ({

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ClipboardCheck, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 
 import { assertSupplier } from "@/lib/supplier/guard";
-import { listSupplierRequests } from "@/lib/supplier/data";
+import { listSupplierRequests, type SupplierRequestRow } from "@/lib/supplier/data";
 import { formatDateTime } from "@/lib/orders";
 
 export const metadata: Metadata = { title: "Solicitações" };
@@ -14,7 +14,20 @@ const STATUS_MAP: Record<string, { label: string; icon: typeof Clock; tone: stri
   confirmado_parcial: { label: "Confirmado parcial", icon: AlertTriangle, tone: "bg-brand-yellow-soft text-brand-navy" },
   divergencia: { label: "Divergência", icon: AlertTriangle, tone: "bg-brand-red/10 text-brand-red" },
   revisao_necessaria: { label: "Em revisão", icon: ClipboardCheck, tone: "bg-muted text-brand-ink-soft" },
+  expirado: { label: "Expirado", icon: Clock, tone: "bg-muted text-brand-ink-soft" },
+  escalado: { label: "Escalado", icon: AlertTriangle, tone: "bg-brand-red/10 text-brand-red" },
+  perdido: { label: "Perdido", icon: AlertTriangle, tone: "bg-muted text-brand-ink-soft" },
 };
+
+function deadlineInfo(expiresAt: string | null): { label: string; urgent: boolean } | null {
+  if (!expiresAt) return null;
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  if (diff <= 0) return { label: "Prazo expirado", urgent: true };
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return { label: `${mins} min restante${mins !== 1 ? "s" : ""}`, urgent: mins <= 10 };
+  const hours = Math.floor(mins / 60);
+  return { label: `${hours}h${mins % 60 > 0 ? ` ${mins % 60}min` : ""} restante${hours !== 1 ? "s" : ""}`, urgent: false };
+}
 
 export default async function SupplierOrdersPage() {
   const session = await assertSupplier();
@@ -55,17 +68,28 @@ export default async function SupplierOrdersPage() {
   );
 }
 
-function RequestCard({ req }: { req: { id: string; status: string; created_at: string; sent_at: string } }) {
+function RequestCard({ req }: { req: SupplierRequestRow }) {
   const s = STATUS_MAP[req.status] ?? STATUS_MAP.aguardando_confirmacao;
   const Icon = s.icon;
+  const isPending = req.status === "aguardando_confirmacao";
+  const dl = isPending ? deadlineInfo(req.expires_at) : null;
+
   return (
     <Link href={`/fornecedores/pedidos/${req.id}`} className="block rounded-2xl border border-brand-line bg-card p-5 transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-heading font-bold text-brand-navy">Solicitação de confirmação</p>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-heading font-bold text-brand-navy">Solicitação de confirmação</p>
+          </div>
           <p className="mt-0.5 text-xs text-brand-ink-soft">Criado em {formatDateTime(req.created_at)}</p>
+          {dl ? (
+            <p className={`mt-1 text-xs font-medium ${dl.urgent ? "text-brand-red" : "text-brand-orange"}`}>
+              <Clock className="mr-1 inline size-3" />
+              {dl.label}
+            </p>
+          ) : null}
         </div>
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${s.tone}`}>
+        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${s.tone}`}>
           <Icon className="size-3.5" />
           {s.label}
         </span>

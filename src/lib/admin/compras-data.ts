@@ -4,6 +4,93 @@ import type { RankableOffer } from "@/lib/ranking/types";
 import { resolveMargin, calculatePrice, type MarginRule } from "./pricing";
 import { getOperationalSupplierIds, filterOperationalOffers } from "./supplier-guards";
 
+export interface EscalatedOrder {
+  id: string;
+  code: string;
+  customer_name: string;
+  created_at: string;
+  needs_team_intervention: boolean;
+  requests: EscalatedRequest[];
+}
+
+export interface EscalatedRequest {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  status: string;
+  role: string;
+  expires_at: string | null;
+  handoff_at: string | null;
+  lines: { id: string; order_item_id: string; product_name: string; quantity_requested: number; quantity_confirmed: number | null; status: string | null; unit: string | null }[];
+}
+
+export async function listEscalatedOrders(): Promise<EscalatedOrder[]> {
+  const sb = await createClient();
+
+  const { data: orders } = await sb
+    .from("orders")
+    .select("id, code, customer_name, created_at, needs_team_intervention")
+    .eq("needs_team_intervention", true)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (!orders?.length) return [];
+
+  const orderIds = orders.map((o) => o.id);
+
+  const { data: requests } = await sb
+    .from("supplier_requests")
+    .select("id, order_id, supplier_id, status, role, expires_at, handoff_at")
+    .in("order_id", orderIds)
+    .in("status", ["escalado", "expirado", "aguardando_confirmacao"])
+    .order("created_at", { ascending: false });
+
+  const supplierIds = [...new Set((requests || []).map((r) => r.supplier_id))];
+  const { data: suppliers } = supplierIds.length > 0
+    ? await sb.from("suppliers").select("id, trade_name").in("id", supplierIds)
+    : { data: [] };
+  const supplierMap = new Map((suppliers || []).map((s) => [s.id, s.trade_name || "Fornecedor"]));
+
+  const requestIds = (requests || []).map((r) => r.id);
+  const { data: lines } = requestIds.length > 0
+    ? await sb.from("supplier_request_lines").select("id, supplier_request_id, order_item_id, product_name, quantity_requested, quantity_confirmed, status, unit").in("supplier_request_id", requestIds)
+    : { data: [] };
+  const linesByReq = new Map<string, typeof lines>();
+  for (const l of lines || []) {
+    const arr = linesByReq.get(l.supplier_request_id) || [];
+    arr.push(l);
+    linesByReq.set(l.supplier_request_id, arr);
+  }
+
+  return orders.map((o) => ({
+    id: o.id as string,
+    code: o.code as string,
+    customer_name: o.customer_name as string,
+    created_at: o.created_at as string,
+    needs_team_intervention: o.needs_team_intervention as boolean,
+    requests: (requests || [])
+      .filter((r) => r.order_id === o.id)
+      .map((r) => ({
+        id: r.id as string,
+        supplier_id: r.supplier_id as string,
+        supplier_name: supplierMap.get(r.supplier_id as string) || "Fornecedor",
+        status: r.status as string,
+        role: r.role as string,
+        expires_at: r.expires_at as string | null,
+        handoff_at: r.handoff_at as string | null,
+        lines: (linesByReq.get(r.id as string) || []).map((l) => ({
+          id: l.id as string,
+          order_item_id: l.order_item_id as string,
+          product_name: l.product_name as string,
+          quantity_requested: l.quantity_requested as number,
+          quantity_confirmed: l.quantity_confirmed as number | null,
+          status: l.status as string | null,
+          unit: l.unit as string | null,
+        })),
+      })),
+  }));
+}
+
 const PER_PAGE = 25;
 
 function toRankable(o: Record<string, unknown>): RankableOffer {

@@ -13,27 +13,31 @@ import {
 
 import { NotConfigured, PageTitle } from "@/components/admin/ui";
 import { adminOrdersAwaitingConfirmation, adminPurchaseOrders, adminSuppliers, configured } from "@/lib/admin/data";
-import { comprasDashboard } from "@/lib/admin/compras-data";
+import { comprasDashboard, listEscalatedOrders } from "@/lib/admin/compras-data";
 import { exceptionStats } from "@/lib/admin/orchestrator";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ComprasDashboardPage() {
   if (!configured()) return <NotConfigured />;
   const sb = await createClient();
-  const [d, stats, orders, suppliers, awaitingConfirmation] = await Promise.all([
+  const [d, stats, orders, suppliers, awaitingConfirmation, escalated] = await Promise.all([
     comprasDashboard(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     exceptionStats(sb as any),
     adminPurchaseOrders({ limit: 100 }),
     adminSuppliers(),
     adminOrdersAwaitingConfirmation(),
+    listEscalatedOrders(),
   ]);
+
+  const escalatedCount = escalated.length;
 
   const pendenciaTotal =
     d.items.match_sugerido +
     d.items.revisao_manual +
     d.items.normalizado +
-    (stats.total ?? 0);
+    (stats.total ?? 0) +
+    escalatedCount;
   const produtosNaoIdentificados =
     d.items.match_sugerido + d.items.revisao_manual + d.items.normalizado;
   const excecoesAbertas = stats.total ?? 0;
@@ -86,6 +90,14 @@ export default async function ComprasDashboardPage() {
                     {excecoesAbertas === 1
                       ? "exceção precisa ser verificada"
                       : "exceções precisam ser verificadas"}
+                  </li>
+                )}
+                {escalatedCount > 0 && (
+                  <li>
+                    <span className="font-semibold">{escalatedCount}</span>{" "}
+                    {escalatedCount === 1
+                      ? "pedido escalado para decisão manual"
+                      : "pedidos escalados para decisão manual"}
                   </li>
                 )}
               </ul>
@@ -147,6 +159,35 @@ export default async function ComprasDashboardPage() {
           </p>
           <span className="mt-auto pt-2 text-xs font-semibold text-brand-navy opacity-0 transition-opacity group-hover:opacity-100">
             Ver confirmações →
+          </span>
+        </Link>
+
+        <Link
+          href="/compras/escalacoes"
+          className="group flex flex-col rounded-2xl border border-brand-line bg-card p-4 transition hover:shadow"
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <AlertCircle className="size-5 text-brand-navy" />
+            <span className="text-sm font-bold text-brand-ink">
+              Escalações
+            </span>
+          </div>
+          <p className="text-sm text-brand-ink-soft">
+            {escalatedCount > 0 ? (
+              <>
+                <span className="text-lg font-extrabold text-brand-red">
+                  {escalatedCount}
+                </span>{" "}
+                {escalatedCount === 1
+                  ? "pedido precisa de decisão"
+                  : "pedidos precisam de decisão"}
+              </>
+            ) : (
+              <span className="text-brand-ink-soft">Nenhuma escalação</span>
+            )}
+          </p>
+          <span className="mt-auto pt-2 text-xs font-semibold text-brand-navy opacity-0 transition-opacity group-hover:opacity-100">
+            Ver escalações →
           </span>
         </Link>
 

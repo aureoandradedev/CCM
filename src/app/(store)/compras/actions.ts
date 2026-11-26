@@ -144,3 +144,43 @@ export async function confirmOrderPartial(
     return { ok: `Pedido confirmado → ${statusLabel}${removedMsg}.` };
   }, ["/compras", "/admin/pedidos"]);
 }
+
+export async function resolveIntervention(orderId: string): Promise<ActionResult> {
+  return run(async (sb) => {
+    const { data, error } = await sb.rpc("resolve_team_intervention", { p_order_id: orderId });
+    if (error) return { error: error.message };
+    if (data && !data.ok) return { error: (data as { error?: string }).error || "Erro ao resolver." };
+    return { ok: "Intervenção resolvida. Gate reavaliado." };
+  }, ["/compras", "/compras/escalacoes"]);
+}
+
+export async function manualActivateBackup(winnerRequestId: string, reason: string): Promise<ActionResult> {
+  return run(async (sb) => {
+    const { data, error } = await sb.rpc("manual_activate_backup", { p_winner_request_id: winnerRequestId, p_reason: reason });
+    if (error) return { error: error.message };
+    const r = data as { ok: boolean; error?: string } | null;
+    if (r && !r.ok) return { error: r.error || "Erro ao ativar backup." };
+    return { ok: "Backup ativado manualmente." };
+  }, ["/compras", "/compras/escalacoes"]);
+}
+
+export async function resolveEscalation(requestId: string, resolution: "accept_partial" | "cancel_items", notes: string): Promise<ActionResult> {
+  return run(async (sb) => {
+    const { data, error } = await sb.rpc("resolve_escalation_admin", { p_request_id: requestId, p_resolution: resolution, p_notes: notes || null });
+    if (error) return { error: error.message };
+    const r = data as { ok: boolean; error?: string; remaining_escalated?: number } | null;
+    if (r && !r.ok) return { error: r.error || "Erro ao resolver escalação." };
+    const label = resolution === "accept_partial" ? "Confirmação parcial aceita" : "Itens cancelados";
+    return { ok: `${label}. ${r?.remaining_escalated === 0 ? "Intervenção resolvida." : ""}` };
+  }, ["/compras", "/compras/escalacoes"]);
+}
+
+export async function removeOrderItem(orderId: string, orderItemId: string, reason: string): Promise<ActionResult> {
+  return run(async (sb) => {
+    const { data, error } = await sb.rpc("remove_order_item_v2", { p_order_id: orderId, p_order_item_id: orderItemId, p_reason: reason });
+    if (error) return { error: error.message };
+    const r = data as { ok: boolean; error?: string } | null;
+    if (r && !r.ok) return { error: r.error || "Erro ao remover item." };
+    return { ok: "Item removido e gate reavaliado." };
+  }, ["/compras", "/compras/escalacoes", "/admin/pedidos"]);
+}

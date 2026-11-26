@@ -7,10 +7,13 @@ export interface SupplierRequestRow {
   supplier_id: string;
   status: string;
   round_number: number;
+  role: "vencedor" | "reserva" | "manual";
   sent_at: string;
   viewed_at: string | null;
   responded_at: string | null;
   expires_at: string | null;
+  handoff_at: string | null;
+  transferred_from_request_id: string | null;
   created_at: string;
 }
 
@@ -37,7 +40,7 @@ export interface SupplierRequestMirror {
   created_at: string;
 }
 
-const REQ_COLUMNS = "id, order_id, supplier_id, status, round_number, sent_at, viewed_at, responded_at, expires_at, created_at";
+const REQ_COLUMNS = "id, order_id, supplier_id, status, round_number, role, sent_at, viewed_at, responded_at, expires_at, handoff_at, transferred_from_request_id, created_at";
 
 const LINE_COLUMNS = "id, supplier_request_id, order_item_id, master_product_id, product_name, quantity_requested, unit, unit_cost_centavos, quantity_confirmed, status, cost_confirmed_centavos, notes";
 
@@ -54,7 +57,12 @@ export async function listSupplierRequests(supplierId: string): Promise<Supplier
   return (data as SupplierRequestRow[] | null) ?? [];
 }
 
-export async function getSupplierRequest(requestId: string, supplierId: string): Promise<{ request: SupplierRequestRow; lines: SupplierRequestLineRow[]; mirrors: SupplierRequestMirror[] } | null> {
+export interface LineClaimInfo {
+  order_item_id: string;
+  qty_claimed: number;
+}
+
+export async function getSupplierRequest(requestId: string, supplierId: string): Promise<{ request: SupplierRequestRow; lines: SupplierRequestLineRow[]; mirrors: SupplierRequestMirror[]; claims: LineClaimInfo[] } | null> {
   if (!isSupabaseConfigured()) return null;
   const sb = await createClient();
   const { data: request } = await sb
@@ -65,9 +73,10 @@ export async function getSupplierRequest(requestId: string, supplierId: string):
     .maybeSingle();
   if (!request) return null;
 
-  const [linesRes, mirrorsRes] = await Promise.all([
+  const [linesRes, mirrorsRes, claimsRes] = await Promise.all([
     sb.from("supplier_request_lines").select(LINE_COLUMNS).eq("supplier_request_id", requestId).order("product_name"),
     sb.from("supplier_request_mirrors").select("id, file_path, file_type, notes, created_at").eq("supplier_request_id", requestId).eq("supplier_id", supplierId).order("created_at", { ascending: false }),
+    sb.from("supplier_request_line_claims").select("order_item_id, qty_claimed").eq("supplier_request_id", requestId),
   ]);
 
   // G6: Mark as viewed (idempotent)
@@ -79,5 +88,6 @@ export async function getSupplierRequest(requestId: string, supplierId: string):
     request: request as SupplierRequestRow,
     lines: (linesRes.data as SupplierRequestLineRow[] | null) ?? [],
     mirrors: (mirrorsRes.data as SupplierRequestMirror[] | null) ?? [],
+    claims: (claimsRes.data as LineClaimInfo[] | null) ?? [],
   };
 }

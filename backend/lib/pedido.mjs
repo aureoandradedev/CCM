@@ -12,6 +12,8 @@ import { db, registrarEvento } from "./supabase.mjs";
 import { atacadoAtivo, calcularFrete, descontoPixCentavos, metodoEhPix, metodoOnline, precoUnitarioCentavos, centavos } from "./precos.mjs";
 import { computeShipments } from "./delivery-promise.mjs";
 import { routeAndReserveCcmStock } from "./ccm-stock.mjs";
+import { rankAllProducts, extractWinnerBackup } from "./ranking.mjs";
+import { getTimeoutConfigs, calculateEffectiveTimeout, computeExpiresAt, minutesUntilCutoff } from "./supplier-timeout.mjs";
 
 export class ErroPedido extends Error {
   constructor(status, erro, extra = {}) {
@@ -409,6 +411,9 @@ export async function criarPedido(body, usuario = null) {
           p_order_id: criado.id,
           p_suppliers: suppliersPayload,
         });
+
+        // Bloco 2 V2: ranking + snapshot + roles + residual_qty + expires_at
+        await initializeSupplierRoles(criado.id, suppliersPayload, itens, oiMap);
       } else if (ccmRouting && !ccmRouting.disabled) {
         // 100% CCM: no supplier_requests needed → advance directly to aguardando-pagamento
         await db().from("orders")
@@ -496,6 +501,211 @@ export async function criarPedido(body, usuario = null) {
   }
 
   return respostaPedido(criado, false, accessToken);
+}
+
+/**
+ * Bloco 2 V2: after supplier_requests are created, compute ranking,
+ * save snapshots, assign roles (vencedor/reserva), set expires_at,
+ * and initialize residual_qty. When T <= T_min, create backup immediately.
+ *
+ * Gated by ccm_supplier_backup_enabled flag. When OFF, only initializes
+ * residual_qty (required for cron to work when flag is later turned ON).
+ */
+async function initializeSupplierRoles(orderId, suppliersPayload, itens, oiMap) {
+  try {
+    // Check if backup feature is enabled
+    const { data: flagOn } = await db().rpc("is_ccm_supplier_backup_enabled");
+
+    // Build residuals: for every order_item that goes to a supplier, set residual_qty
+    const residuals = [];
+    for (const sp of suppliersPayload) {
+      for (const item of sp.items) {
+        if (item.order_item_id) {
+          residuals.push({
+            order_item_id: item.order_item_id,
+            residual_qty: item.quantity,
+          });
+        }
+      }
+    }
+
+    if (!flagOn) {
+      // Flag OFF: only initialize residual_qty (critical for cron when flag turns ON)
+      if (residuals.length > 0) {
+        await db().rpc("initialize_order_supplier_roles", {
+          p_order_id: orderId,
+          p_roles: null,
+          p_residuals: residuals,
+        });
+      }
+      return;
+    }
+
+    // === Flag ON: full ranking + roles + expires_at ===
+
+    // 1. Collect unique master_product_ids
+    const masterIds = [...new Set(
+      itens.filter((i) => i.master_product_id).map((i) => i.master_product_id),
+    )];
+
+    if (masterIds.length === 0) {
+      // No master products → just set residual_qty
+      if (residuals.length > 0) {
+        await db().rpc("initialize_order_supplier_roles", {
+          p_order_id: orderId,
+          p_roles: null,
+          p_residuals: residuals,
+        });
+      }
+      return;
+    }
+
+    // 2. Fetch all active supplier_offers for these master_products
+    const { data: offers, error: offErr } = await db()
+      .from("supplier_offers")
+      .select("id, master_product_id, supplier_id, cost_centavos, unit_cost_centavos, stock, lead_time_days, status")
+      .in("master_product_id", masterIds)
+      .eq("status", "ativa");
+
+    if (offErr || !offers || offers.length === 0) {
+      console.log("[ranking] no offers found, skipping ranking", offErr?.message);
+      if (residuals.length > 0) {
+        await db().rpc("initialize_order_supplier_roles", {
+          p_order_id: orderId,
+          p_roles: null,
+          p_residuals: residuals,
+        });
+      }
+      return;
+    }
+
+    // 3. Compute ranking per master_product
+    const rankings = rankAllProducts(offers);
+
+    // 4. Save ranking snapshots and determine winner/backup per product
+    const winnerSuppliers = new Map();
+    const backupSuppliers = new Map();
+
+    for (const ranking of rankings) {
+      const productOffers = offers.filter((o) => o.master_product_id === ranking.master_product_id);
+      const { winner, backup } = extractWinnerBackup(ranking, productOffers);
+
+      if (winner) {
+        winnerSuppliers.set(ranking.master_product_id, winner);
+      }
+      if (backup) {
+        backupSuppliers.set(ranking.master_product_id, backup);
+      }
+
+      // Save snapshot via RPC
+      await db().rpc("save_ranking_snapshot", {
+        p_order_id: orderId,
+        p_master_product_id: ranking.master_product_id,
+        p_winner_supplier_id: winner?.supplier_id ?? null,
+        p_winner_offer_id: winner?.offer_id ?? null,
+        p_winner_score: winner?.score ?? null,
+        p_backup_supplier_id: backup?.supplier_id ?? null,
+        p_backup_offer_id: backup?.offer_id ?? null,
+        p_backup_score: backup?.score ?? null,
+        p_ranking_snapshot: ranking.offers,
+      });
+    }
+
+    // 5. Query created supplier_requests to get request_ids per supplier
+    const { data: requests } = await db()
+      .from("supplier_requests")
+      .select("id, supplier_id")
+      .eq("order_id", orderId)
+      .eq("role", "manual");
+
+    if (!requests || requests.length === 0) return;
+
+    // 6. Calculate effective timeout
+    const timeoutConfig = await getTimeoutConfigs();
+
+    // Try to get cutoff time from the first supplier's commercial terms
+    let cutoffMinutes = null;
+    try {
+      const firstSupplierId = requests[0]?.supplier_id;
+      if (firstSupplierId) {
+        const { data: terms } = await db()
+          .from("supplier_commercial_terms")
+          .select("cutoff_time")
+          .eq("supplier_id", firstSupplierId)
+          .eq("active", true)
+          .maybeSingle();
+        if (terms?.cutoff_time) {
+          cutoffMinutes = minutesUntilCutoff(terms.cutoff_time);
+        }
+      }
+    } catch (e) {
+      // cutoff lookup failed — use T_config
+    }
+
+    const { T_efetivo, simultaneous, reason: tReason } = calculateEffectiveTimeout({
+      ...timeoutConfig,
+      minutesUntilCutoff: cutoffMinutes,
+    });
+
+    const expiresAt = computeExpiresAt(T_efetivo);
+
+    // 7. Build roles payload: determine which supplier_request is winner vs backup
+    const roles = [];
+    const allWinnerSupplierIds = new Set([...winnerSuppliers.values()].map((w) => w.supplier_id));
+
+    for (const req of requests) {
+      const isWinner = allWinnerSupplierIds.has(req.supplier_id);
+      roles.push({
+        request_id: req.id,
+        role: isWinner ? "vencedor" : "reserva",
+        expires_at: isWinner ? expiresAt : null,
+      });
+    }
+
+    // 8. Atomically set roles + residual_qty
+    await db().rpc("initialize_order_supplier_roles", {
+      p_order_id: orderId,
+      p_roles: roles,
+      p_residuals: residuals,
+    });
+
+    // 9. If T <= T_min → simultaneous: create backup requests immediately
+    if (simultaneous) {
+      for (const req of requests) {
+        if (allWinnerSupplierIds.has(req.supplier_id)) {
+          try {
+            const { data: backupResult } = await db().rpc("create_backup_request", {
+              p_winner_request_id: req.id,
+            });
+            if (backupResult?.ok && backupResult?.backup_request_id) {
+              // Set backup expires_at
+              const backupExpiresAt = computeExpiresAt(timeoutConfig.backupResponseEstimate);
+              await db().from("supplier_requests")
+                .update({ expires_at: backupExpiresAt })
+                .eq("id", backupResult.backup_request_id);
+            }
+          } catch (e) {
+            console.error("[simultaneous-backup]", orderId, e?.message ?? e);
+          }
+        }
+      }
+      await registrarEvento(orderId, "simultaneous_backup_created", {
+        reason: tReason,
+        T_efetivo,
+        T_min: timeoutConfig.T_min,
+      });
+    }
+
+    await registrarEvento(orderId, "ranking_initialized", {
+      products_ranked: rankings.length,
+      winners: [...winnerSuppliers.entries()].map(([mp, w]) => ({ master_product_id: mp, supplier_id: w.supplier_id })),
+      T_efetivo,
+      simultaneous,
+      reason: tReason,
+    });
+  } catch (e) {
+    console.error("[ranking] initialization failed (non-fatal)", orderId, e?.message ?? e);
+  }
 }
 
 function respostaPedido(o, reaproveitado, accessToken = null) {

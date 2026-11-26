@@ -4,8 +4,10 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { AcceptAdjustments } from "@/components/account/accept-adjustments";
+import { AcceptBackupDate } from "@/components/account/accept-backup-date";
 import { CancelOrderButton } from "@/components/account/cancel-order-button";
 import { ChoosePayment } from "@/components/account/choose-payment";
+import { CustomerRemoveItem } from "@/components/account/customer-remove-item";
 import { OrderDetail } from "@/components/account/order-detail";
 import { PayNow } from "@/components/account/pay-now";
 import { Button } from "@/components/ui/button";
@@ -61,8 +63,11 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
       ) : null}
 
       {aguardandoAceite && !ccmShortfallBanner ? (
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
           <AcceptAdjustments orderId={order.id} items={items} />
+          {items.every((i) => i.qty_confirmed == null || i.qty_confirmed === i.qty) && (
+            <AcceptBackupDate orderId={order.id} />
+          )}
         </div>
       ) : null}
 
@@ -86,7 +91,8 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
       ) : null}
 
       {podeCancelar ? (
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
+          <CustomerRemoveItem orderId={order.id} items={items} />
           <CancelOrderButton orderId={order.id} />
         </div>
       ) : null}

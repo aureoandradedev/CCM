@@ -269,3 +269,174 @@ export function isAfterSupplierCutoff(
   if (!cutoff.isOpen) return true;
   return currentTime >= cutoff.cutoffTime;
 }
+
+// ─── Business-minute arithmetic ───────────────────────────────────────────
+
+interface BusinessHoursConfig {
+  business_hours?: BusinessHoursMap | null;
+}
+
+function getDayHours(
+  config: BusinessHoursConfig | null,
+  isoDow: number,
+): DayHours | null {
+  if (!config?.business_hours) return { open: "08:00", close: "18:00" };
+  const h = config.business_hours[String(isoDow)];
+  if (!h || !h.open || !h.close) return null;
+  return h;
+}
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+function minutesToTime(totalMin: number): string {
+  const clamped = Math.max(0, Math.min(1439, totalMin));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function advanceDay(d: Date): Date {
+  return new Date(d.getTime() + 86400000);
+}
+
+/**
+ * Adds `minutes` of business time to a starting instant.
+ * Skips weekends, holidays, and hours outside business_hours.
+ * Returns the resulting Date (with time set to the business-hour instant).
+ *
+ * Max lookahead: 60 days (prevents infinite loop on bad config).
+ */
+export function addBusinessMinutes(
+  start: Date,
+  minutes: number,
+  config: BusinessHoursConfig | null,
+  holidays: string[] = [],
+): Date {
+  if (minutes <= 0) return start;
+
+  const holidaySet = new Set(holidays);
+  let remaining = minutes;
+  let current = new Date(start);
+  const maxIter = 60 * 24;
+  let iter = 0;
+
+  while (remaining > 0 && iter++ < maxIter) {
+    const dateStr = formatDate(current);
+    const isoDow = jsToIsoDow(current);
+    const hours = getDayHours(config, isoDow);
+
+    if (!hours || holidaySet.has(dateStr)) {
+      current = new Date(formatDate(advanceDay(current)) + "T00:00:00");
+      continue;
+    }
+
+    const openMin = timeToMinutes(hours.open);
+    const closeMin = timeToMinutes(hours.close);
+    const brStr = current.toLocaleTimeString("en-GB", {
+      timeZone: BRAZIL_TZ,
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    let currentMin = timeToMinutes(brStr);
+
+    if (currentMin < openMin) currentMin = openMin;
+    if (currentMin >= closeMin) {
+      current = new Date(formatDate(advanceDay(current)) + "T00:00:00");
+      continue;
+    }
+
+    const availableToday = closeMin - currentMin;
+
+    if (remaining <= availableToday) {
+      const targetMin = currentMin + remaining;
+      const targetTime = minutesToTime(targetMin);
+      return new Date(
+        dateStr +
+          "T" +
+          targetTime +
+          ":00",
+      );
+    }
+
+    remaining -= availableToday;
+    current = new Date(formatDate(advanceDay(current)) + "T00:00:00");
+  }
+
+  return current;
+}
+
+/**
+ * Counts business minutes between two instants.
+ * Only counts time within business_hours on non-holiday weekdays.
+ *
+ * Returns 0 if end <= start.
+ */
+export function businessMinutesBetween(
+  start: Date,
+  end: Date,
+  config: BusinessHoursConfig | null,
+  holidays: string[] = [],
+): number {
+  if (end <= start) return 0;
+
+  const holidaySet = new Set(holidays);
+  let total = 0;
+  let current = new Date(start);
+  const maxIter = 60 * 24;
+  let iter = 0;
+
+  while (current < end && iter++ < maxIter) {
+    const dateStr = formatDate(current);
+    const isoDow = jsToIsoDow(current);
+    const hours = getDayHours(config, isoDow);
+
+    if (!hours || holidaySet.has(dateStr)) {
+      current = new Date(formatDate(advanceDay(current)) + "T00:00:00");
+      continue;
+    }
+
+    const openMin = timeToMinutes(hours.open);
+    const closeMin = timeToMinutes(hours.close);
+
+    const isSameDay = formatDate(current) === formatDate(end);
+
+    const brStrStart = current.toLocaleTimeString("en-GB", {
+      timeZone: BRAZIL_TZ,
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    let startMin = timeToMinutes(brStrStart);
+    if (startMin < openMin) startMin = openMin;
+    if (startMin >= closeMin) {
+      current = new Date(formatDate(advanceDay(current)) + "T00:00:00");
+      continue;
+    }
+
+    let endMin: number;
+    if (isSameDay) {
+      const brStrEnd = end.toLocaleTimeString("en-GB", {
+        timeZone: BRAZIL_TZ,
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      endMin = Math.min(timeToMinutes(brStrEnd), closeMin);
+    } else {
+      endMin = closeMin;
+    }
+
+    if (endMin > startMin) {
+      total += endMin - startMin;
+    }
+
+    if (isSameDay) break;
+    current = new Date(formatDate(advanceDay(current)) + "T00:00:00");
+  }
+
+  return total;
+}

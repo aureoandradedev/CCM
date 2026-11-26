@@ -247,3 +247,33 @@ export async function acceptOrderAdjustments(orderId: string): Promise<ActionSta
   if (result && !result.ok) return { error: result.error ?? "Erro ao aceitar ajustes." };
   return { ok: "Ajustes aceitos. Pagamento liberado!" };
 }
+
+export async function acceptBackupDeliveryDate(orderId: string): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Faça login para continuar." };
+
+  const { data, error } = await supabase.rpc("accept_backup_delivery_date", { p_order_id: orderId });
+  if (error) return { error: error.message };
+  const result = data as { ok: boolean; error?: string } | null;
+  if (result && !result.ok) return { error: result.error ?? "Erro ao aceitar prazo." };
+  return { ok: "Prazo aceito. Pagamento liberado!" };
+}
+
+export async function removeMyOrderItem(orderId: string, orderItemId: string, reason: string): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Faça login para continuar." };
+
+  const { data, error } = await supabase.rpc("remove_order_item_v2", {
+    p_order_id: orderId,
+    p_order_item_id: orderItemId,
+    p_reason: reason || "Removido pelo cliente",
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok: boolean; error?: string } | null;
+  if (result && !result.ok) return { error: result.error ?? "Erro ao remover item." };
+  return { ok: "Item removido do pedido." };
+}
