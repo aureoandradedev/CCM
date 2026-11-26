@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { InfoPage, InfoSection } from "@/components/layout/info-page";
+import { getSiteSettings } from "@/lib/data/catalog";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -8,7 +9,8 @@ export const metadata: Metadata = {
   description: `Conheça a ${site.name}: uma central de compras de material de construção que conecta a sua obra aos melhores distribuidores da região.`,
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const settings = await getSiteSettings();
   return (
     <InfoPage
       crumb="Sobre a Multigiro"
@@ -35,7 +37,7 @@ export default function AboutPage() {
       </InfoSection>
 
       <InfoSection title="Onde estamos">
-        <p>Atendemos todo o sul do Espírito Santo, com base em {site.address}.</p>
+        <p>Atendemos todo o {settings.deliveryArea.label}, com base em {site.address}.</p>
         <p>Horário de atendimento: {site.hours}.</p>
         <p>
           Televendas e WhatsApp:{" "}

@@ -50,9 +50,12 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, supplier_id")
     .eq("id", (await supabase.auth.getUser()).data.user!.id)
     .maybeSingle();
+
+  if (profile?.supplier_id) redirect("/fornecedores/painel");
+
   const role = (profile?.role as UserRole) ?? "customer";
   redirect(ROLE_HOME[role] ?? "/conta");
 }
@@ -63,12 +66,14 @@ export async function signUp(_prev: ActionState, formData: FormData): Promise<Ac
   const fullName = String(formData.get("full_name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const document = onlyDigits(formData.get("document"));
   const phone = onlyDigits(formData.get("phone"));
 
   if (fullName.length < 3) return { error: "Digite seu nome completo." };
   if (!isValidEmail(email)) return { error: "E-mail inválido." };
   if (password.length < 8) return { error: "A senha precisa ter pelo menos 8 caracteres." };
+  if (password !== confirmPassword) return { error: "As senhas não coincidem." };
   if (!isValidCPF(document) && !isValidCNPJ(document)) return { error: "CPF ou CNPJ inválido." };
   if (phone.length < 10) return { error: "WhatsApp com DDD." };
 
@@ -225,6 +230,8 @@ export async function cancelMyOrder(orderId: string): Promise<ActionState> {
   if (data?.error) return { error: data.error as string };
   // G4: Cancel pending supplier_requests (service_role required)
   try { await createAdminClient().rpc("cancel_order_requests", { p_order_id: orderId }); } catch {}
+  // CCM Etapa 5: release CCM stock reservations on cancel
+  try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: orderId }); } catch {}
   return { ok: "Pedido cancelado com sucesso." };
 }
 

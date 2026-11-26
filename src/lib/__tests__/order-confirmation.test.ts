@@ -13,7 +13,7 @@ import { ORDER_STATUS, type OrderStatus } from "../orders";
 describe("ORDER_STATUS", () => {
   it("includes aguardando-confirmacao", () => {
     expect(ORDER_STATUS).toHaveProperty("aguardando-confirmacao");
-    expect(ORDER_STATUS["aguardando-confirmacao"].label).toBe("Aguardando confirmação");
+    expect(ORDER_STATUS["aguardando-confirmacao"].label).toBe("Aguardando confirmação dos fornecedores");
     expect(ORDER_STATUS["aguardando-confirmacao"].tone).toBe("orange");
   });
 

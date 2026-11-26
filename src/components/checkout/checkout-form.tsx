@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, Info, Lock, Store, Truck } from "lucide-react";
+import { ArrowRight, Check, Info, Lock, MapPin, Plus, Store, Truck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ import { groupCartLinesForEstimate } from "@/lib/delivery-promise";
 import { formatDate } from "@/lib/orders";
 import { round2 } from "@/lib/pricing";
 import { formatBRL } from "@/lib/utils/format";
-import type { CdPickupInfo } from "@/lib/data/catalog";
+import type { CdPickupInfo, PublicDeliveryArea } from "@/lib/data/catalog";
 import { isValidCNPJ, isValidCPF, isValidEmail, maskCEP, maskDocument, maskPhone, onlyDigits } from "@/lib/utils/masks";
 import { cn } from "@/lib/utils";
 
@@ -69,18 +69,55 @@ interface Perfil {
   email?: string;
 }
 
+export interface SavedAddress {
+  id: string;
+  label: string;
+  cep: string;
+  street: string;
+  number: string;
+  complement: string | null;
+  district: string;
+  city: string;
+  state: string;
+  reference: string | null;
+  is_default: boolean;
+}
+
 export interface BloqueioEntrega {
   ativo: boolean;
   data: string | null;
   mensagem: string;
 }
 
-/**
- * Checkout de UMA página: identificação, entrega, forma de pagamento e resumo.
- * Ao confirmar, o pedido é criado no backend (que recalcula tudo) e a etapa
- * de pagamento (Pix / cartão) aparece no lugar do formulário.
- */
-export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | null; bloqueio?: BloqueioEntrega | null; cdInfo?: CdPickupInfo | null }) {
+function normalizeCity(city: string): string {
+  return city.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+const FAIL_CLOSED_MSG = "Área de entrega temporariamente indisponível. Escolha retirada no CD ou tente novamente mais tarde.";
+
+function validateDeliveryArea(area: PublicDeliveryArea | undefined, uf: string, city: string): string | null {
+  if (!area) return FAIL_CLOSED_MSG;
+  if (area.mode === "cities") {
+    const allowed = area.allowedCities ?? [];
+    if (allowed.length === 0) return FAIL_CLOSED_MSG;
+    const normalizedAllowed = allowed.map(normalizeCity);
+    if (!normalizedAllowed.includes(normalizeCity(city))) return area.rejectMessage;
+    return null;
+  }
+  if (area.mode === "uf") {
+    const allowed = area.allowedUFs ?? [];
+    if (allowed.length === 0) return FAIL_CLOSED_MSG;
+    if (!allowed.map((u) => u.toUpperCase()).includes(uf.trim().toUpperCase())) return area.rejectMessage;
+    return null;
+  }
+  return FAIL_CLOSED_MSG;
+}
+
+type AddressMode = "saved" | "new";
+
+const ADDRESS_LABELS = ["Casa", "Obra", "Empresa", "Outro"] as const;
+
+export function CheckoutForm({ perfil, bloqueio, cdInfo, savedAddresses, deliveryArea }: { perfil?: Perfil | null; bloqueio?: BloqueioEntrega | null; cdInfo?: CdPickupInfo | null; savedAddresses?: SavedAddress[]; deliveryArea: PublicDeliveryArea }) {
   const { freeShippingFrom, standardShipping } = useShippingConfig();
   const router = useRouter();
   const hydrated = useHydrated();
@@ -88,6 +125,16 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
   const totals = useCartStore(useShallow(selectTotals));
   const clear = useCartStore((s) => s.clear);
   const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+
+  const addresses = savedAddresses ?? [];
+  const defaultAddr = addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(defaultAddr?.id ?? null);
+  const [addressMode, setAddressMode] = useState<AddressMode>(addresses.length > 0 ? "saved" : "new");
+  const [newLabel, setNewLabel] = useState("Obra");
+  const [setAsDefault, setSetAsDefault] = useState(false);
+
+  const selectedAddress = addressMode === "saved" ? addresses.find((a) => a.id === selectedAddressId) ?? null : null;
 
   const {
     register,
@@ -95,16 +142,24 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
     setValue,
     watch,
     setFocus,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       entrega: bloqueio?.ativo ? "pickup" : "delivery",
-      uf: "",
       nome: perfil?.fullName ?? "",
       documento: perfil?.document ? maskDocument(perfil.document) : "",
       telefone: perfil?.phone ?? "",
       email: perfil?.email ?? "",
+      cep: defaultAddr?.cep ? maskCEP(defaultAddr.cep) : "",
+      rua: defaultAddr?.street ?? "",
+      numero: defaultAddr?.number ?? "",
+      complemento: defaultAddr?.complement ?? "",
+      bairro: defaultAddr?.district ?? "",
+      cidade: defaultAddr?.city ?? "",
+      uf: defaultAddr?.state ?? "",
+      referencia: defaultAddr?.reference ?? "",
     },
     mode: "onBlur",
   });
@@ -112,15 +167,72 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
   const entrega = watch("entrega");
   const documento = watch("documento");
   const isento = watch("isento");
+  const watchCep = watch("cep");
+  const watchRua = watch("rua");
+  const watchNumero = watch("numero");
+  const watchBairro = watch("bairro");
+  const watchCidade = watch("cidade");
+  const watchUf = watch("uf");
   const isCnpj = onlyDigits(documento ?? "").length === 14 && isValidCNPJ(documento ?? "");
+  const hasValidCep = onlyDigits(watchCep ?? "").length === 8;
+  const hasCompleteAddress =
+    hasValidCep &&
+    !cepError &&
+    !!watchRua?.trim() &&
+    !!watchNumero?.trim() &&
+    !!watchBairro?.trim() &&
+    !!watchCidade?.trim() &&
+    !!watchUf?.trim();
 
-  const shipping = entrega === "pickup" ? 0 : totals.subtotal >= freeShippingFrom ? 0 : standardShipping;
-  const total = round2(totals.subtotal + shipping);
+  const shipping: number | null =
+    entrega === "pickup" ? 0
+    : totals.subtotal >= freeShippingFrom ? 0
+    : hasValidCep && !cepError ? standardShipping
+    : null;
+  const total = shipping !== null ? round2(totals.subtotal + shipping) : null;
+
+  const populateFromAddress = (addr: SavedAddress) => {
+    setValue("cep", maskCEP(addr.cep), { shouldValidate: true });
+    setValue("rua", addr.street, { shouldValidate: true });
+    setValue("numero", addr.number, { shouldValidate: true });
+    setValue("complemento", addr.complement ?? "", { shouldValidate: true });
+    setValue("bairro", addr.district, { shouldValidate: true });
+    setValue("cidade", addr.city, { shouldValidate: true });
+    setValue("uf", addr.state, { shouldValidate: true });
+    setValue("referencia", addr.reference ?? "", { shouldValidate: true });
+    const areaErr = validateDeliveryArea(deliveryArea, addr.state, addr.city);
+    setCepError(areaErr);
+  };
+
+  const clearAddressFields = () => {
+    setValue("cep", "");
+    setValue("rua", "");
+    setValue("numero", "");
+    setValue("complemento", "");
+    setValue("bairro", "");
+    setValue("cidade", "");
+    setValue("uf", "");
+    setValue("referencia", "");
+    setCepError(null);
+  };
+
+  const handleSelectAddress = (addr: SavedAddress) => {
+    setSelectedAddressId(addr.id);
+    setAddressMode("saved");
+    populateFromAddress(addr);
+  };
+
+  const handleNewAddress = () => {
+    setAddressMode("new");
+    setSelectedAddressId(null);
+    clearAddressFields();
+  };
 
   const lookupCep = async (raw: string) => {
     const d = onlyDigits(raw);
     if (d.length !== 8) return;
     setCepLoading(true);
+    setCepError(null);
     try {
       const res = await fetch(`https://viacep.com.br/ws/${d}/json/`);
       const data = (await res.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string };
@@ -132,6 +244,11 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
       if (data.bairro) setValue("bairro", data.bairro, { shouldValidate: true });
       if (data.localidade) setValue("cidade", data.localidade, { shouldValidate: true });
       if (data.uf) setValue("uf", data.uf, { shouldValidate: true });
+      const areaError = validateDeliveryArea(deliveryArea, data.uf ?? "", data.localidade ?? "");
+      if (areaError) {
+        setCepError(areaError);
+        return;
+      }
       setFocus("numero");
     } catch {
       toast.error("Não foi possível consultar o CEP agora.");
@@ -139,6 +256,15 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
       setCepLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!defaultAddr || entrega !== "delivery") return;
+    if (addressMode === "saved" && selectedAddress) {
+      const areaErr = validateDeliveryArea(deliveryArea, selectedAddress.state, selectedAddress.city);
+      if (areaErr) setCepError(areaErr);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entrega]);
 
   const onSubmit = async (v: FormValues) => {
     if (!lines.length) {
@@ -148,14 +274,32 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
     if (v.entrega === "delivery") {
       const faltando = ["cep", "rua", "numero", "bairro", "cidade", "uf"].filter((k) => !String(v[k as keyof FormValues] || "").trim());
       if (faltando.length) {
-        toast.error("Preencha o endereço de entrega.");
+        toast.error("Preencha o endereço de entrega completo.");
         setFocus(faltando[0] as keyof FormValues);
+        return;
+      }
+      const submitAreaError = validateDeliveryArea(deliveryArea, String(v.uf || ""), String(v.cidade || ""));
+      if (submitAreaError) {
+        toast.error(submitAreaError);
+        setFocus("cep");
         return;
       }
     }
     const items = lines.map((l) => ({ productId: l.productId, qty: l.qty }));
     const assinatura = onlyDigits(v.documento) + "|" + items.map((i) => `${i.productId}x${i.qty}`).sort().join(",");
     try {
+      const addressPayload = v.entrega === "delivery"
+        ? {
+            cep: onlyDigits(v.cep),
+            street: v.rua,
+            number: v.numero,
+            complement: v.complemento,
+            district: v.bairro,
+            city: v.cidade,
+            state: v.uf,
+            reference: v.referencia,
+          }
+        : undefined;
       const r = await apiFetch<{ ok: boolean; orderCode: string; accessToken?: string }>("/pagamentos/criar-pedido", {
         body: {
           items,
@@ -167,10 +311,8 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
             ...(isCnpj ? { ie: v.isento ? "ISENTO" : (v.ie?.trim() || undefined) } : {}),
           },
           deliveryMethod: v.entrega,
-          address:
-            v.entrega === "delivery"
-              ? { cep: onlyDigits(v.cep), street: v.rua, number: v.numero, complement: v.complemento, district: v.bairro, city: v.cidade, state: v.uf, reference: v.referencia }
-              : undefined,
+          address: addressPayload,
+          addressMeta: addressPayload && addressMode === "new" ? { label: newLabel, setAsDefault } : undefined,
           notes: v.observacoes,
           clientRequestId: clientRequestId(assinatura),
           origin: "site",
@@ -257,7 +399,7 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
                 <legend className="sr-only">Forma de recebimento</legend>
                 {(
                   [
-                    ["delivery", "Entrega pela CCM", Truck, totals.subtotal >= freeShippingFrom ? "Frete grátis" : `Frete ${formatBRL(standardShipping)}`],
+                    ["delivery", "Entrega pela CCM", Truck, totals.subtotal >= freeShippingFrom ? "Frete grátis" : hasValidCep && !cepError ? `Frete ${formatBRL(standardShipping)}` : cepError ? "Fora da área de entrega" : "Informe o CEP para verificar a entrega"],
                     ["pickup", "Retirada no CD da CCM", Store, "Sem frete"],
                   ] as const
                 ).map(([k, label, I, hint]) => (
@@ -282,45 +424,116 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
                   </div>
                 </div>
               ) : null}
+
               {entrega === "delivery" ? (
-                <div className="mt-4 grid gap-4 sm:grid-cols-6">
-                  <Field label="CEP" className="sm:col-span-2">
-                    <input
-                      className={input}
-                      inputMode="numeric"
-                      autoComplete="postal-code"
-                      {...register("cep", {
-                        onChange: (e) => {
-                          const m = maskCEP(e.target.value);
-                          setValue("cep", m);
-                          if (onlyDigits(m).length === 8) void lookupCep(m);
-                        },
-                      })}
-                    />
-                    {cepLoading ? <span className="text-xs text-brand-ink-soft">Buscando endereço...</span> : null}
-                  </Field>
-                  <Field label="Rua / Avenida" className="sm:col-span-4">
-                    <input className={input} autoComplete="address-line1" {...register("rua")} />
-                  </Field>
-                  <Field label="Número" className="sm:col-span-1">
-                    <input className={input} {...register("numero")} />
-                  </Field>
-                  <Field label="Complemento" className="sm:col-span-2">
-                    <input className={input} placeholder="Lote, casa, andar" {...register("complemento")} />
-                  </Field>
-                  <Field label="Bairro" className="sm:col-span-3">
-                    <input className={input} {...register("bairro")} />
-                  </Field>
-                  <Field label="Cidade" className="sm:col-span-4">
-                    <input className={input} autoComplete="address-level2" {...register("cidade")} />
-                  </Field>
-                  <Field label="UF" className="sm:col-span-2">
-                    <input className={cn(input, "uppercase")} maxLength={2} autoComplete="address-level1" {...register("uf")} />
-                  </Field>
-                  <Field label="Ponto de referência" className="sm:col-span-6">
-                    <input className={input} placeholder="Ex.: portão azul, ao lado da padaria" {...register("referencia")} />
-                  </Field>
-                </div>
+                <>
+                  {addresses.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink-soft">Endereço de entrega</p>
+                      <div className="space-y-2">
+                        {addresses.map((addr) => (
+                          <button
+                            key={addr.id}
+                            type="button"
+                            onClick={() => handleSelectAddress(addr)}
+                            className={cn(
+                              "flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition-colors",
+                              addressMode === "saved" && selectedAddressId === addr.id
+                                ? "border-brand-navy bg-brand-yellow-soft/60"
+                                : "border-brand-line bg-card hover:border-brand-navy/30",
+                            )}
+                          >
+                            <MapPin className="mt-0.5 size-4 shrink-0 text-brand-navy" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-brand-navy">{addr.label}</span>
+                                {addr.is_default ? <span className="rounded-full bg-brand-navy/10 px-2 py-0.5 text-[0.65rem] font-semibold text-brand-navy">Padrão</span> : null}
+                              </div>
+                              <p className="mt-0.5 text-xs text-brand-ink-soft">
+                                {addr.street}, {addr.number}{addr.complement ? ` — ${addr.complement}` : ""} · {addr.district} · {addr.city}/{addr.state} · CEP {maskCEP(addr.cep)}
+                              </p>
+                            </div>
+                            {addressMode === "saved" && selectedAddressId === addr.id ? <Check className="mt-1 size-4 shrink-0 text-brand-navy" /> : null}
+                          </button>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={handleNewAddress}
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-2xl border border-dashed p-3 text-left transition-colors",
+                            addressMode === "new"
+                              ? "border-brand-navy bg-brand-yellow-soft/60"
+                              : "border-brand-line bg-card hover:border-brand-navy/30",
+                          )}
+                        >
+                          <Plus className="size-4 text-brand-navy" />
+                          <span className="text-sm font-bold text-brand-navy">Adicionar novo endereço</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {addressMode === "new" || addresses.length === 0 ? (
+                    <div className={cn("grid gap-4 sm:grid-cols-6", addresses.length > 0 ? "mt-3" : "mt-4")}>
+                      {addresses.length > 0 ? (
+                        <div className="sm:col-span-6 grid gap-3 sm:grid-cols-2">
+                          <Field label="Nome do endereço">
+                            <select value={newLabel} onChange={(e) => setNewLabel(e.target.value)} className={input}>
+                              {ADDRESS_LABELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                            </select>
+                          </Field>
+                          <label className="flex items-center gap-2 self-end pb-2.5">
+                            <input type="checkbox" className="size-4 accent-[var(--ccm-navy)]" checked={setAsDefault} onChange={(e) => setSetAsDefault(e.target.checked)} />
+                            <span className="text-sm font-medium text-brand-ink">Definir como endereço padrão</span>
+                          </label>
+                        </div>
+                      ) : null}
+                      <Field label="CEP" className="sm:col-span-2">
+                        <input
+                          className={input}
+                          inputMode="numeric"
+                          autoComplete="postal-code"
+                          {...register("cep", {
+                            onChange: (e) => {
+                              const m = maskCEP(e.target.value);
+                              setValue("cep", m);
+                              setCepError(null);
+                              if (onlyDigits(m).length === 8) void lookupCep(m);
+                            },
+                          })}
+                        />
+                        {cepLoading ? <span className="text-xs text-brand-ink-soft">Buscando endereço...</span> : null}
+                        {cepError ? <span role="alert" className="text-xs font-medium text-brand-red">{cepError}</span> : null}
+                      </Field>
+                      <Field label="Rua / Avenida" className="sm:col-span-4">
+                        <input className={input} autoComplete="address-line1" {...register("rua")} />
+                      </Field>
+                      <Field label="Número" className="sm:col-span-1">
+                        <input className={input} {...register("numero")} />
+                      </Field>
+                      <Field label="Complemento" className="sm:col-span-2">
+                        <input className={input} placeholder="Lote, casa, andar" {...register("complemento")} />
+                      </Field>
+                      <Field label="Bairro" className="sm:col-span-3">
+                        <input className={input} {...register("bairro")} />
+                      </Field>
+                      <Field label="Cidade" className="sm:col-span-4">
+                        <input className={input} autoComplete="address-level2" {...register("cidade")} />
+                      </Field>
+                      <Field label="UF" className="sm:col-span-2">
+                        <input className={cn(input, "uppercase")} maxLength={2} autoComplete="address-level1" {...register("uf")} />
+                      </Field>
+                      <Field label="Ponto de referência" className="sm:col-span-6">
+                        <input className={input} placeholder="Ex.: portão azul, ao lado da padaria" {...register("referencia")} />
+                      </Field>
+                    </div>
+                  ) : addressMode === "saved" && selectedAddress ? (
+                    <div className="mt-3">
+                      {cepError ? <span role="alert" className="text-xs font-medium text-brand-red">{cepError}</span> : null}
+                    </div>
+                  ) : null}
+                </>
               ) : null}
               <Field label="Observacoes para entrega" className="mt-4">
                 <input className={input} placeholder="Ex.: entregar pela manhã, obra sem portão" maxLength={500} {...register("observacoes")} />
@@ -337,7 +550,7 @@ export function CheckoutForm({ perfil, bloqueio, cdInfo }: { perfil?: Perfil | n
           </div>
 
           <ResumoLateral lines={lines} totals={totals} shipping={shipping} desconto={0} total={total} hydrated={hydrated}>
-            <Button type="submit" variant="brand" size="xl" className="mt-5 w-full" disabled={isSubmitting || !hydrated}>
+            <Button type="submit" variant="brand" size="xl" className="mt-5 w-full" disabled={isSubmitting || !hydrated || (entrega === "delivery" && !hasCompleteAddress)}>
               <Lock />
               {isSubmitting ? "Registrando..." : "Enviar pedido para confirmação"}
               <ArrowRight />
@@ -379,7 +592,7 @@ function DeliveryGroupsPreview() {
   );
 }
 
-function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, children }: { lines: { productId: string; qty: number; name: string }[]; totals: { subtotal: number }; shipping: number; desconto: number; total: number; hydrated: boolean; children?: React.ReactNode }) {
+function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, children }: { lines: { productId: string; qty: number; name: string }[]; totals: { subtotal: number }; shipping: number | null; desconto: number; total: number | null; hydrated: boolean; children?: React.ReactNode }) {
   return (
     <aside className="lg:sticky lg:top-24 lg:self-start">
       <div className="rounded-3xl border border-brand-line bg-card p-6 shadow-[var(--shadow-card)]">
@@ -401,7 +614,7 @@ function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, chi
               </div>
               <div className="flex justify-between text-brand-ink-soft">
                 <dt>Frete</dt>
-                <dd>{shipping === 0 ? <span className="font-semibold text-brand-green">Grátis</span> : formatBRL(shipping)}</dd>
+                <dd>{shipping === null ? <span className="text-xs">Informe o CEP</span> : shipping === 0 ? <span className="font-semibold text-brand-green">Grátis</span> : <span className="tabular-nums">{formatBRL(shipping)}</span>}</dd>
               </div>
               {desconto > 0 ? (
                 <div className="flex justify-between font-medium text-brand-green">
@@ -411,8 +624,9 @@ function ResumoLateral({ lines, totals, shipping, desconto, total, hydrated, chi
               ) : null}
               <div className="flex items-baseline justify-between border-t border-brand-line pt-3">
                 <dt className="font-heading text-base font-bold text-brand-navy">Total</dt>
-                <dd className="font-heading text-2xl font-extrabold text-brand-navy tabular-nums">{formatBRL(total)}</dd>
+                <dd className="font-heading text-2xl font-extrabold text-brand-navy tabular-nums">{total !== null ? formatBRL(total) : formatBRL(totals.subtotal)}</dd>
               </div>
+              {total === null ? <p className="text-right text-xs text-brand-ink-soft">+ frete (informe o endereço)</p> : null}
             </dl>
           </>
         ) : (

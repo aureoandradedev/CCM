@@ -58,11 +58,11 @@ export function CartDrawer() {
                   </div>
                 ) : null}
                 <div className="flex items-baseline justify-between pt-1">
-                  <dt className="font-heading text-base font-bold text-brand-navy dark:text-foreground">Total no Pix</dt>
-                  <dd className="font-heading text-2xl font-extrabold text-brand-navy tabular-nums dark:text-foreground">{formatBRL(totals.pixTotal)}</dd>
+                  <dt className="font-heading text-base font-bold text-brand-navy dark:text-foreground">Subtotal</dt>
+                  <dd className="font-heading text-2xl font-extrabold text-brand-navy tabular-nums dark:text-foreground">{formatBRL(totals.subtotal)}</dd>
                 </div>
                 <p className="text-right text-xs text-brand-ink-soft">
-                  ou {formatBRL(totals.subtotal)} no cartão · frete calculado no checkout
+                  Frete calculado no checkout
                 </p>
               </dl>
 

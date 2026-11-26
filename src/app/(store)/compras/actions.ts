@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { assertRole } from "@/lib/admin/guard";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface ActionResult {
   ok?: string;
@@ -50,6 +51,8 @@ export async function rejectOrder(orderId: string, motivo: string): Promise<Acti
     const { data, error } = await sb.rpc("cancel_order_full", { p_order_id: orderId });
     if (error) return { error: error.message };
     if (data?.error) return { error: data.error as string };
+    // CCM Etapa 5: release CCM stock reservations on cancel
+    try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: orderId }); } catch {}
     await logEvent(sb, orderId, "rejeitado-compras", { motivo }, userId);
     return { ok: "Pedido rejeitado e cancelado." };
   }, ["/compras", "/admin/pedidos"]);

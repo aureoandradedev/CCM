@@ -6,7 +6,7 @@ import { site, whatsappLink } from "@/lib/site";
 
 /** Barra de utilidades (Telhanorte/Obramax): diferenciais à esquerda, atendimento à direita. */
 export async function TopBar() {
-  const { avisoTopo } = await getSiteSettings();
+  const { avisoTopo, deliveryArea } = await getSiteSettings();
   return (
     <div data-site-chrome className="bg-brand-navy text-[0.72rem] whitespace-nowrap text-white/85 sm:text-[0.78rem]">
       <div className="container-ccm flex h-9 items-center justify-between gap-4">
@@ -16,7 +16,7 @@ export async function TopBar() {
           <ul className="flex items-center gap-5">
             <li className="flex items-center gap-1.5">
               <MapPin className="size-3.5 text-brand-yellow" />
-              <span>Entrega em todo o Sul do ES</span>
+              <span>Entrega em todo o {deliveryArea.label}</span>
             </li>
             <li className="hidden items-center gap-1.5 md:flex">
               <Truck className="size-3.5 text-brand-yellow" />

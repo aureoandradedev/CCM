@@ -44,6 +44,10 @@ export function PixPanel({ orderId, orderCode, totalCentavos, pricingVersion, on
       setPix(r);
     } catch (e) {
       const err = e as ApiError;
+      if (err.status === 409 && err.data.ccmShortfall === true) {
+        setErro("Ajustamos seu pedido antes do pagamento. Acompanhe o status para saber quando o pagamento será liberado.");
+        return;
+      }
       if (err.status === 409 && typeof err.data.pricingVersion === "number") {
         setConfirmarVersao({ pricingVersion: err.data.pricingVersion as number, totalCentavos: Number(err.data.totalCentavos) });
         return;

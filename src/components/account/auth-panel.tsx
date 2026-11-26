@@ -22,11 +22,19 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
   const [doc, setDoc] = useState("");
   const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginState, loginAction, loginPending] = useActionState(signIn, initial);
   const [signupState, signupAction, signupPending] = useActionState(signUp, initial);
   const [resetState, resetAction, resetPending] = useActionState(requestPasswordReset, initial);
 
   const state = mode === "login" ? loginState : mode === "signup" ? signupState : resetState;
+
+  const passwordTooShort = password.length < 8;
+  const confirmTooShort = confirmPassword.length < 8;
+  const passwordsMismatch = password !== confirmPassword;
+  const signupDisabled = signupPending || passwordTooShort || confirmTooShort || passwordsMismatch;
 
   return (
     <div className="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[1fr_1fr]">
@@ -130,7 +138,7 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
             <label className="block text-xs font-semibold text-brand-ink">
               Senha (mínimo 8 caracteres)
               <span className="relative mt-1 block">
-                <input name="password" className={cn(input, "pr-10")} type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} required />
+                <input name="password" className={cn(input, "pr-10")} type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
@@ -141,7 +149,24 @@ export function AuthPanel({ next = "/conta" }: { next?: string }) {
                 </button>
               </span>
             </label>
-            <Button type="submit" variant="brand" size="xl" className="w-full" disabled={signupPending}>
+            <label className="block text-xs font-semibold text-brand-ink">
+              Confirmar senha
+              <span className="relative mt-1 block">
+                <input name="confirmPassword" className={cn(input, "pr-10")} type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-brand-ink-soft hover:text-brand-ink"
+                >
+                  {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </span>
+            </label>
+            {confirmPassword.length > 0 && passwordsMismatch ? (
+              <p role="alert" className="text-sm text-brand-red">As senhas não coincidem</p>
+            ) : null}
+            <Button type="submit" variant="brand" size="xl" className="w-full" disabled={signupDisabled}>
               <UserPlus />
               {signupPending ? "Criando..." : "Criar minha conta"}
             </Button>

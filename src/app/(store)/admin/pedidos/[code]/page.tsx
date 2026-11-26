@@ -19,24 +19,34 @@ const EVENT_LABEL: Record<string, string> = {
   "pix-criado": "Pix gerado",
   "cartao-aprovado": "Cartão aprovado",
   "cartao-negado": "Cartão negado",
-  webhook: "Webhook",
+  webhook: "Notificação do gateway",
   estorno: "Estorno",
   arquivado: "Arquivado",
   reaberto: "Reaberto",
   cancelado: "Cancelado",
   desconsiderado: "Removido do fechamento",
   reconsiderado: "Devolvido ao fechamento",
-  shipment_status_changed: "Status de entrega alterado",
-  shipment_tracking_set: "Rastreio atualizado",
-  shipment_occurrence: "Ocorrência de entrega",
-  fiscal_doc_created: "Doc fiscal criado",
-  fiscal_doc_found_idempotent: "Doc fiscal (já existia)",
-  fiscal_doc_status_changed: "Status fiscal alterado",
-  fiscal_doc_invoiced: "DAV faturado",
-  fiscal_doc_cancelled: "Doc fiscal cancelado",
-  fiscal_doc_send_failed: "Falha envio fiscal",
-  fiscal_doc_sync_started: "Sincronização fiscal",
-  fiscal_doc_sync_completed: "Sincronização fiscal concluída",
+  shipment_status_changed: "Entrega: status alterado",
+  shipment_tracking_set: "Entrega: rastreio atualizado",
+  shipment_occurrence: "Entrega: ocorrência",
+  fiscal_doc_created: "Fiscal: documento criado",
+  fiscal_doc_found_idempotent: "Fiscal: documento já existia",
+  fiscal_doc_status_changed: "Fiscal: status alterado",
+  fiscal_doc_invoiced: "Fiscal: DAV faturado",
+  fiscal_doc_cancelled: "Fiscal: documento cancelado",
+  fiscal_doc_send_failed: "Fiscal: falha no envio",
+  fiscal_doc_sync_started: "Fiscal: sincronização iniciada",
+  fiscal_doc_sync_completed: "Fiscal: sincronização concluída",
+};
+
+const ACTOR_LABEL: Record<string, string> = {
+  system: "Sistema",
+  admin: "Admin",
+  customer: "Cliente",
+  supplier: "Fornecedor",
+  backend: "Sistema",
+  webhook: "Gateway",
+  cron: "Automação",
 };
 
 export default async function AdminOrder({ params }: { params: Promise<{ code: string }> }) {
@@ -56,6 +66,11 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
 
       <div className="space-y-6">
         <OrderActions order={order} />
+        {order.order_status === "aguardando-pagamento" ? (
+          <div className="rounded-xl border border-brand-yellow/40 bg-brand-yellow-soft px-4 py-2.5 text-sm text-brand-navy">
+            Fornecedores confirmados — aguardando pagamento do cliente.
+          </div>
+        ) : null}
         <OrderDetail order={order} items={items} shipments={shipments} showCustomer />
 
         {shipments.length > 0 ? (
@@ -95,7 +110,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
                   <span className="w-36 shrink-0 text-xs text-brand-ink-soft">{formatDateTime(e.created_at)}</span>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-brand-ink">
-                      {EVENT_LABEL[e.type] ?? e.type} <span className="text-xs font-normal text-brand-ink-soft">({e.actor_kind})</span>
+                      {EVENT_LABEL[e.type] ?? e.type} <span className="text-xs font-normal text-brand-ink-soft">({ACTOR_LABEL[e.actor_kind] ?? e.actor_kind})</span>
                     </p>
                     {Object.keys(e.data ?? {}).length ? <p className="truncate text-xs text-brand-ink-soft">{JSON.stringify(e.data)}</p> : null}
                   </div>

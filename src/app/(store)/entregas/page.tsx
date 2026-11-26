@@ -34,7 +34,7 @@ export default async function DeliveryPage() {
 
       <InfoSection title="Área de cobertura">
         <p>
-          Atendemos todo o sul do Espírito Santo. A disponibilidade de entrega e o valor do frete podem variar de acordo com a localidade.
+          Atendemos todo o {settings.deliveryArea.label}. A disponibilidade de entrega e o valor do frete podem variar de acordo com a localidade.
         </p>
       </InfoSection>
 
@@ -57,7 +57,7 @@ export default async function DeliveryPage() {
           items={[
             { q: "Posso agendar a entrega?", a: "Sim, a equipe entra em contato pelo WhatsApp para combinar o melhor horário para a entrega." },
             { q: "E se o produto chegar danificado?", a: "Entre em contato conosco em até 7 dias. A Multigiro Central de Compras resolve diretamente a troca ou devolução." },
-            { q: "Entregam em qualquer endereço?", a: "Entregamos em endereços residenciais, obras e empresas dentro da área de cobertura (sul do ES)." },
+            { q: "Entregam em qualquer endereço?", a: `Entregamos em endereços residenciais, obras e empresas dentro da área de cobertura (${settings.deliveryArea.label}).` },
           ]}
         />
       </InfoSection>

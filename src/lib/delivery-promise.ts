@@ -8,7 +8,7 @@
  * Funções puras. Reutilizam addBusinessDays de purchase-cycle.ts.
  */
 
-import { addBusinessDays } from "./purchase-cycle";
+import { addBusinessDays } from "./purchase-cycle.ts";
 
 // ─── Config ────────────────────────────────────────────────────────────────
 

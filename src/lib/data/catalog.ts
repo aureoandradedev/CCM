@@ -293,20 +293,38 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
   return all.filter((p) => set.has(p.id));
 }
 
+export interface PublicDeliveryArea {
+  mode: "uf" | "cities" | "cep_prefixes";
+  allowedUFs?: string[];
+  allowedCities?: string[];
+  allowedCepPrefixes?: string[];
+  label: string;
+  rejectMessage: string;
+}
+
 export interface SiteSettings {
   avisoTopo: string;
   bestSellerIds: string[];
   bloqueio: { ativo: boolean; data: string | null; mensagem: string };
   frete: { freeShippingFromCentavos: number; flatCentavos: number; pickupEnabled: boolean };
+  deliveryArea: PublicDeliveryArea;
   pixPct: number;
   cd: { address: string; hours: string };
 }
+
+const DEFAULT_DELIVERY_AREA: PublicDeliveryArea = {
+  mode: "cities",
+  allowedCities: [],
+  label: "Sul do ES",
+  rejectMessage: "Ainda não entregamos nessa região.",
+};
 
 const DEFAULT_SITE_SETTINGS: SiteSettings = {
   avisoTopo: "",
   bestSellerIds: [],
   bloqueio: { ativo: false, data: null, mensagem: "" },
   frete: { freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS, flatCentavos: STANDARD_SHIPPING_CENTAVOS, pickupEnabled: true },
+  deliveryArea: DEFAULT_DELIVERY_AREA,
   pixPct: 5,
   cd: { address: "Cachoeiro de Itapemirim, ES", hours: "Seg. a sex. 7h às 18h · Sáb. 7h às 13h" },
 };
@@ -320,6 +338,16 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   const frete = map.get("frete") ?? {};
   const bloqueio = map.get("entrega_bloqueio") ?? {};
   const descontos = map.get("descontos") ?? {};
+  const rawArea = (frete.deliveryArea ?? {}) as Record<string, unknown>;
+  const deliveryArea: PublicDeliveryArea = {
+    mode: (rawArea.mode as PublicDeliveryArea["mode"]) || DEFAULT_DELIVERY_AREA.mode,
+    allowedUFs: Array.isArray(rawArea.allowedUFs) ? rawArea.allowedUFs.map(String) : undefined,
+    allowedCities: Array.isArray(rawArea.allowedCities) ? rawArea.allowedCities.map(String) : DEFAULT_DELIVERY_AREA.allowedCities,
+    allowedCepPrefixes: Array.isArray(rawArea.allowedCepPrefixes) ? rawArea.allowedCepPrefixes.map(String) : undefined,
+    label: String(rawArea.label || DEFAULT_DELIVERY_AREA.label),
+    rejectMessage: String(rawArea.rejectMessage || DEFAULT_DELIVERY_AREA.rejectMessage),
+  };
+
   return {
     avisoTopo: String((map.get("avisos") ?? {}).topo ?? ""),
     bestSellerIds: ((map.get("best_sellers") ?? {}).ids as string[]) ?? [],
@@ -329,6 +357,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
       flatCentavos: Number(frete.flatCentavos ?? STANDARD_SHIPPING_CENTAVOS),
       pickupEnabled: frete.pickupEnabled !== false,
     },
+    deliveryArea,
     pixPct: Number(descontos.pixPct ?? 5),
     cd: {
       address: String((map.get("cd_info") ?? {}).address ?? DEFAULT_SITE_SETTINGS.cd.address),

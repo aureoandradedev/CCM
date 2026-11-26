@@ -9,6 +9,7 @@ import type { AdminCategory, AdminSupplier, DescontosSettings, FreteSettings } f
 
 export function FreightForm({ value }: { value: FreteSettings }) {
   const [state, action, pending] = useActionState<ActionResult, FormData>(saveFreight, {});
+  const area = value.deliveryArea ?? { mode: "cities", allowedCities: [], label: "Sul do ES", rejectMessage: "" };
   return (
     <form action={action} className="space-y-3">
       <Feedback state={state} />
@@ -23,6 +24,28 @@ export function FreightForm({ value }: { value: FreteSettings }) {
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="pickup" defaultChecked={value.pickupEnabled} className="size-4 accent-brand-navy" /> Permitir retirada no CD
       </label>
+
+      <hr className="border-brand-line" />
+      <p className="text-xs font-bold uppercase tracking-wide text-brand-ink-soft">Area de entrega</p>
+
+      {!(area.allowedCities ?? []).length && (
+        <div className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+          Nenhuma cidade configurada. Entregas estao bloqueadas ate configurar a area de cobertura.
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Label exibida no site" hint={`Ex.: "Sul do ES". Aparece no topo e nas paginas de entrega.`}>
+          <input name="delivery_label" defaultValue={area.label} className={inputCls} />
+        </Field>
+        <Field label="Mensagem de rejeicao" hint="Exibida quando o CEP/cidade esta fora da area.">
+          <input name="delivery_reject" defaultValue={area.rejectMessage} className={inputCls} />
+        </Field>
+      </div>
+      <Field label="Cidades atendidas" hint="Uma cidade por linha. Vazio = entregas BLOQUEADAS (fail-closed). A comparacao ignora acentos e maiusculas.">
+        <textarea name="delivery_cities" defaultValue={(area.allowedCities ?? []).join("\n")} className={textareaCls} rows={6} placeholder={"Cachoeiro de Itapemirim\nVila Velha\nVitória\n..."} />
+      </Field>
+
       <Button type="submit" variant="navy" size="sm" disabled={pending}>
         {pending ? "Salvando..." : "Salvar frete"}
       </Button>

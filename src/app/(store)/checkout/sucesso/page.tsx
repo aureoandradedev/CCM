@@ -4,20 +4,38 @@ import Link from "next/link";
 import { CheckCircle2, ClipboardCheck, Package, CreditCard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { getOrderByCode, getOrderCcmDisplay } from "@/lib/data/orders";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { whatsappLink } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Pedido recebido", robots: { index: false } };
 
-const STEPS = [
+const STEPS_FULL = [
   { icon: ClipboardCheck, title: "Pedido registrado", text: "Seu pedido foi recebido e enviado aos fornecedores para confirmação de disponibilidade." },
   { icon: Package, title: "Confirmação de disponibilidade", text: "Os fornecedores confirmam os itens. Você será notificado quando tudo estiver pronto." },
   { icon: CreditCard, title: "Pagamento liberado", text: "Após a confirmação, você escolhe a forma de pagamento e finaliza." },
 ];
 
+const STEPS_CCM_ONLY = [
+  { icon: ClipboardCheck, title: "Pedido registrado", text: "Seu pedido foi recebido. Todos os itens estão disponíveis para entrega imediata." },
+  { icon: CreditCard, title: "Pagamento", text: "Escolha a forma de pagamento e finalize seu pedido." },
+];
+
 export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
   const { code } = await searchParams;
   const user = await getCurrentUser();
+
+  let isCcmOnly = false;
+  if (code && user) {
+    const found = await getOrderByCode(code);
+    if (found) {
+      const ccmInfo = await getOrderCcmDisplay(found.order.id);
+      isCcmOnly = ccmInfo.enabled && ccmInfo.isCcmOnly;
+    }
+  }
+
+  const steps = isCcmOnly ? STEPS_CCM_ONLY : STEPS_FULL;
+
   return (
     <div className="container-ccm pt-10 md:pt-16">
       <div className="mx-auto max-w-2xl text-center">
@@ -38,8 +56,8 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
         </p>
       </div>
 
-      <ol className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-3">
-        {STEPS.map((s, i) => (
+      <ol className={`mx-auto mt-10 grid max-w-3xl gap-4 ${steps.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+        {steps.map((s, i) => (
           <li key={s.title} className="rounded-2xl border border-brand-line bg-card p-5">
             <div className="flex items-center justify-between">
               <span className="inline-flex size-10 items-center justify-center rounded-xl bg-brand-yellow text-brand-navy">

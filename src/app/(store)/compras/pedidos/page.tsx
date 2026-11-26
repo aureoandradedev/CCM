@@ -18,8 +18,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 const CONF_LABELS: Record<string, string> = {
   aguardando_confirmacao_fornecedor: "Aguardando fornecedor",
-  confirmado: "Confirmado",
-  confirmado_parcial: "Parcial",
+  confirmado: "Pedido confirmado",
+  confirmado_parcial: "Confirmado parcial",
   divergencia: "Divergência",
   revisao_necessaria: "Revisão necessária",
 };

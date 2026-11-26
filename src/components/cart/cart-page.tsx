@@ -153,13 +153,10 @@ export function CartPage() {
                   <dd>{totals.subtotal >= freeShippingFrom ? <span className="font-semibold text-brand-green">Grátis</span> : "calculado no checkout"}</dd>
                 </div>
                 <div className="flex items-baseline justify-between border-t border-brand-line pt-3">
-                  <dt className="font-heading text-base font-bold text-brand-navy dark:text-foreground">Total</dt>
+                  <dt className="font-heading text-base font-bold text-brand-navy dark:text-foreground">Subtotal</dt>
                   <dd className="font-heading text-2xl font-extrabold text-brand-navy tabular-nums dark:text-foreground">{formatBRL(totals.subtotal)}</dd>
                 </div>
-                <div className="flex justify-between text-sm font-semibold text-brand-green">
-                  <dt>No Pix (5% off)</dt>
-                  <dd className="tabular-nums">{formatBRL(totals.pixTotal)}</dd>
-                </div>
+                <p className="text-xs text-brand-ink-soft">Descontos e forma de pagamento definidos após confirmação do pedido.</p>
               </dl>
 
               {missingForFree > 0 ? (

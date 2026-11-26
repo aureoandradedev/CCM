@@ -258,10 +258,20 @@ export interface AdminProfile {
   created_at: string;
 }
 
+export interface DeliveryArea {
+  mode: "uf" | "cities" | "cep_prefixes";
+  allowedUFs?: string[];
+  allowedCities?: string[];
+  allowedCepPrefixes?: string[];
+  label: string;
+  rejectMessage: string;
+}
+
 export interface FreteSettings {
   freeShippingFromCentavos: number;
   flatCentavos: number;
   pickupEnabled: boolean;
+  deliveryArea?: DeliveryArea;
 }
 export interface BloqueioSettings {
   ativo: boolean;
@@ -388,7 +398,17 @@ export interface SupplierPromotionRow {
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
-  frete: { freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS, flatCentavos: STANDARD_SHIPPING_CENTAVOS, pickupEnabled: true },
+  frete: {
+    freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS,
+    flatCentavos: STANDARD_SHIPPING_CENTAVOS,
+    pickupEnabled: true,
+    deliveryArea: {
+      mode: "cities",
+      allowedCities: [],
+      label: "Sul do ES",
+      rejectMessage: "Ainda não entregamos nessa região.",
+    },
+  },
   entrega_bloqueio: { ativo: false, data: null, mensagem: "" },
   descontos: { pixPct: 5, primeiraCompra: { ativo: false, percentual: 0 }, secoes: {} },
   best_sellers: { ids: [] },

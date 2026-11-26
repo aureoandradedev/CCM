@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { site, whatsappLink } from "@/lib/site";
 
 /** Menu lateral do celular: departamentos com subcategorias expansíveis + atalhos. */
-export function MobileMenu({ categories, userName, isAdmin }: { categories: Category[]; userName?: string | null; isAdmin?: boolean }) {
+export function MobileMenu({ categories, userName, isAdmin, pendingPaymentCount = 0 }: { categories: Category[]; userName?: string | null; isAdmin?: boolean; pendingPaymentCount?: number }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -84,7 +84,7 @@ export function MobileMenu({ categories, userName, isAdmin }: { categories: Cate
           <ul className="pb-4">
             {[
               { href: "/conta", label: userName ? `Olá, ${userName} · Minha conta` : "Entrar ou cadastrar", icon: UserRound },
-              { href: "/conta/pedidos", label: "Meus pedidos", icon: PackageSearch },
+              { href: "/conta/pedidos", label: pendingPaymentCount > 0 ? `Meus pedidos · ${pendingPaymentCount}` : "Meus pedidos", icon: PackageSearch },
               { href: "/orcamento", label: "Orçamento de obra", icon: ClipboardList },
               ...(isAdmin ? [{ href: "/admin", label: "Painel admin", icon: ShieldCheck }] : []),
             ].map(({ href, label, icon: I }) => (

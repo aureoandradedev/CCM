@@ -230,8 +230,21 @@ export async function moveOrder(orderId: string, to: string): Promise<ActionResu
       const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: orderId });
       if (cancelErr) return { error: cancelErr.message };
       if (cancelData?.error) return { error: cancelData.error as string };
+      // CCM Etapa 5: release CCM stock reservations on cancel
+      try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: orderId }); } catch {}
       await logEvent(sb, orderId, "status", { de: o.order_status, para: to }, adminId);
       return { ok: "Status atualizado." };
+    }
+    if (to === "separados") {
+      const { data: ships } = await sb
+        .from("order_shipments")
+        .select("id, status, delivery_method")
+        .eq("order_id", orderId);
+      const deliveryShips = (ships ?? []).filter((s: { delivery_method: string }) => s.delivery_method === "delivery");
+      const notReady = deliveryShips.filter((s: { status: string }) => s.status !== "pronto_para_envio");
+      if (notReady.length > 0) {
+        return { error: `Separação incompleta: ${notReady.length} entrega(s) ainda em "${notReady[0].status}". Conclua a separação antes de avançar.` };
+      }
     }
     const patch: Record<string, unknown> = { order_status: to };
     if (to === "pagos" && o.payment_status !== "pago") patch.cash_pending = true;
@@ -297,6 +310,8 @@ export async function cancelOrder(orderId: string, motivo: string): Promise<Acti
     if (data?.error) return { error: data.error as string };
     // G4: Cancel pending supplier_requests (service_role required)
     try { await createAdminClient().rpc("cancel_order_requests", { p_order_id: orderId }); } catch {}
+    // CCM Etapa 5: release CCM stock reservations on cancel
+    try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: orderId }); } catch {}
     await logEvent(sb, orderId, "cancelado", { motivo, shipments_cancelled: data.shipments_cancelled, requirements_removed: data.requirements_removed }, adminId);
     return { ok: "Pedido cancelado." };
   }, ["/admin/pedidos"]);
@@ -334,6 +349,7 @@ export async function cleanupOrders(): Promise<ActionResult> {
     for (const o of expirados ?? []) {
       const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: o.id });
       if (cancelErr || cancelData?.error) continue;
+      try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: o.id }); } catch {}
       await logEvent(sb, o.id, "cancelado", { motivo: "expirado sem pagamento (limpeza)", shipments_cancelled: cancelData.shipments_cancelled, requirements_removed: cancelData.requirements_removed }, adminId);
     }
 
@@ -345,6 +361,7 @@ export async function cleanupOrders(): Promise<ActionResult> {
     for (const o of confirmExpirados ?? []) {
       const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: o.id });
       if (cancelErr || cancelData?.error) continue;
+      try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: o.id }); } catch {}
       await logEvent(sb, o.id, "cancelado", { motivo: `expirado sem confirmação em ${timeoutHours}h (limpeza)`, shipments_cancelled: cancelData.shipments_cancelled, requirements_removed: cancelData.requirements_removed }, adminId);
     }
 
@@ -370,7 +387,18 @@ export async function saveSetting(key: string, value: unknown): Promise<ActionRe
 export async function saveFreight(_p: ActionResult, fd: FormData): Promise<ActionResult> {
   const free = numOrNull(fd, "free_from") ?? 0;
   const flat = numOrNull(fd, "flat") ?? 0;
-  return saveSetting("frete", { freeShippingFromCentavos: Math.round(free * 100), flatCentavos: Math.round(flat * 100), pickupEnabled: bool(fd, "pickup") });
+  const citiesRaw = str(fd, "delivery_cities");
+  const allowedCities = citiesRaw
+    ? citiesRaw.split("\n").map((c) => c.trim()).filter(Boolean)
+    : [];
+  const label = str(fd, "delivery_label") || "Sul do ES";
+  const rejectMessage = str(fd, "delivery_reject") || "Não entregamos nessa região. Atendemos apenas as cidades disponíveis na nossa área de entrega.";
+  return saveSetting("frete", {
+    freeShippingFromCentavos: Math.round(free * 100),
+    flatCentavos: Math.round(flat * 100),
+    pickupEnabled: bool(fd, "pickup"),
+    deliveryArea: { mode: "cities", allowedCities, label, rejectMessage },
+  });
 }
 
 export async function saveBloqueio(_p: ActionResult, fd: FormData): Promise<ActionResult> {
@@ -798,13 +826,15 @@ export async function decidePurchaseOrder(_p: ActionResult, fd: FormData): Promi
     const { data: po } = await sb.from("supplier_purchase_orders").select("supplier_id").eq("id", poId).maybeSingle();
 
     const cancelDecisions = ["wait_next_cycle", "move_supplier"];
+    const isSend = decision === "send";
     const newStatus = cancelDecisions.includes(decision) ? "cancelled" : "sent";
+    const now = new Date().toISOString();
     const { error } = await sb.from("supplier_purchase_orders").update({
-      decision,
+      decision: isSend ? null : decision,
       decided_by: userId,
-      decided_at: new Date().toISOString(),
+      decided_at: now,
       status: newStatus,
-      sent_at: newStatus === "sent" ? new Date().toISOString() : undefined,
+      sent_at: newStatus === "sent" ? now : undefined,
     }).eq("id", poId).in("status", ["draft", "ready", "minimum_not_met"]);
 
     if (error) return { error: error.message };

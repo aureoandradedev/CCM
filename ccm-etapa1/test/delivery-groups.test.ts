@@ -11,7 +11,7 @@ import {
   type DeliveryPromise,
   type ItemPromiseResult,
   GROUPING_TOLERANCE_BUSINESS_DAYS,
-} from "../../src/lib/delivery-promise";
+} from "../../src/lib/delivery-promise.ts";
 
 const FIXED_CONFIG = { today: "2026-11-17", holidays: [] as string[] };
 

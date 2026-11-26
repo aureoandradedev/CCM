@@ -59,7 +59,9 @@ export function CardPanel({ orderId, orderCode, totalCentavos, pricingVersion, o
       onPaid();
     } catch (e) {
       const err = e as ApiError;
-      if (err instanceof ApiError && err.status === 409 && typeof err.data.pricingVersion === "number") {
+      if (err instanceof ApiError && err.status === 409 && err.data.ccmShortfall === true) {
+        setErro("Ajustamos seu pedido antes do pagamento. Acompanhe o status para saber quando o pagamento será liberado.");
+      } else if (err instanceof ApiError && err.status === 409 && typeof err.data.pricingVersion === "number") {
         setErro(`O valor foi atualizado para ${formatBRL(Number(err.data.totalCentavos) / 100)}. Clique em pagar de novo para confirmar.`);
         versao.current = err.data.pricingVersion as number;
       } else if (err instanceof ApiError && err.status === 402) {

@@ -11,6 +11,7 @@ import { config } from "./config.mjs";
 import { db, registrarEvento } from "./supabase.mjs";
 import { atacadoAtivo, calcularFrete, descontoPixCentavos, metodoEhPix, metodoOnline, precoUnitarioCentavos, centavos } from "./precos.mjs";
 import { computeShipments } from "./delivery-promise.mjs";
+import { routeAndReserveCcmStock } from "./ccm-stock.mjs";
 
 export class ErroPedido extends Error {
   constructor(status, erro, extra = {}) {
@@ -260,6 +261,33 @@ export async function criarPedido(body, usuario = null) {
     if (entregaBloqueada(settings.bloqueio)) {
       throw new ErroPedido(422, settings.bloqueio?.mensagem || "Entregas temporariamente suspensas. Escolha retirada no fornecedor.", { code: "entrega-bloqueada" });
     }
+    const state = String(a.state).trim().toUpperCase().slice(0, 2);
+    const city = String(a.city).trim();
+    const area = settings.frete?.deliveryArea;
+    const FAIL_CLOSED = "Área de entrega temporariamente indisponível. Escolha retirada no fornecedor.";
+    if (!area || area.mode !== "cities" && area.mode !== "uf") {
+      throw new ErroPedido(422, FAIL_CLOSED, { code: "fora-da-area" });
+    }
+    const norm = (s) => String(s).trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const areaReject = area.rejectMessage || "Ainda não entregamos nessa região.";
+    if (area.mode === "cities") {
+      const allowed = Array.isArray(area.allowedCities) ? area.allowedCities : [];
+      if (allowed.length === 0) {
+        throw new ErroPedido(422, FAIL_CLOSED, { code: "fora-da-area" });
+      }
+      const normalizedAllowed = allowed.map(norm);
+      if (!normalizedAllowed.includes(norm(city))) {
+        throw new ErroPedido(422, areaReject, { code: "fora-da-area" });
+      }
+    } else if (area.mode === "uf") {
+      const allowedUFs = Array.isArray(area.allowedUFs) ? area.allowedUFs : [];
+      if (allowedUFs.length === 0) {
+        throw new ErroPedido(422, FAIL_CLOSED, { code: "fora-da-area" });
+      }
+      if (!allowedUFs.map((s) => String(s).toUpperCase()).includes(state)) {
+        throw new ErroPedido(422, areaReject, { code: "fora-da-area" });
+      }
+    }
     address = {
       cep,
       street: String(a.street).trim(),
@@ -267,7 +295,7 @@ export async function criarPedido(body, usuario = null) {
       complement: String(a.complement || "").trim() || null,
       district: String(a.district).trim(),
       city: String(a.city).trim(),
-      state: String(a.state).trim().toUpperCase().slice(0, 2),
+      state,
       reference: String(a.reference || "").trim() || null,
     };
   }
@@ -329,34 +357,79 @@ export async function criarPedido(body, usuario = null) {
 
   await registrarEvento(criado.id, "criado", { paymentMethod, deliveryMethod, itens: itens.length, total: totais.total_centavos }, usuario ? { kind: "customer", id: usuario.id } : { kind: "system" });
 
-  // G1/G8: Create supplier_requests transactionally (NOT purchase_requirements)
+  // Query order_items (needed for both CCM reservation and supplier request flows)
+  let oiMap = new Map();
+  try {
+    const { data: orderItemRows } = await db()
+      .from("order_items")
+      .select("id, product_id")
+      .eq("order_id", criado.id);
+    oiMap = new Map((orderItemRows || []).map((r) => [r.product_id, r.id]));
+  } catch (e) {
+    console.error("[order_items] query", criado.id, e?.message ?? e);
+  }
+
+  // CCM stock: route items and create reservations (no-op when flag OFF)
+  // FAIL-CLOSED: when flag is ON and routing fails, re-throw to prevent
+  // inconsistent supplier_requests (would use full qty instead of adjusted).
+  let ccmRouting = null;
+  try {
+    ccmRouting = await routeAndReserveCcmStock(criado.id, itens, oiMap);
+  } catch (e) {
+    console.error("[ccm-stock] routing failed (fail-closed)", criado.id, e?.message ?? e);
+    throw e instanceof ErroPedido ? e : new ErroPedido(500, "Falha no roteamento de estoque CCM.");
+  }
+
+  // G1/G8: Create supplier_requests (quantities adjusted for CCM routing)
   if (supplierIds.length > 0) {
     try {
-      const { data: orderItemRows } = await db()
-        .from("order_items")
-        .select("id, product_id")
-        .eq("order_id", criado.id);
-      const oiMap = new Map((orderItemRows || []).map((r) => [r.product_id, r.id]));
-
-      const suppliersPayload = supplierIds.map((sid) => ({
-        supplier_id: sid,
-        items: itens
-          .filter((i) => i.supplier_id === sid)
-          .map((i) => ({
+      const suppliersPayload = supplierIds.map((sid) => {
+        const supplierItems = itens.filter((i) => i.supplier_id === sid);
+        const items = [];
+        for (const i of supplierItems) {
+          let qty = i.qty;
+          if (ccmRouting) {
+            qty = ccmRouting.supplierQtyByProduct.get(i.product_id) ?? i.qty;
+            if (qty <= 0) continue;
+          }
+          items.push({
             order_item_id: oiMap.get(i.product_id) ?? null,
             master_product_id: i.master_product_id ?? null,
             product_name: i.name,
-            quantity: i.qty,
+            quantity: qty,
             unit: i.unit ?? "un",
             unit_cost_centavos: i.supplier_cost_centavos ?? i.unit_price_centavos,
-          })),
-      }));
-      await db().rpc("create_supplier_requests_for_order", {
-        p_order_id: criado.id,
-        p_suppliers: suppliersPayload,
-      });
+          });
+        }
+        return { supplier_id: sid, items };
+      }).filter((s) => s.items.length > 0);
+
+      if (suppliersPayload.length > 0) {
+        await db().rpc("create_supplier_requests_for_order", {
+          p_order_id: criado.id,
+          p_suppliers: suppliersPayload,
+        });
+      } else if (ccmRouting && !ccmRouting.disabled) {
+        // 100% CCM: no supplier_requests needed → advance directly to aguardando-pagamento
+        await db().from("orders")
+          .update({ order_status: "aguardando-pagamento" })
+          .eq("id", criado.id)
+          .eq("order_status", "aguardando-confirmacao");
+        await registrarEvento(criado.id, "gate_liberado", { ccm_only: true, reason: "all_items_ccm" });
+      }
     } catch (e) {
       console.error("[supplier_requests] pos-checkout", criado.id, e?.message ?? e);
+    }
+  } else if (ccmRouting && !ccmRouting.disabled) {
+    // No suppliers at all + CCM active → 100% CCM, advance to aguardando-pagamento
+    try {
+      await db().from("orders")
+        .update({ order_status: "aguardando-pagamento" })
+        .eq("id", criado.id)
+        .eq("order_status", "aguardando-confirmacao");
+      await registrarEvento(criado.id, "gate_liberado", { ccm_only: true, reason: "no_suppliers" });
+    } catch (e) {
+      console.error("[ccm-gate] advance failed", criado.id, e?.message ?? e);
     }
   }
 
@@ -375,6 +448,51 @@ export async function criarPedido(body, usuario = null) {
     if (!tokenErr) accessToken = tokenRaw;
   } catch (e) {
     console.error("[access_token] generate", criado.id, e?.message ?? e);
+  }
+
+  // Save address for authenticated user (delivery only, deduplicate)
+  if (usuario?.id && deliveryMethod === "delivery" && address) {
+    try {
+      const { data: existing } = await db()
+        .from("addresses")
+        .select("id")
+        .eq("profile_id", usuario.id)
+        .eq("cep", address.cep)
+        .eq("street", address.street)
+        .eq("number", address.number)
+        .eq("district", address.district)
+        .limit(1)
+        .maybeSingle();
+      if (!existing) {
+        const meta = b.addressMeta || {};
+        const addrLabel = typeof meta.label === "string" && meta.label.trim() ? meta.label.trim() : "Obra";
+        const wantsDefault = !!meta.setAsDefault;
+        const { count } = await db()
+          .from("addresses")
+          .select("id", { count: "exact", head: true })
+          .eq("profile_id", usuario.id);
+        const isFirst = !count;
+        const makeDefault = isFirst || wantsDefault;
+        if (wantsDefault && !isFirst) {
+          await db().from("addresses").update({ is_default: false }).eq("profile_id", usuario.id).eq("is_default", true);
+        }
+        await db().from("addresses").insert({
+          profile_id: usuario.id,
+          label: addrLabel,
+          cep: address.cep,
+          street: address.street,
+          number: address.number,
+          complement: address.complement,
+          district: address.district,
+          city: address.city,
+          state: address.state,
+          reference: address.reference,
+          is_default: makeDefault,
+        });
+      }
+    } catch (e) {
+      console.error("[address] save", criado.id, e?.message ?? e);
+    }
   }
 
   return respostaPedido(criado, false, accessToken);

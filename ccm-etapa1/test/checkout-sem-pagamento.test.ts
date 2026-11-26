@@ -348,31 +348,31 @@ test("M8b: supplier data module exists", () => {
 
 test("M8c: supplier actions module exists", () => {
   assert.ok(
-    fs.existsSync(path.join(SRC_DIR, "app/(store)/fornecedores/pedidos/actions.ts")),
+    fs.existsSync(path.join(SRC_DIR, "app/(fornecedor)/fornecedores/pedidos/actions.ts")),
     "Supplier pedidos actions.ts should exist",
   );
-  const src = readFile("src/app/(store)/fornecedores/pedidos/actions.ts");
+  const src = readFile("src/app/(fornecedor)/fornecedores/pedidos/actions.ts");
   assert.ok(src.includes("submitSupplierConfirmation"), "Should export submitSupplierConfirmation");
   assert.ok(src.includes("uploadRequestMirror"), "Should export uploadRequestMirror");
 });
 
 test("M8d: supplier portal list page exists", () => {
   assert.ok(
-    fs.existsSync(path.join(SRC_DIR, "app/(store)/fornecedores/pedidos/page.tsx")),
+    fs.existsSync(path.join(SRC_DIR, "app/(fornecedor)/fornecedores/pedidos/page.tsx")),
     "Supplier pedidos list page should exist",
   );
 });
 
 test("M8e: supplier portal detail page exists with confirmation form", () => {
   assert.ok(
-    fs.existsSync(path.join(SRC_DIR, "app/(store)/fornecedores/pedidos/[poId]/page.tsx")),
+    fs.existsSync(path.join(SRC_DIR, "app/(fornecedor)/fornecedores/pedidos/[requestId]/page.tsx")),
     "Supplier PO detail page should exist",
   );
   assert.ok(
-    fs.existsSync(path.join(SRC_DIR, "app/(store)/fornecedores/pedidos/[poId]/_confirmation-form.tsx")),
+    fs.existsSync(path.join(SRC_DIR, "app/(fornecedor)/fornecedores/pedidos/[requestId]/_confirmation-form.tsx")),
     "Confirmation form should exist",
   );
-  const form = readFile("src/app/(store)/fornecedores/pedidos/[poId]/_confirmation-form.tsx");
+  const form = readFile("src/app/(fornecedor)/fornecedores/pedidos/[requestId]/_confirmation-form.tsx");
   assert.ok(form.includes("confirmado"), "Form should have 'confirmado' status option");
   assert.ok(form.includes("indisponivel"), "Form should have 'indisponivel' status option");
   assert.ok(form.includes("divergencia_custo"), "Form should have 'divergencia_custo' status option");
