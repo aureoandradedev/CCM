@@ -53,27 +53,25 @@ export function proratePOFreight(
   const totalCost = orders.reduce((s, o) => s + o.order_cost_centavos, 0);
   if (totalCost <= 0) return [];
 
+  const totalBig = BigInt(totalCost);
+  const freightBig = BigInt(freightCentavos);
+
   const allocated: FreightAllocationResult[] = orders.map((o) => ({
     order_id: o.order_id,
-    freight_allocated_centavos: Math.floor(
-      (o.order_cost_centavos / totalCost) * freightCentavos,
+    freight_allocated_centavos: Number(
+      (BigInt(o.order_cost_centavos) * freightBig) / totalBig,
     ),
   }));
 
-  let distributed = allocated.reduce((s, a) => s + a.freight_allocated_centavos, 0);
+  const distributed = allocated.reduce((s, a) => s + a.freight_allocated_centavos, 0);
   let remainder = freightCentavos - distributed;
 
   if (remainder > 0) {
-    const remainders = orders.map((o, i) => ({
-      index: i,
-      frac:
-        (o.order_cost_centavos / totalCost) * freightCentavos -
-        Math.floor((o.order_cost_centavos / totalCost) * freightCentavos),
-      cost: o.order_cost_centavos,
-    }));
-    remainders.sort((a, b) => b.frac - a.frac || b.cost - a.cost);
+    const sorted = orders
+      .map((o, i) => ({ index: i, cost: o.order_cost_centavos }))
+      .sort((a, b) => b.cost - a.cost);
     for (let i = 0; i < remainder; i++) {
-      allocated[remainders[i].index].freight_allocated_centavos += 1;
+      allocated[sorted[i % sorted.length].index].freight_allocated_centavos += 1;
     }
   }
 
