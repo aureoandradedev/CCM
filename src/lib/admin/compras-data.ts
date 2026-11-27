@@ -105,65 +105,91 @@ function toRankable(o: Record<string, unknown>): RankableOffer {
   };
 }
 
-export async function comprasDashboard() {
-  const sb = await createClient();
-
-  const [
-    { count: totalCatalogs },
-    { count: pendingCatalogs },
-    { count: pendente },
-    { count: normalizado },
-    { count: matchSugerido },
-    { count: revisaoManual },
-    { count: aprovado },
-    { count: ignorado },
-    { count: rejeitado },
-    { data: rawOffers },
-    { count: totalSelections },
-    { count: pendingResultLocks },
-  ] = await Promise.all([
-    sb.from("supplier_catalogs").select("*", { count: "exact", head: true }),
-    sb.from("supplier_catalogs").select("*", { count: "exact", head: true }).neq("status", "concluido"),
-    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "pendente"),
-    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "normalizado"),
-    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "match_sugerido"),
-    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "revisao_manual"),
-    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "aprovado"),
-    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "ignorado"),
-    sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "rejeitado"),
-    sb.from("supplier_offers")
-      .select("id, master_product_id, supplier_id, cost_centavos, stock, lead_time_days, status")
-      .eq("status", "ativa")
-      .is("replaced_at", null),
-    sb.from("sourcing_selections").select("*", { count: "exact", head: true }).is("replaced_at", null),
-    sb.from("result_locks").select("*", { count: "exact", head: true }).eq("status", "pending"),
-  ]);
-
-  const operationalIds = await getOperationalSupplierIds(sb);
-  const rankings = rankAllProducts(
-    filterOperationalOffers((rawOffers ?? []).map(toRankable), operationalIds),
-  );
-
-  return {
-    catalogs: { total: totalCatalogs ?? 0, pending: pendingCatalogs ?? 0 },
-    items: {
-      pendente: pendente ?? 0,
-      normalizado: normalizado ?? 0,
-      match_sugerido: matchSugerido ?? 0,
-      revisao_manual: revisaoManual ?? 0,
-      aprovado: aprovado ?? 0,
-      ignorado: ignorado ?? 0,
-      rejeitado: rejeitado ?? 0,
-    },
-    offers: {
-      total: rankings.length,
-      multiOffer: rankings.filter((r) => r.offers.length > 1).length,
-      ambiguous: rankings.filter((r) => r.ambiguous).length,
-      clear: rankings.filter((r) => r.recommended_offer_id != null).length,
-      selected: totalSelections ?? 0,
-    },
-    resultProtection: { pending: pendingResultLocks ?? 0 },
+export interface ComprasDashboardData {
+  catalogs: { total: number; pending: number };
+  items: {
+    pendente: number;
+    normalizado: number;
+    match_sugerido: number;
+    revisao_manual: number;
+    aprovado: number;
+    ignorado: number;
+    rejeitado: number;
   };
+  offers: { total: number; multiOffer: number; ambiguous: number; clear: number; selected: number };
+  resultProtection: { pending: number };
+}
+
+const EMPTY_DASHBOARD: ComprasDashboardData = {
+  catalogs: { total: 0, pending: 0 },
+  items: { pendente: 0, normalizado: 0, match_sugerido: 0, revisao_manual: 0, aprovado: 0, ignorado: 0, rejeitado: 0 },
+  offers: { total: 0, multiOffer: 0, ambiguous: 0, clear: 0, selected: 0 },
+  resultProtection: { pending: 0 },
+};
+
+export async function comprasDashboard(): Promise<ComprasDashboardData> {
+  try {
+    const sb = await createClient();
+
+    const [
+      { count: totalCatalogs },
+      { count: pendingCatalogs },
+      { count: pendente },
+      { count: normalizado },
+      { count: matchSugerido },
+      { count: revisaoManual },
+      { count: aprovado },
+      { count: ignorado },
+      { count: rejeitado },
+      { data: rawOffers },
+      { count: totalSelections },
+      { count: pendingResultLocks },
+    ] = await Promise.all([
+      sb.from("supplier_catalogs").select("*", { count: "exact", head: true }),
+      sb.from("supplier_catalogs").select("*", { count: "exact", head: true }).neq("status", "concluido"),
+      sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "pendente"),
+      sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "normalizado"),
+      sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "match_sugerido"),
+      sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "revisao_manual"),
+      sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "aprovado"),
+      sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "ignorado"),
+      sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).eq("match_status", "rejeitado"),
+      sb.from("supplier_offers")
+        .select("id, master_product_id, supplier_id, cost_centavos, stock, lead_time_days, status")
+        .eq("status", "ativa")
+        .is("replaced_at", null),
+      sb.from("sourcing_selections").select("*", { count: "exact", head: true }).is("replaced_at", null),
+      sb.from("result_locks").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    ]);
+
+    const operationalIds = await getOperationalSupplierIds(sb);
+    const rankings = rankAllProducts(
+      filterOperationalOffers((rawOffers ?? []).map(toRankable), operationalIds),
+    );
+
+    return {
+      catalogs: { total: totalCatalogs ?? 0, pending: pendingCatalogs ?? 0 },
+      items: {
+        pendente: pendente ?? 0,
+        normalizado: normalizado ?? 0,
+        match_sugerido: matchSugerido ?? 0,
+        revisao_manual: revisaoManual ?? 0,
+        aprovado: aprovado ?? 0,
+        ignorado: ignorado ?? 0,
+        rejeitado: rejeitado ?? 0,
+      },
+      offers: {
+        total: rankings.length,
+        multiOffer: rankings.filter((r) => r.offers.length > 1).length,
+        ambiguous: rankings.filter((r) => r.ambiguous).length,
+        clear: rankings.filter((r) => r.recommended_offer_id != null).length,
+        selected: totalSelections ?? 0,
+      },
+      resultProtection: { pending: pendingResultLocks ?? 0 },
+    };
+  } catch {
+    return { ...EMPTY_DASHBOARD };
+  }
 }
 
 export async function catalogList(page = 1) {

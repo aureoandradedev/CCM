@@ -36,18 +36,18 @@ export default async function ComprasDashboard() {
     adminInventorySummary(),
   ]);
 
-  const pendenciaTotal = d.items.match_sugerido + d.items.revisao_manual + d.items.normalizado + (stats.total ?? 0) + d.resultProtection.pending;
-  const produtosNaoIdentificados = d.items.match_sugerido + d.items.revisao_manual + d.items.normalizado;
-  const excecoesAbertas = stats.total ?? 0;
-  const resultadosPendentes = d.resultProtection.pending;
+  const pendenciaTotal = (d.items?.match_sugerido ?? 0) + (d.items?.revisao_manual ?? 0) + (d.items?.normalizado ?? 0) + (stats?.total ?? 0) + (d.resultProtection?.pending ?? 0);
+  const produtosNaoIdentificados = (d.items?.match_sugerido ?? 0) + (d.items?.revisao_manual ?? 0) + (d.items?.normalizado ?? 0);
+  const excecoesAbertas = stats?.total ?? 0;
+  const resultadosPendentes = d.resultProtection?.pending ?? 0;
 
   const poReady = orders.filter((o) => ["ready", "draft"].includes(o.status));
   const poBelowMin = orders.filter((o) => !o.minimum_met && o.status === "draft");
   const activeSuppliers = suppliers.filter((s) => s.active !== false);
   const suppliersWithIssue = suppliers.filter((s) => s.active === false);
 
-  const autoOk = autoWidget.excecoesAbertas === 0;
-  const lastRunStr = autoWidget.ultimaExecucao
+  const autoOk = (autoWidget?.excecoesAbertas ?? 0) === 0;
+  const lastRunStr = autoWidget?.ultimaExecucao
     ? new Date(autoWidget.ultimaExecucao).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
     : null;
 
@@ -165,11 +165,11 @@ export default async function ComprasDashboard() {
             <span className="text-sm font-bold text-brand-ink">Catálogos</span>
           </div>
           <p className="text-sm text-brand-ink-soft">
-            {d.catalogs.pending > 0
-              ? <><span className="text-lg font-extrabold text-amber-600">{d.catalogs.pending}</span> aguardando processamento</>
+            {(d.catalogs?.pending ?? 0) > 0
+              ? <><span className="text-lg font-extrabold text-amber-600">{d.catalogs?.pending ?? 0}</span> aguardando processamento</>
               : <span className="text-brand-ink-soft">Todos processados</span>}
           </p>
-          <p className="mt-1 text-xs text-brand-ink-soft">{d.catalogs.total} no total</p>
+          <p className="mt-1 text-xs text-brand-ink-soft">{d.catalogs?.total ?? 0} no total</p>
           <span className="mt-auto pt-2 text-xs font-semibold text-brand-navy opacity-0 transition-opacity group-hover:opacity-100">
             Ver catálogos →
           </span>
@@ -213,10 +213,10 @@ export default async function ComprasDashboard() {
             {lastRunStr && (
               <span>Última execução: <span className="font-medium text-brand-ink">{lastRunStr}</span></span>
             )}
-            <span>{autoWidget.trocasAuto24h} {autoWidget.trocasAuto24h === 1 ? "troca de fornecedor" : "trocas de fornecedor"} (24h)</span>
-            <span>{autoWidget.precosAuto24h} {autoWidget.precosAuto24h === 1 ? "alteração de preço" : "alterações de preço"} (24h)</span>
-            {autoWidget.excecoesAbertas > 0 && (
-              <span className="font-medium text-amber-600">{autoWidget.excecoesAbertas} {autoWidget.excecoesAbertas === 1 ? "exceção aberta" : "exceções abertas"}</span>
+            <span>{autoWidget?.trocasAuto24h ?? 0} {(autoWidget?.trocasAuto24h ?? 0) === 1 ? "troca de fornecedor" : "trocas de fornecedor"} (24h)</span>
+            <span>{autoWidget?.precosAuto24h ?? 0} {(autoWidget?.precosAuto24h ?? 0) === 1 ? "alteração de preço" : "alterações de preço"} (24h)</span>
+            {(autoWidget?.excecoesAbertas ?? 0) > 0 && (
+              <span className="font-medium text-amber-600">{autoWidget?.excecoesAbertas ?? 0} {(autoWidget?.excecoesAbertas ?? 0) === 1 ? "exceção aberta" : "exceções abertas"}</span>
             )}
           </div>
           <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-navy">
@@ -268,7 +268,7 @@ export default async function ComprasDashboard() {
               <Scale className="mt-0.5 size-5 shrink-0 text-brand-ink-soft" />
               <div>
                 <p className="font-medium text-brand-ink group-hover/card:text-brand-navy">Fila de identificação</p>
-                <p className="text-sm text-brand-ink-soft">{d.items.match_sugerido + d.items.revisao_manual} item(ns) aguardando</p>
+                <p className="text-sm text-brand-ink-soft">{(d.items?.match_sugerido ?? 0) + (d.items?.revisao_manual ?? 0)} item(ns) aguardando</p>
               </div>
             </Link>
             <Link
@@ -278,7 +278,7 @@ export default async function ComprasDashboard() {
               <Bot className="mt-0.5 size-5 shrink-0 text-brand-ink-soft" />
               <div>
                 <p className="font-medium text-brand-ink group-hover/card:text-brand-navy">Automação detalhada</p>
-                <p className="text-sm text-brand-ink-soft">{stats.total} exceção(ões) aberta(s)</p>
+                <p className="text-sm text-brand-ink-soft">{stats?.total ?? 0} exceção(ões) aberta(s)</p>
               </div>
             </Link>
           </div>
