@@ -14,3 +14,28 @@ export function createAdminClient() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
+
+/**
+ * Release reserved credit on order cancellation.
+ * No-op when no reservation exists. Non-fatal (swallows errors).
+ */
+export async function releaseOrderCreditOnCancel(orderId: string, reason: string) {
+  try {
+    const admin = createAdminClient();
+    const { data: reserved } = await admin
+      .from("credit_ledger")
+      .select("id, amount_centavos")
+      .eq("order_id", orderId)
+      .eq("movement_type", "credit_reserved")
+      .limit(1);
+    if (!reserved?.length) return;
+    const entry = reserved[0];
+    await admin.rpc("release_credit", {
+      p_order_id: orderId,
+      p_amount_centavos: entry.amount_centavos,
+      p_reference_id: entry.id,
+      p_reason: reason,
+      p_idempotency_key: `credit_rel:${orderId}:${entry.id}`,
+    });
+  } catch {}
+}

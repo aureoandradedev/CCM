@@ -38,6 +38,8 @@ const EVENT_LABEL: Record<string, string> = {
   fiscal_doc_send_failed: "Fiscal: falha no envio",
   fiscal_doc_sync_started: "Fiscal: sincronização iniciada",
   fiscal_doc_sync_completed: "Fiscal: sincronização concluída",
+  result_protection_evaluated: "Proteção econômica avaliada",
+  result_protection_resolved: "Proteção econômica: decisão tomada",
 };
 
 const ACTOR_LABEL: Record<string, string> = {

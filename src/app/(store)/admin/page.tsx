@@ -29,6 +29,7 @@ export default async function AdminHome() {
   if (atencao.emSeparacao > 0) atencaoItems.push(`${atencao.emSeparacao} ${atencao.emSeparacao === 1 ? "pedido em separação" : "pedidos em separação"}`);
   if (atencao.pendencias > 0) atencaoItems.push(`${atencao.pendencias} ${atencao.pendencias === 1 ? "pendência" : "pendências"}`);
   if (atencao.excecoes > 0) atencaoItems.push(`${atencao.excecoes} ${atencao.excecoes === 1 ? "exceção" : "exceções"}`);
+  if (atencao.resultadosPendentes > 0) atencaoItems.push(`${atencao.resultadosPendentes} resultado(s) econômico(s) pendente(s)`);
 
   return (
     <>
@@ -127,20 +128,22 @@ export default async function AdminHome() {
   );
 }
 
-async function getAtencaoHoje(): Promise<{ emSeparacao: number; pendencias: number; excecoes: number }> {
+async function getAtencaoHoje(): Promise<{ emSeparacao: number; pendencias: number; excecoes: number; resultadosPendentes: number }> {
   try {
     const sb = await createClient();
-    const [separacao, pendencias, excecoes] = await Promise.all([
+    const [separacao, pendencias, excecoes, resultados] = await Promise.all([
       sb.from("orders").select("*", { count: "exact", head: true }).eq("order_status", "separacao"),
       sb.from("supplier_catalog_items").select("*", { count: "exact", head: true }).in("match_status", ["match_sugerido", "revisao_manual", "normalizado"]),
       sb.from("procurement_exceptions").select("*", { count: "exact", head: true }).eq("status", "open"),
+      sb.from("result_locks").select("*", { count: "exact", head: true }).eq("status", "pending"),
     ]);
     return {
       emSeparacao: separacao.count ?? 0,
       pendencias: pendencias.count ?? 0,
       excecoes: excecoes.count ?? 0,
+      resultadosPendentes: resultados.count ?? 0,
     };
   } catch {
-    return { emSeparacao: 0, pendencias: 0, excecoes: 0 };
+    return { emSeparacao: 0, pendencias: 0, excecoes: 0, resultadosPendentes: 0 };
   }
 }

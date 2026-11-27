@@ -36,9 +36,10 @@ export default async function ComprasDashboard() {
     adminInventorySummary(),
   ]);
 
-  const pendenciaTotal = d.items.match_sugerido + d.items.revisao_manual + d.items.normalizado + (stats.total ?? 0);
+  const pendenciaTotal = d.items.match_sugerido + d.items.revisao_manual + d.items.normalizado + (stats.total ?? 0) + d.resultProtection.pending;
   const produtosNaoIdentificados = d.items.match_sugerido + d.items.revisao_manual + d.items.normalizado;
   const excecoesAbertas = stats.total ?? 0;
+  const resultadosPendentes = d.resultProtection.pending;
 
   const poReady = orders.filter((o) => ["ready", "draft"].includes(o.status));
   const poBelowMin = orders.filter((o) => !o.minimum_met && o.status === "draft");
@@ -73,6 +74,11 @@ export default async function ComprasDashboard() {
                 {excecoesAbertas > 0 && (
                   <li>
                     <span className="font-semibold">{excecoesAbertas}</span> {excecoesAbertas === 1 ? "exceção precisa ser verificada" : "exceções precisam ser verificadas"}
+                  </li>
+                )}
+                {resultadosPendentes > 0 && (
+                  <li>
+                    <span className="font-semibold">{resultadosPendentes}</span> {resultadosPendentes === 1 ? "resultado econômico aguardando decisão" : "resultados econômicos aguardando decisão"}
                   </li>
                 )}
               </ul>

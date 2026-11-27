@@ -15,10 +15,6 @@
 import { db, registrarEvento } from "./supabase.mjs";
 import { ErroPedido } from "./pedido.mjs";
 
-/**
- * Check if result protection feature flag is enabled.
- * @returns {Promise<boolean>}
- */
 async function isResultProtectionEnabled() {
   const { data, error } = await db().rpc("is_ccm_result_protection_enabled");
   if (error) {
@@ -31,14 +27,10 @@ async function isResultProtectionEnabled() {
 /**
  * Run result protection after supplier gate resolves.
  * Calculates savings, generates credit, prorates freight, locks result.
- *
- * @param {string} orderId
- * @returns {Promise<{ok:boolean, skipped?:boolean, status?:string, projected_result?:number}|null>}
  */
 export async function runResultProtection(orderId) {
   if (!(await isResultProtectionEnabled())) return null;
 
-  // 1. Load order items with supplier cost snapshots + confirmed costs
   const { data: items, error: itemsErr } = await db()
     .from("order_items")
     .select("id, qty, supplier_cost_centavos, unit_price_centavos, line_centavos")
@@ -49,14 +41,12 @@ export async function runResultProtection(orderId) {
     return null;
   }
 
-  // 2. Load confirmed costs from supplier_request_lines
   const { data: confirmedLines } = await db()
     .from("supplier_request_lines")
-    .select("order_item_id, unit_cost_centavos, cost_confirmed_centavos, quantity_confirmed, status")
+    .select("id, supplier_request_id, order_item_id, unit_cost_centavos, cost_confirmed_centavos, quantity_confirmed, status")
     .in("order_item_id", items.map((i) => i.id))
     .in("status", ["confirmado", "confirmado_parcial"]);
 
-  // 3. Calculate savings per item and generate credit
   const confirmedMap = new Map();
   for (const cl of confirmedLines || []) {
     const existing = confirmedMap.get(cl.order_item_id);
@@ -66,42 +56,43 @@ export async function runResultProtection(orderId) {
   }
 
   let totalSavings = 0;
+  let supplierRequestId = null;
   for (const item of items) {
     const confirmed = confirmedMap.get(item.id);
     if (!confirmed) continue;
+
+    if (!supplierRequestId) supplierRequestId = confirmed.supplier_request_id;
 
     const expectedCost = item.supplier_cost_centavos ?? 0;
     const actualCost = confirmed.cost_confirmed_centavos ?? confirmed.unit_cost_centavos ?? expectedCost;
     const qty = confirmed.quantity_confirmed ?? item.qty;
 
     if (actualCost < expectedCost) {
-      const saving = (expectedCost - actualCost) * qty;
-      totalSavings += saving;
+      totalSavings += (expectedCost - actualCost) * qty;
     }
   }
 
-  // 4. Generate credit from savings (if any)
-  if (totalSavings > 0) {
+  if (totalSavings > 0 && supplierRequestId) {
     const { error: creditErr } = await db().rpc("generate_credit_from_savings", {
       p_order_id: orderId,
-      p_amount_centavos: totalSavings,
-      p_reason: "Economia na confirmação do fornecedor",
+      p_supplier_request_id: supplierRequestId,
+      p_savings_centavos: totalSavings,
+      p_idempotency_key: `credit_gen:${orderId}:${supplierRequestId}`,
     });
     if (creditErr) {
       console.error("[economic-protection] generate credit failed:", creditErr.message);
     }
   }
 
-  // 5. Prorate supplier freight across orders in same PO
-  const { data: poLinks } = await db()
-    .from("purchase_requirements")
-    .select("purchase_order_id:cycle_date, supplier_id")
-    .eq("source_order_id", orderId);
+  const { data: requests } = await db()
+    .from("supplier_requests")
+    .select("supplier_id")
+    .eq("order_id", orderId)
+    .in("status", ["confirmado", "confirmado_parcial"]);
 
-  if (poLinks?.length) {
-    const supplierIds = [...new Set(poLinks.map((p) => p.supplier_id))];
+  if (requests?.length) {
+    const supplierIds = [...new Set(requests.map((r) => r.supplier_id))];
     for (const supplierId of supplierIds) {
-      // Find POs for this supplier that include this order
       const { data: pos } = await db()
         .from("supplier_purchase_orders")
         .select("id, freight_centavos")
@@ -109,29 +100,9 @@ export async function runResultProtection(orderId) {
         .gt("freight_centavos", 0);
 
       for (const po of pos || []) {
-        if (!po.freight_centavos) continue;
-
-        // Get all orders in this PO
-        const { data: poOrderItems } = await db()
-          .from("purchase_order_items")
-          .select("purchase_order_id, subtotal_centavos")
-          .eq("purchase_order_id", po.id);
-
-        if (!poOrderItems?.length) continue;
-
-        // Get order IDs from purchase_requirements for this PO
-        const { data: orderIds } = await db()
-          .from("purchase_requirements")
-          .select("source_order_id, supplier_id")
-          .eq("supplier_id", supplierId);
-
-        if (!orderIds?.length) continue;
-
-        // Call the prorate RPC
         const { error: prorateErr } = await db().rpc("prorate_supplier_freight", {
           p_purchase_order_id: po.id,
         });
-
         if (prorateErr) {
           console.error("[economic-protection] prorate freight failed:", prorateErr.message);
         }
@@ -139,9 +110,9 @@ export async function runResultProtection(orderId) {
     }
   }
 
-  // 6. Lock result for payment
   const { data: lockResult, error: lockErr } = await db().rpc("lock_result_for_payment", {
     p_order_id: orderId,
+    p_idempotency_key: `result_lock:${orderId}`,
   });
 
   if (lockErr) {
@@ -153,19 +124,18 @@ export async function runResultProtection(orderId) {
     return { ok: false, error: lockResult?.error };
   }
 
-  // 7. Record event
   await registrarEvento(orderId, "result_protection_evaluated", {
     total_savings_centavos: totalSavings,
     status: lockResult.status,
-    projected_result: lockResult.projected_result_centavos,
-    min_result: lockResult.min_result_centavos,
+    projected_result: lockResult.projected_result,
+    min_result: lockResult.min_result,
     auto_approved: lockResult.status === "auto_approved",
   });
 
   return {
     ok: true,
     status: lockResult.status,
-    projected_result: lockResult.projected_result_centavos,
+    projected_result: lockResult.projected_result,
     needs_team_decision: lockResult.status === "pending",
   };
 }
@@ -173,9 +143,6 @@ export async function runResultProtection(orderId) {
 /**
  * Check if result protection gate allows payment.
  * Returns null when flag OFF (no-op). Throws ErroPedido when blocked.
- *
- * @param {string} orderId
- * @returns {Promise<{ok:boolean, skipped?:boolean}|null>}
  */
 export async function checkResultProtectionGate(orderId) {
   if (!(await isResultProtectionEnabled())) return null;
@@ -209,31 +176,25 @@ export async function checkResultProtectionGate(orderId) {
 
 /**
  * Mark reserved credit as used after payment confirmation.
- * Audit-only: does not change available balance (use has effect=0).
- *
- * @param {string} orderId
- * @returns {Promise<{ok:boolean}|null>}
  */
 export async function useOrderCredit(orderId) {
   if (!(await isResultProtectionEnabled())) return null;
 
-  // Check if there's a reserved credit for this order
   const { data: reserved } = await db()
     .from("credit_ledger")
-    .select("amount_centavos")
+    .select("id, amount_centavos")
     .eq("order_id", orderId)
     .eq("movement_type", "credit_reserved")
     .limit(1);
 
   if (!reserved?.length) return { ok: true, skipped: true };
 
-  const amount = reserved[0].amount_centavos;
+  const entry = reserved[0];
   const { error: useErr } = await db().rpc("use_credit", {
     p_order_id: orderId,
-    p_amount_centavos: amount,
-    p_reference_id: orderId,
-    p_reference_type: "payment_confirmed",
-    p_reason: "Crédito utilizado após pagamento confirmado",
+    p_amount_centavos: entry.amount_centavos,
+    p_reservation_id: entry.id,
+    p_idempotency_key: `credit_use:${orderId}:${entry.id}`,
   });
 
   if (useErr) {
@@ -246,27 +207,26 @@ export async function useOrderCredit(orderId) {
 
 /**
  * Release reserved credit when order is cancelled.
- *
- * @param {string} orderId
- * @returns {Promise<{ok:boolean}|null>}
  */
 export async function releaseOrderCredit(orderId) {
   if (!(await isResultProtectionEnabled())) return null;
 
   const { data: reserved } = await db()
     .from("credit_ledger")
-    .select("amount_centavos")
+    .select("id, amount_centavos")
     .eq("order_id", orderId)
     .eq("movement_type", "credit_reserved")
     .limit(1);
 
   if (!reserved?.length) return { ok: true, skipped: true };
 
-  const amount = reserved[0].amount_centavos;
+  const entry = reserved[0];
   const { error: relErr } = await db().rpc("release_credit", {
     p_order_id: orderId,
-    p_amount_centavos: amount,
+    p_amount_centavos: entry.amount_centavos,
+    p_reference_id: entry.id,
     p_reason: "Pedido cancelado — crédito reservado devolvido",
+    p_idempotency_key: `credit_rel:${orderId}:${entry.id}`,
   });
 
   if (relErr) {

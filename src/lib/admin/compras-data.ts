@@ -120,6 +120,7 @@ export async function comprasDashboard() {
     { count: rejeitado },
     { data: rawOffers },
     { count: totalSelections },
+    { count: pendingResultLocks },
   ] = await Promise.all([
     sb.from("supplier_catalogs").select("*", { count: "exact", head: true }),
     sb.from("supplier_catalogs").select("*", { count: "exact", head: true }).neq("status", "concluido"),
@@ -135,6 +136,7 @@ export async function comprasDashboard() {
       .eq("status", "ativa")
       .is("replaced_at", null),
     sb.from("sourcing_selections").select("*", { count: "exact", head: true }).is("replaced_at", null),
+    sb.from("result_locks").select("*", { count: "exact", head: true }).eq("status", "pending"),
   ]);
 
   const operationalIds = await getOperationalSupplierIds(sb);
@@ -160,6 +162,7 @@ export async function comprasDashboard() {
       clear: rankings.filter((r) => r.recommended_offer_id != null).length,
       selected: totalSelections ?? 0,
     },
+    resultProtection: { pending: pendingResultLocks ?? 0 },
   };
 }
 

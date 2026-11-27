@@ -7,7 +7,7 @@ import { assertAdmin, assertRole } from "@/lib/admin/guard";
 import type { UserRole } from "@/lib/supabase/auth";
 import type { CampaignProduct } from "@/lib/admin/types";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, releaseOrderCreditOnCancel } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils/format";
 import { onlyDigits } from "@/lib/utils/masks";
 
@@ -232,6 +232,7 @@ export async function moveOrder(orderId: string, to: string): Promise<ActionResu
       if (cancelData?.error) return { error: cancelData.error as string };
       // CCM Etapa 5: release CCM stock reservations on cancel
       try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: orderId }); } catch {}
+      await releaseOrderCreditOnCancel(orderId, "Pedido cancelado via status");
       await logEvent(sb, orderId, "status", { de: o.order_status, para: to }, adminId);
       return { ok: "Status atualizado." };
     }
@@ -312,19 +313,7 @@ export async function cancelOrder(orderId: string, motivo: string): Promise<Acti
     try { await createAdminClient().rpc("cancel_order_requests", { p_order_id: orderId }); } catch {}
     // CCM Etapa 5: release CCM stock reservations on cancel
     try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: orderId }); } catch {}
-    // Bloco 3: release reserved credit on cancel
-    try {
-      const admin = createAdminClient();
-      const { data: reserved } = await admin.from("credit_ledger")
-        .select("amount_centavos").eq("order_id", orderId).eq("movement_type", "credit_reserved").limit(1);
-      if (reserved?.length) {
-        await admin.rpc("release_credit", {
-          p_order_id: orderId,
-          p_amount_centavos: reserved[0].amount_centavos,
-          p_reason: "Pedido cancelado pelo admin",
-        });
-      }
-    } catch {}
+    await releaseOrderCreditOnCancel(orderId, "Pedido cancelado pelo admin");
     await logEvent(sb, orderId, "cancelado", { motivo, shipments_cancelled: data.shipments_cancelled, requirements_removed: data.requirements_removed }, adminId);
     return { ok: "Pedido cancelado." };
   }, ["/admin/pedidos"]);
@@ -363,6 +352,7 @@ export async function cleanupOrders(): Promise<ActionResult> {
       const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: o.id });
       if (cancelErr || cancelData?.error) continue;
       try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: o.id }); } catch {}
+      await releaseOrderCreditOnCancel(o.id, "Expirado sem pagamento (limpeza)");
       await logEvent(sb, o.id, "cancelado", { motivo: "expirado sem pagamento (limpeza)", shipments_cancelled: cancelData.shipments_cancelled, requirements_removed: cancelData.requirements_removed }, adminId);
     }
 
@@ -375,6 +365,7 @@ export async function cleanupOrders(): Promise<ActionResult> {
       const { data: cancelData, error: cancelErr } = await sb.rpc("cancel_order_full", { p_order_id: o.id });
       if (cancelErr || cancelData?.error) continue;
       try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: o.id }); } catch {}
+      await releaseOrderCreditOnCancel(o.id, "Expirado sem confirmação (limpeza)");
       await logEvent(sb, o.id, "cancelado", { motivo: `expirado sem confirmação em ${timeoutHours}h (limpeza)`, shipments_cancelled: cancelData.shipments_cancelled, requirements_removed: cancelData.requirements_removed }, adminId);
     }
 
@@ -1323,10 +1314,21 @@ export async function resolveResultProtection(_prev: ActionResult, fd: FormData)
     if (!["approved", "rejected"].includes(decision)) return { error: "Decisão inválida." };
 
     const admin = createAdminClient();
+    const { data: lock } = await admin
+      .from("result_locks")
+      .select("id")
+      .eq("order_id", orderId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!lock) return { error: "Nenhum resultado pendente para este pedido." };
+
+    const rpcDecision = decision === "approved" ? "approve" : "cancel_order";
     const { data, error } = await admin.rpc("resolve_result_lock", {
-      p_order_id: orderId,
-      p_decision: decision,
-      p_decided_by: adminId,
+      p_lock_id: lock.id,
+      p_decision: rpcDecision,
+      p_notes: `Decisão manual pelo admin ${adminId}`,
     });
     if (error) return { error: error.message };
     if (data && !data.ok) return { error: data.error ?? "Erro ao resolver proteção." };
