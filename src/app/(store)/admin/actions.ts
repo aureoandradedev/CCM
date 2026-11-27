@@ -1325,7 +1325,7 @@ export async function resolveResultProtection(_prev: ActionResult, fd: FormData)
     if (!lock) return { error: "Nenhum resultado pendente para este pedido." };
 
     const rpcDecision = decision === "approved" ? "approve" : "cancel_order";
-    const { data, error } = await admin.rpc("resolve_result_lock", {
+    const { data, error } = await sb.rpc("resolve_result_lock", {
       p_lock_id: lock.id,
       p_decision: rpcDecision,
       p_notes: `Decisão manual pelo admin ${adminId}`,
