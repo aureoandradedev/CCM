@@ -351,13 +351,12 @@ BEGIN
     v_updated := v_updated + 1;
 
     -- Feed confirmation into order_items (legacy compatibility)
+    -- Only set removal_reason for actual removals (indisponivel).
+    -- Partial/divergence statuses keep the item active for complement rounds (B4).
     UPDATE order_items SET
       qty_confirmed = (v_conf->>'qty_confirmed')::int,
       removal_reason = CASE
         WHEN v_conf->>'status' = 'indisponivel' THEN 'Fornecedor: indisponível'
-        WHEN v_conf->>'status' = 'confirmado_parcial' THEN 'Fornecedor: quantidade parcial'
-        WHEN v_conf->>'status' = 'divergencia_quantidade' THEN 'Fornecedor: divergência de quantidade'
-        WHEN v_conf->>'status' = 'divergencia_custo' THEN 'Fornecedor: divergência de custo'
         ELSE removal_reason
       END
     WHERE id = v_line.order_item_id;
