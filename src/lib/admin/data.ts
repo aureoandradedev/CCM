@@ -412,6 +412,34 @@ export async function adminGetOrder(code: string): Promise<{ order: OrderRow; it
   };
 }
 
+export interface ItemFulfillmentSummary {
+  ok: boolean;
+  items: {
+    id: string;
+    name: string;
+    qty: number;
+    unit: string;
+    residual_qty: number;
+    qty_ccm: number;
+    qty_claimed: number;
+    qty_open: number;
+    fulfillment_status: string | null;
+    display_status: string;
+    removal_reason: string | null;
+    can_complement: boolean;
+  }[];
+  current_max_round: number;
+  has_open_residual: boolean;
+}
+
+export async function adminGetItemFulfillmentSummary(orderId: string): Promise<ItemFulfillmentSummary | null> {
+  if (!configured()) return null;
+  const sb = await createClient();
+  const { data, error } = await sb.rpc("get_item_fulfillment_summary", { p_order_id: orderId });
+  if (error || !data) return null;
+  return data as unknown as ItemFulfillmentSummary;
+}
+
 export async function adminGetCreditBalance(): Promise<number> {
   if (!configured()) return 0;
   const sb = await createClient();

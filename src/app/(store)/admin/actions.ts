@@ -1335,3 +1335,23 @@ export async function resolveResultProtection(_prev: ActionResult, fd: FormData)
     return { ok: decision === "approved" ? "Resultado aprovado — pagamento liberado." : "Resultado rejeitado." };
   }, ["/admin/pedidos", "/compras"]);
 }
+
+export async function createComplementRound(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  return run(async (sb, adminId) => {
+    const orderId = String(fd.get("order_id") || "");
+    const supplierId = String(fd.get("supplier_id") || "");
+    if (!orderId || !supplierId) return { error: "Pedido e fornecedor são obrigatórios." };
+
+    const { data, error } = await sb.rpc("create_complement_round", {
+      p_order_id: orderId,
+      p_supplier_id: supplierId,
+      p_actor_id: adminId,
+    });
+    if (error) return { error: error.message };
+    const result = data as Record<string, unknown> | null;
+    if (!result?.ok) return { error: (result?.error as string) ?? "Erro ao criar round de complemento." };
+    const round = result.round_number as number;
+    const items = result.items_created as number;
+    return { ok: `Complemento round ${round} criado com ${items} item(ns).` };
+  }, ["/admin/pedidos", "/compras"]);
+}

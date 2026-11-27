@@ -5,12 +5,14 @@ import { ArrowLeft } from "lucide-react";
 import { OrderDetail } from "@/components/account/order-detail";
 import { EconomicProtectionPanel } from "@/components/admin/economic-protection-panel";
 import { FiscalStatusPanel } from "@/components/admin/fiscal-status-panel";
+import { ItemFulfillmentPanel } from "@/components/admin/item-fulfillment-panel";
 import { OrderActions } from "@/components/admin/order-actions";
 import { ShipmentActionsPanel } from "@/components/admin/shipment-actions";
 import { Card, NotConfigured, PageTitle } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { listActiveDrivers } from "@/app/admin/actions";
-import { adminGetOrder, configured } from "@/lib/admin/data";
+import { adminGetOrder, adminGetItemFulfillmentSummary, configured } from "@/lib/admin/data";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/orders";
 
 const EVENT_LABEL: Record<string, string> = {
@@ -40,6 +42,12 @@ const EVENT_LABEL: Record<string, string> = {
   fiscal_doc_sync_completed: "Fiscal: sincronização concluída",
   result_protection_evaluated: "Proteção econômica avaliada",
   result_protection_resolved: "Proteção econômica: decisão tomada",
+  complement_round_created: "Complemento: round criado",
+  complement_round_limit_reached: "Complemento: limite de rounds atingido",
+  item_complement_round_created: "Item: complemento criado",
+  item_fulfilled: "Item: atendido pelo fornecedor",
+  item_removed_fulfillment: "Item: removido (fulfillment)",
+  result_lock_invalidated: "Resultado econômico invalidado (complemento)",
 };
 
 const ACTOR_LABEL: Record<string, string> = {
@@ -58,7 +66,11 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
   const found = await adminGetOrder(code);
   if (!found) notFound();
   const { order, items, events, shipments, occurrences, fiscalDocs, resultLock, freightAllocations } = found;
-  const drivers = await listActiveDrivers();
+  const [drivers, fulfillmentSummary, activeSuppliers] = await Promise.all([
+    listActiveDrivers(),
+    adminGetItemFulfillmentSummary(order.id),
+    createAdminClient().from("suppliers").select("id, trade_name").eq("active", true).order("trade_name").then((r) => r.data ?? []),
+  ]);
 
   return (
     <>
@@ -75,6 +87,14 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
           </div>
         ) : null}
         <OrderDetail order={order} items={items} shipments={shipments} showCustomer />
+
+        {fulfillmentSummary ? (
+          <ItemFulfillmentPanel
+            orderId={order.id}
+            summary={fulfillmentSummary}
+            suppliers={activeSuppliers}
+          />
+        ) : null}
 
         {shipments.length > 0 ? (
           <Card title="Entregas (gestão)">

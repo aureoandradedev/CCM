@@ -57,6 +57,14 @@ describe("Customer payload security", () => {
     it("must not contain confirmed_by", () => {
       expect(itemCols).not.toContain("confirmed_by");
     });
+
+    it("must not contain fulfillment_status", () => {
+      expect(itemCols).not.toContain("fulfillment_status");
+    });
+
+    it("must not contain residual_qty", () => {
+      expect(itemCols).not.toContain("residual_qty");
+    });
   });
 
   describe("CUSTOMER_ITEM_COLUMNS must include required public fields", () => {

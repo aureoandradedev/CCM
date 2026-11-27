@@ -23,6 +23,7 @@ function ShipmentBadge({ status }: { status: string }) {
 
 function ItemRow({ it, ccmItem }: { it: OrderItemRow; ccmItem?: CcmItemDisplay }) {
   const ccmStatus = ccmItem ? formatCcmStatus(ccmItem, formatUnit(it.unit)) : null;
+  const customerLabel = ccmItem?.customerLabel;
   return (
     <li className="flex items-center gap-3 px-4 py-3 text-sm">
       <span className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
@@ -34,7 +35,9 @@ function ItemRow({ it, ccmItem }: { it: OrderItemRow; ccmItem?: CcmItemDisplay }
           {it.qty} {formatUnit(it.unit)} × {formatBRL(it.unit_price_centavos / 100)}
           {it.price_tier === "wholesale" ? <span className="ml-1 rounded bg-brand-orange px-1 text-[0.6rem] font-bold uppercase text-white">Atacado</span> : null}
         </p>
-        {ccmStatus ? (
+        {customerLabel ? (
+          <p className="mt-0.5 text-xs text-brand-blue">{customerLabel}</p>
+        ) : ccmStatus ? (
           <p className="mt-0.5 text-xs">
             {ccmStatus.available ? <span className="text-brand-green">{ccmStatus.available}</span> : null}
             {ccmStatus.available && ccmStatus.pending ? <span className="mx-1 text-brand-ink-soft">&middot;</span> : null}

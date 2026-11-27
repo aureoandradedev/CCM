@@ -97,6 +97,8 @@ export interface OrderRow {
   result_lock_id?: string | null;
 }
 
+export type FulfillmentStatus = 'aguardando_fornecedor' | 'atendido' | 'complemento_pendente' | 'removido';
+
 export interface OrderItemRow {
   id: string;
   product_id: string | null;
@@ -118,6 +120,8 @@ export interface OrderItemRow {
   confirmed_by?: string | null;
   confirmed_at?: string | null;
   removal_reason?: string | null;
+  fulfillment_status?: FulfillmentStatus | null;
+  residual_qty?: number | null;
 }
 
 export type ShipmentStatus =
@@ -178,6 +182,7 @@ export interface CcmItemDisplay {
   ccmQty: number;
   supplierQty: number;
   totalQty: number;
+  customerLabel?: string | null;
 }
 
 export const ORDER_COLUMNS =
@@ -207,4 +212,6 @@ export const INTERNAL_ITEM_FIELDS = [
   "master_product_id",
   "confirmed_by",
   "confirmed_at",
+  "fulfillment_status",
+  "residual_qty",
 ] as const;
