@@ -182,3 +182,29 @@ export interface CcmItemDisplay {
 
 export const ORDER_COLUMNS =
   "id, code, created_at, order_status, payment_status, payment_method, total_centavos, subtotal_centavos, discount_centavos, freight_centavos, wholesale_savings_centavos, items_count, delivery_method, customer, address, pricing_version, paid_at, notes, cash_pending, refund_status, revenue_excluded, revenue_excluded_reason, payment_provider, cielo_payment_id, pix_expires_at, supplier_ids, origin, customer_acceptance_required, customer_accepted_at, address_id, discount_commercial_centavos, discount_credit_centavos, result_locked_at, result_lock_id";
+
+export const CUSTOMER_ORDER_COLUMNS =
+  "id, code, created_at, order_status, payment_status, payment_method, total_centavos, subtotal_centavos, discount_centavos, freight_centavos, wholesale_savings_centavos, items_count, delivery_method, customer, address, pricing_version, paid_at, notes, cash_pending, refund_status, pix_expires_at, origin, customer_acceptance_required, customer_accepted_at, address_id, discount_commercial_centavos, discount_credit_centavos";
+
+export const CUSTOMER_ITEM_COLUMNS =
+  "id, product_id, shipment_id, name, sku, image, unit, qty, price_tier, unit_price_centavos, retail_price_centavos, line_centavos, qty_confirmed, removal_reason";
+
+export const INTERNAL_ORDER_FIELDS = [
+  "supplier_ids",
+  "result_locked_at",
+  "result_lock_id",
+  "revenue_excluded",
+  "revenue_excluded_reason",
+  "payment_provider",
+  "cielo_payment_id",
+] as const;
+
+export const INTERNAL_ITEM_FIELDS = [
+  "supplier_cost_centavos",
+  "cost_confirmed_centavos",
+  "supplier_id",
+  "supplier_offer_id",
+  "master_product_id",
+  "confirmed_by",
+  "confirmed_at",
+] as const;
