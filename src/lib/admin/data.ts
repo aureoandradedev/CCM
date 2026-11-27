@@ -18,6 +18,8 @@ import {
   type CcmConfigHistory,
   type FiscalDocumentRow,
   type HolidayCalendarRow,
+  type OrderResultLockRow,
+  type OrderFreightAllocationRow,
   type InventorySummary,
   type LinkedProfile,
   type OperationalExceptionRow,
@@ -381,16 +383,18 @@ export async function adminOrderCounts(): Promise<Record<string, number>> {
   return out;
 }
 
-export async function adminGetOrder(code: string): Promise<{ order: OrderRow; items: OrderItemRow[]; events: OrderEvent[]; shipments: OrderShipmentRow[]; occurrences: ShipmentOccurrenceRow[]; fiscalDocs: FiscalDocumentRow[] } | null> {
+export async function adminGetOrder(code: string): Promise<{ order: OrderRow; items: OrderItemRow[]; events: OrderEvent[]; shipments: OrderShipmentRow[]; occurrences: ShipmentOccurrenceRow[]; fiscalDocs: FiscalDocumentRow[]; resultLock: OrderResultLockRow | null; freightAllocations: OrderFreightAllocationRow[] } | null> {
   if (!configured()) return null;
   const sb = await createClient();
   const { data: order } = await sb.from("orders").select(ORDER_COLUMNS).eq("code", code.toUpperCase()).maybeSingle();
   if (!order) return null;
-  const [{ data: items }, { data: events }, { data: shipments }, { data: fiscalDocs }] = await Promise.all([
+  const [{ data: items }, { data: events }, { data: shipments }, { data: fiscalDocs }, { data: resultLock }, { data: freightAllocs }] = await Promise.all([
     sb.from("order_items").select("*").eq("order_id", order.id).order("name"),
     sb.from("order_events").select("id, type, data, actor_kind, shipment_id, created_at").eq("order_id", order.id).order("created_at", { ascending: false }),
     sb.from("order_shipments").select("*").eq("order_id", order.id).order("sequence"),
     sb.from("fiscal_documents").select("id, order_id, shipment_id, provider, provider_reference, codigo_ecommerce, status, attempt_count, last_error, created_at, updated_at, sent_at, invoiced_at, cancelled_at").eq("order_id", order.id).order("created_at", { ascending: false }),
+    sb.from("result_locks").select("*").eq("order_id", order.id).maybeSingle(),
+    sb.from("freight_allocations").select("*").eq("order_id", order.id).order("created_at"),
   ]);
   const shipmentIds = (shipments ?? []).map((s: { id: string }) => s.id);
   const { data: occurrences } = shipmentIds.length
@@ -403,7 +407,16 @@ export async function adminGetOrder(code: string): Promise<{ order: OrderRow; it
     shipments: (shipments as OrderShipmentRow[] | null) ?? [],
     occurrences: (occurrences as ShipmentOccurrenceRow[] | null) ?? [],
     fiscalDocs: (fiscalDocs as FiscalDocumentRow[] | null) ?? [],
+    resultLock: (resultLock as OrderResultLockRow | null) ?? null,
+    freightAllocations: (freightAllocs as OrderFreightAllocationRow[] | null) ?? [],
   };
+}
+
+export async function adminGetCreditBalance(): Promise<number> {
+  if (!configured()) return 0;
+  const sb = await createClient();
+  const { data } = await sb.from("credit_ledger").select("balance_after").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  return (data as { balance_after: number } | null)?.balance_after ?? 0;
 }
 
 /* ----------------------------------- caixa --------------------------------- */

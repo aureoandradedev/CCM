@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 
 import { ErroPedido } from "../lib/pedido.mjs";
 import { db, exigirLogin } from "../lib/supabase.mjs";
+import { runResultProtection } from "../lib/ccm-economic-protection.mjs";
 
 const outbox = Router();
 
@@ -71,6 +72,17 @@ outbox.post("/supplier-gate", exigirLogin, async (req, res) => {
     if (!orderId) throw new ErroPedido(400, "orderId obrigatório.");
     const { data, error } = await db().rpc("check_order_request_gate", { p_order_id: orderId });
     if (error) throw new ErroPedido(500, error.message);
+
+    // Bloco 3: after supplier gate resolves, run economic protection
+    if (data?.ok && !data?.blocked) {
+      try {
+        const econ = await runResultProtection(orderId);
+        if (econ) data.result_protection = econ;
+      } catch (e) {
+        console.error("[economic-protection] run failed:", orderId, e?.message ?? e);
+      }
+    }
+
     res.json(data);
   } catch (e) {
     responderErro(res, e);

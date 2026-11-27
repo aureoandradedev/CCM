@@ -91,6 +91,10 @@ export interface OrderRow {
   customer_acceptance_required?: boolean;
   customer_accepted_at?: string | null;
   address_id?: string | null;
+  discount_commercial_centavos?: number;
+  discount_credit_centavos?: number;
+  result_locked_at?: string | null;
+  result_lock_id?: string | null;
 }
 
 export interface OrderItemRow {
@@ -177,4 +181,4 @@ export interface CcmItemDisplay {
 }
 
 export const ORDER_COLUMNS =
-  "id, code, created_at, order_status, payment_status, payment_method, total_centavos, subtotal_centavos, discount_centavos, freight_centavos, wholesale_savings_centavos, items_count, delivery_method, customer, address, pricing_version, paid_at, notes, cash_pending, refund_status, revenue_excluded, revenue_excluded_reason, payment_provider, cielo_payment_id, pix_expires_at, supplier_ids, origin, customer_acceptance_required, customer_accepted_at, address_id";
+  "id, code, created_at, order_status, payment_status, payment_method, total_centavos, subtotal_centavos, discount_centavos, freight_centavos, wholesale_savings_centavos, items_count, delivery_method, customer, address, pricing_version, paid_at, notes, cash_pending, refund_status, revenue_excluded, revenue_excluded_reason, payment_provider, cielo_payment_id, pix_expires_at, supplier_ids, origin, customer_acceptance_required, customer_accepted_at, address_id, discount_commercial_centavos, discount_credit_centavos, result_locked_at, result_lock_id";

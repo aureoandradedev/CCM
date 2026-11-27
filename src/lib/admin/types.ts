@@ -397,6 +397,53 @@ export interface SupplierPromotionRow {
   updated_at: string;
 }
 
+export interface OrderResultLockRow {
+  id: string;
+  order_id: string;
+  revenue_centavos: number;
+  discount_centavos: number;
+  credit_discount_centavos: number;
+  supplier_cost_centavos: number;
+  supplier_freight_centavos: number;
+  projected_result_centavos: number;
+  min_result_centavos: number;
+  status: "pending" | "approved" | "rejected" | "auto_approved";
+  decision: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  config_snapshot: Record<string, unknown>;
+  idempotency_key: string;
+  created_at: string;
+}
+
+export interface CreditLedgerRow {
+  id: string;
+  order_id: string;
+  movement_type: string;
+  amount_centavos: number;
+  balance_after: number;
+  reference_id: string | null;
+  reference_type: string | null;
+  reason: string | null;
+  actor_id: string | null;
+  actor_kind: string;
+  idempotency_key: string;
+  created_at: string;
+}
+
+export interface OrderFreightAllocationRow {
+  id: string;
+  order_id: string;
+  purchase_order_id: string;
+  order_cost_centavos: number;
+  total_cost_centavos: number;
+  freight_allocated_centavos: number;
+  po_freight_centavos: number;
+  allocation_method: string;
+  idempotency_key: string;
+  created_at: string;
+}
+
 export const DEFAULT_SETTINGS: SiteSettings = {
   frete: {
     freeShippingFromCentavos: FREE_SHIPPING_FROM_CENTAVOS,

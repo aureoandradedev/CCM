@@ -232,6 +232,19 @@ export async function cancelMyOrder(orderId: string): Promise<ActionState> {
   try { await createAdminClient().rpc("cancel_order_requests", { p_order_id: orderId }); } catch {}
   // CCM Etapa 5: release CCM stock reservations on cancel
   try { await createAdminClient().rpc("release_ccm_stock", { p_order_id: orderId }); } catch {}
+  // Bloco 3: release reserved credit on cancel
+  try {
+    const admin = createAdminClient();
+    const { data: reserved } = await admin.from("credit_ledger")
+      .select("amount_centavos").eq("order_id", orderId).eq("movement_type", "credit_reserved").limit(1);
+    if (reserved?.length) {
+      await admin.rpc("release_credit", {
+        p_order_id: orderId,
+        p_amount_centavos: reserved[0].amount_centavos,
+        p_reason: "Pedido cancelado pelo cliente",
+      });
+    }
+  } catch {}
   return { ok: "Pedido cancelado com sucesso." };
 }
 

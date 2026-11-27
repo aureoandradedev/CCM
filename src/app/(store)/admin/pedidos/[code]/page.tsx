@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { OrderDetail } from "@/components/account/order-detail";
+import { EconomicProtectionPanel } from "@/components/admin/economic-protection-panel";
 import { FiscalStatusPanel } from "@/components/admin/fiscal-status-panel";
 import { OrderActions } from "@/components/admin/order-actions";
 import { ShipmentActionsPanel } from "@/components/admin/shipment-actions";
@@ -54,7 +55,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
   if (!configured()) return <NotConfigured />;
   const found = await adminGetOrder(code);
   if (!found) notFound();
-  const { order, items, events, shipments, occurrences, fiscalDocs } = found;
+  const { order, items, events, shipments, occurrences, fiscalDocs, resultLock, freightAllocations } = found;
   const drivers = await listActiveDrivers();
 
   return (
@@ -90,6 +91,12 @@ export default async function AdminOrder({ params }: { params: Promise<{ code: s
         ) : null}
 
         <FiscalStatusPanel docs={fiscalDocs} />
+
+        <EconomicProtectionPanel
+          orderId={order.id}
+          resultLock={resultLock}
+          freightAllocations={freightAllocations}
+        />
 
         <Card title="Pagamento (detalhes)">
           <dl className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">

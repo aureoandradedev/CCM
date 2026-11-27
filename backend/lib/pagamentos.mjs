@@ -21,6 +21,7 @@ import {
 import { ErroPedido } from "./pedido.mjs";
 import { db, registrarEvento } from "./supabase.mjs";
 import { lockCcmStockForPayment, getEffectivePixExpiration, confirmCcmStockSale } from "./ccm-payment-lock.mjs";
+import { checkResultProtectionGate, useOrderCredit } from "./ccm-economic-protection.mjs";
 
 const CAMPOS_CARTAO_PROIBIDOS = ["cardNumber", "cardnumber", "number", "pan", "cvv", "cvc", "securityCode", "expiration", "expiry", "holder", "cardHolder"];
 
@@ -112,6 +113,13 @@ export async function confirmarPedidoPago(orderId, extras = {}, actor = { kind: 
     console.error("[ccm-sale] confirm failed:", orderId, e?.message ?? e);
   }
 
+  // Bloco 3: mark reserved credit as used (audit-only, no balance change)
+  try {
+    await useOrderCredit(orderId);
+  } catch (e) {
+    console.error("[economic-protection] use credit failed:", orderId, e?.message ?? e);
+  }
+
   // G9: Create official POs from confirmed supplier_requests (idempotent)
   try {
     await db().rpc("create_official_pos_from_requests", { p_order_id: orderId });
@@ -157,6 +165,9 @@ export async function criarPix({ orderId, clientTag, confirmedPricingVersion }) 
 
   // CCM Etapa 4: lock CCM stock BEFORE payment lock (throws on shortfall)
   await lockCcmStockForPayment(orderId);
+
+  // Bloco 3: check result protection gate (throws if pending/rejected)
+  await checkResultProtectionGate(orderId);
 
   // CCM Etapa 4: cap Pix expiration to fit within CCM lock TTL
   const pixExpiracaoEfetivo = await getEffectivePixExpiration(config.pixExpiracaoSegundos);
@@ -261,6 +272,9 @@ export async function cobrarCartao(body) {
 
   // CCM Etapa 4: lock CCM stock BEFORE payment lock (throws on shortfall)
   await lockCcmStockForPayment(orderId);
+
+  // Bloco 3: check result protection gate (throws if pending/rejected)
+  await checkResultProtectionGate(orderId);
 
   const { decisao, order: travado } = await adquirirLockPagamento(orderId, { fluxo: "cartao", provider: "cartao", clientTag: sanitizeClientTag(clientTag) });
   if (decisao.acao === "nao-encontrado") throw new ErroPedido(404, "Pedido não encontrado.");

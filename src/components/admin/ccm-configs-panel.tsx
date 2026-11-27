@@ -17,6 +17,8 @@ const CONFIG_LABELS: Record<string, string> = {
   feriados: "Feriados (array JSON de datas YYYY-MM-DD)",
   order_confirmation_timeout_hours: "Timeout confirmação de pedido (horas)",
   auto_promote: "Promoção automática por fornecedor",
+  ccm_result_protection_enabled: "Proteção econômica de resultado",
+  minimum_order_result_centavos: "Resultado mínimo por pedido (centavos)",
 };
 
 function formatValue(v: unknown): string {
